@@ -37,16 +37,36 @@ interface LayoutOptions {
 import { initials } from '../settings/settings.model';
 import { getSettings } from '../settings/settings.store';
 
-/** Uploaded avatar when one is set, initials otherwise. */
+/**
+ * Uploaded avatar when one is set, initials otherwise.
+ *
+ * The header renders this at 30px and the About hero at 96px, so the full
+ * upload is never the right thing to send. It is also above the fold on
+ * every page, so it loads eagerly with high priority rather than lazily.
+ */
 export function avatarMark(
   avatarUrl: string,
   name: string,
   cls = 'mark',
 ): string {
-  return avatarUrl
-    ? `<img class="${cls} avatar-img" src="${esc(avatarUrl)}" alt="${esc(name)}" />`
-    : `<span class="${cls}">${esc(initials(name))}</span>`;
+  if (!avatarUrl) {
+    return `<span class="${cls}">${esc(initials(name))}</span>`;
+  }
+
+  const src = avatarUrl.startsWith('/uploads/')
+    ? `/img/${avatarUrl.slice('/uploads/'.length)}?w=200`
+    : avatarUrl;
+
+  return `<img class="${cls} avatar-img" src="${esc(src)}" alt="${esc(name)}"
+    width="200" height="200" decoding="async" fetchpriority="high" />`;
 }
+
+/**
+ * Pages are cheap to regenerate but must never be served stale after an
+ * edit, so the browser revalidates every time and the existing ETag turns
+ * that into a 304 with no body.
+ */
+export const HTML_CACHE_CONTROL = 'no-cache, must-revalidate';
 
 export function layout({
   title,

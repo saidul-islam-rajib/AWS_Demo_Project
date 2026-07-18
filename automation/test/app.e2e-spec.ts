@@ -1035,6 +1035,80 @@ describe('Blog (e2e)', () => {
         .expect((res) => expect(res.text).toContain('href="/about"')));
   });
 
+  describe('caching and payload', () => {
+    it('lets a repeat visit revalidate into a 304', async () => {
+      const server = app.getHttpServer();
+      const first = await request(server).get('/about').expect(200);
+      const etag = first.headers.etag;
+
+      expect(etag).toBeDefined();
+
+      await request(server)
+        .get('/about')
+        .set('If-None-Match', etag)
+        .expect(304)
+        .expect((res) => expect(res.text).toBeFalsy());
+    });
+
+    it('serves the header avatar at a sensible width, not the full upload', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/settings')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({ authorName: 'Rajib', avatarUrl: '/uploads/me.png' })
+        .expect(302);
+
+      await request(server)
+        .get('/')
+        .expect(200)
+        .expect((res) => {
+          // A 30px circle must not download the original.
+          expect(res.text).toContain('src="/img/me.png?w=200"');
+          expect(res.text).not.toContain(
+            'class="mark avatar-img" src="/uploads/',
+          );
+          // Above the fold on every page, so never lazy.
+          expect(res.text).toContain('fetchpriority="high"');
+          expect(res.text).not.toMatch(
+            /class="mark avatar-img"[^>]*loading="lazy"/,
+          );
+        });
+    });
+
+    it('marks gallery images lazy and reserves their space', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/about')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          galleryUrls: ['/uploads/a.png'],
+          galleryCaption: ['Below the fold'],
+        })
+        .expect(302);
+
+      await request(server)
+        .get('/about')
+        .expect(200)
+        .expect((res) => {
+          const figure = /<figure class="shot"[\s\S]*?<\/figure>/.exec(
+            res.text,
+          )?.[0] as string;
+
+          expect(figure).toContain('loading="lazy"');
+          expect(figure).toContain('decoding="async"');
+          // Dimensions stop the grid reflowing as images arrive.
+          expect(figure).toContain('width="400"');
+          expect(figure).toContain('height="300"');
+        });
+    });
+  });
+
   describe('social link previews', () => {
     const setBrand = async (cookie: string) =>
       request(app.getHttpServer())
