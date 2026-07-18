@@ -24,6 +24,10 @@ interface PageBody {
   total: number;
 }
 
+interface SearchBody {
+  results: { title: string; url: string; kind: string; meta: string }[];
+}
+
 interface UploadBody {
   url: string;
   name: string;
@@ -133,6 +137,65 @@ describe('Blog (e2e)', () => {
         .send({ title: 'Sneaky', content: 'x' })
         .expect(302)
         .expect('Location', '/login'));
+  });
+
+  describe('live search', () => {
+    it('ignores queries shorter than two characters', () =>
+      request(app.getHttpServer())
+        .get('/api/search?q=a')
+        .expect(200)
+        .expect((res) => expect((res.body as SearchBody).results).toEqual([])));
+
+    it('returns matching posts with metadata', () =>
+      request(app.getHttpServer())
+        .get('/api/search?q=docker')
+        .expect(200)
+        .expect((res) => {
+          const body = res.body as SearchBody;
+          expect(body.results.length).toBeGreaterThan(0);
+          expect(body.results[0]).toHaveProperty('url');
+          expect(body.results[0]).toHaveProperty('kind');
+          expect(body.results[0]).toHaveProperty('meta');
+        }));
+
+    it('includes matching tags alongside posts', () =>
+      request(app.getHttpServer())
+        .get('/api/search?q=jenkins')
+        .expect(200)
+        .expect((res) => {
+          const kinds = (res.body as SearchBody).results.map((r) => r.kind);
+          expect(kinds).toContain('Post');
+          expect(kinds).toContain('Tag');
+        }));
+
+    it('returns nothing for a query with no matches', () =>
+      request(app.getHttpServer())
+        .get('/api/search?q=zzzznotathing')
+        .expect(200)
+        .expect((res) => expect((res.body as SearchBody).results).toEqual([])));
+
+    it('excludes scheduled posts from results', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+      const future = new Date(Date.now() + 86400000).toISOString().slice(0, 16);
+
+      await request(server)
+        .post('/admin/posts/new')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          title: 'Zebra Secret',
+          content: 'zebra',
+          status: 'published',
+          publishedAt: future,
+        })
+        .expect(302);
+
+      await request(server)
+        .get('/api/search?q=zebra')
+        .expect(200)
+        .expect((res) => expect((res.body as SearchBody).results).toEqual([]));
+    });
   });
 
   describe('publish scheduling', () => {
@@ -271,6 +334,16 @@ describe('Blog (e2e)', () => {
           ...extra,
         })
         .expect(302);
+
+    it('seeds starter projects from the public repositories', () =>
+      request(app.getHttpServer())
+        .get('/projects')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('AWS Demo Project');
+          expect(res.text).toContain('Bachelor Mess Manager');
+          expect(res.text).toContain('opengraph.githubassets.com');
+        }));
 
     it('requires a session to manage projects', () =>
       request(app.getHttpServer())

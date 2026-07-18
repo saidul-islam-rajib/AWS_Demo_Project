@@ -27,9 +27,50 @@ const FEED_CSS = `
     line-height: 1.08; margin-bottom: 0.9rem; letter-spacing: -0.03em;
   }
   .hero p { font-size: 1.06rem; line-height: 1.62; color: var(--ink-2); }
-  .searchbar { display: flex; gap: 0.5rem; margin: 1.9rem 0 0; max-width: 420px; }
-  .searchbar input { border-radius: 100px; padding-left: 1rem; }
+  .search-wrap { position: relative; max-width: 520px; margin: 1.9rem 0 0; }
+  .searchbar { display: flex; gap: 0.5rem; }
+  .search-field { position: relative; flex: 1; }
+  .search-field svg {
+    position: absolute; left: 0.9rem; top: 50%; transform: translateY(-50%);
+    width: 16px; height: 16px; color: var(--ink-3); pointer-events: none;
+  }
+  .searchbar input {
+    border-radius: 100px; padding: 0.7rem 2.6rem 0.7rem 2.4rem;
+    background: var(--surface-2);
+  }
+  .searchbar input:focus { background: var(--surface); }
   .searchbar .btn { flex-shrink: 0; }
+  .search-clear {
+    position: absolute; right: 0.7rem; top: 50%; transform: translateY(-50%);
+    background: transparent; border: 0; cursor: pointer; color: var(--ink-3);
+    font-size: 1.1rem; line-height: 1; padding: 0.2rem; display: none;
+    font-family: inherit;
+  }
+  .search-clear:hover { color: var(--ink); }
+
+  /* ---------- live results ---------- */
+  .search-results {
+    position: absolute; top: calc(100% + 0.5rem); left: 0; right: 0; z-index: 30;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.14);
+    overflow: hidden; display: none;
+  }
+  .search-results.open { display: block; }
+  .search-result {
+    display: flex; align-items: baseline; gap: 0.6rem;
+    padding: 0.65rem 0.9rem; border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .search-result:last-child { border-bottom: 0; }
+  .search-result:hover, .search-result.highlighted { background: var(--surface-2); }
+  .search-result .r-title { color: var(--ink); font-weight: 600; font-size: 0.92rem; }
+  .search-result .r-meta { font-size: 0.76rem; color: var(--ink-3); margin-left: auto; white-space: nowrap; }
+  .search-result .r-kind {
+    font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em;
+    font-weight: 700; color: var(--accent);
+    border: 1px solid currentColor; border-radius: 100px; padding: 0.05rem 0.4rem;
+  }
+  .search-empty { padding: 0.9rem; font-size: 0.86rem; color: var(--ink-3); text-align: center; }
 
   .feed-layout { display: grid; grid-template-columns: 1fr 260px; gap: 3rem; align-items: start; }
   @media (max-width: 900px) {
@@ -180,6 +221,132 @@ function card(post: Post): string {
   </article>`;
 }
 
+/**
+ * Live search. Debounced so typing does not fire a request per keystroke,
+ * with arrow-key navigation and Escape to dismiss. The form still submits
+ * normally if the script fails, so search works without JavaScript.
+ */
+const SEARCH_JS = `
+<script>
+(function () {
+  var input = document.getElementById('q');
+  var panel = document.getElementById('search-results');
+  var clear = document.getElementById('search-clear');
+  if (!input || !panel) return;
+
+  var timer = null;
+  var items = [];
+  var cursor = -1;
+  var lastQuery = '';
+
+  function hide() { panel.classList.remove('open'); cursor = -1; }
+
+  function toggleClear() {
+    clear.style.display = input.value ? 'block' : 'none';
+  }
+
+  function highlight(index) {
+    var nodes = panel.querySelectorAll('.search-result');
+    nodes.forEach(function (n) { n.classList.remove('highlighted'); });
+    if (index >= 0 && nodes[index]) {
+      nodes[index].classList.add('highlighted');
+      nodes[index].scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  function render(results) {
+    if (!results.length) {
+      panel.innerHTML = '<div class="search-empty">No matches</div>';
+      panel.classList.add('open');
+      return;
+    }
+
+    panel.innerHTML = results.map(function (r) {
+      return '<a class="search-result" href="' + r.url + '" role="option">' +
+        '<span class="r-kind">' + r.kind + '</span>' +
+        '<span class="r-title"></span>' +
+        '<span class="r-meta">' + r.meta + '</span>' +
+        '</a>';
+    }).join('');
+
+    // Titles are set as text, never HTML, so post titles cannot inject markup.
+    panel.querySelectorAll('.r-title').forEach(function (node, i) {
+      node.textContent = results[i].title;
+    });
+
+    items = results;
+    cursor = -1;
+    panel.classList.add('open');
+  }
+
+  function run() {
+    var q = input.value.trim();
+    toggleClear();
+
+    if (q.length < 2) { hide(); return; }
+    if (q === lastQuery) { panel.classList.add('open'); return; }
+    lastQuery = q;
+
+    fetch('/api/search?q=' + encodeURIComponent(q))
+      .then(function (r) { return r.json(); })
+      .then(function (data) { render(data.results || []); })
+      .catch(function () { hide(); });
+  }
+
+  input.addEventListener('input', function () {
+    clearTimeout(timer);
+    timer = setTimeout(run, 180);
+  });
+
+  input.addEventListener('focus', function () {
+    if (items.length && input.value.trim().length >= 2) panel.classList.add('open');
+  });
+
+  input.addEventListener('keydown', function (ev) {
+    var open = panel.classList.contains('open');
+
+    if (ev.key === 'Escape') { hide(); input.blur(); return; }
+    if (!open) return;
+
+    if (ev.key === 'ArrowDown') {
+      ev.preventDefault();
+      cursor = Math.min(cursor + 1, items.length - 1);
+      highlight(cursor);
+    } else if (ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      cursor = Math.max(cursor - 1, -1);
+      highlight(cursor);
+    } else if (ev.key === 'Enter' && cursor >= 0) {
+      ev.preventDefault();
+      window.location.href = items[cursor].url;
+    }
+  });
+
+  clear.addEventListener('click', function () {
+    input.value = '';
+    lastQuery = '';
+    hide();
+    toggleClear();
+    input.focus();
+  });
+
+  document.addEventListener('click', function (ev) {
+    if (!ev.target.closest('.search-wrap')) hide();
+  });
+
+  // "/" focuses search, the way most documentation sites behave.
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === '/' && document.activeElement !== input &&
+        !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) {
+      ev.preventDefault();
+      input.focus();
+    }
+  });
+
+  toggleClear();
+})();
+</script>`;
+
 export function homePage(opts: {
   posts: Post[];
   tags: { tag: string; count: number }[];
@@ -227,10 +394,21 @@ ${FEED_CSS}
     }
     ${showIntro ? `<h1>${heading}</h1>` : ''}
     ${showIntro ? `<p>${blurb}</p>` : ''}
-    <form class="searchbar" action="/search" method="get">
-      <input type="search" name="q" placeholder="Search posts…" value="${esc(query)}" aria-label="Search posts" />
-      <button class="btn" type="submit">Search</button>
-    </form>
+    <div class="search-wrap">
+      <form class="searchbar" action="/search" method="get" role="search" autocomplete="off">
+        <div class="search-field">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" stroke-linecap="round" />
+          </svg>
+          <input type="search" id="q" name="q" placeholder="Search posts and tags…"
+                 value="${esc(query)}" aria-label="Search posts"
+                 aria-autocomplete="list" aria-controls="search-results" />
+          <button type="button" class="search-clear" id="search-clear" aria-label="Clear search">&times;</button>
+        </div>
+        <button class="btn" type="submit">Search</button>
+      </form>
+      <div class="search-results" id="search-results" role="listbox" aria-label="Search results"></div>
+    </div>
   </section>
 
   <div class="feed-layout">
@@ -283,7 +461,8 @@ ${FEED_CSS}
     title: activeTag
       ? `Posts tagged ${activeTag} — ${getSettings().authorName}`
       : `${getSettings().authorName} — ${getSettings().siteTitle}`,
-    body,
+    body: body + SEARCH_JS,
+    path: activeTag ? `/tag/${activeTag}` : query ? '/search' : '/',
   });
 }
 

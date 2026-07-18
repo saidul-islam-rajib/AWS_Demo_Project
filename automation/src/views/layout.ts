@@ -337,7 +337,8 @@ export function defaultNav(path = '/'): string {
     navLink('/projects', 'Projects', path),
     navLink('/about', 'About', path),
     navLink('/tags', 'Tags', path),
-    '<a href="/admin" class="btn btn-sm">Dashboard</a>',
+    // Outline, not filled: a solid accent pill reads as "you are here".
+    '<a href="/admin" class="btn btn-ghost btn-sm">Dashboard</a>',
   ].join('');
 }
 

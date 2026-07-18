@@ -4,6 +4,7 @@ import {
   STATUS_LABELS,
 } from '../projects/project.model';
 import { adminNav, esc, layout } from './layout';
+import { CHIP_CSS, CHIP_JS } from './chip-input';
 
 const CSS = `
 <style>
@@ -40,6 +41,7 @@ const CSS = `
   }
   .check-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; }
   .check-row input { width: auto; }
+${CHIP_CSS}
 </style>`;
 
 export function projectsAdminPage(opts: {
@@ -175,25 +177,36 @@ ${CSS}
         <div class="panel">
           <h3>Classification</h3>
           <div class="field">
-            <label for="technologies">Technologies</label>
-            <input type="text" id="technologies" name="technologies"
-                   value="${v(project?.technologies.join(', '))}" placeholder="nestjs, docker, postgresql" />
+            <label for="technologies-box">Technologies</label>
+            <div class="chip-input" id="technologies-box" data-target="technologies" data-sep="comma" data-max="20">
+              <input type="text" placeholder="nestjs, docker…" aria-label="Add technologies" />
+            </div>
+            <input type="hidden" id="technologies" name="technologies" value="${v(project?.technologies.join(', '))}" />
+            <p class="hint">Enter or comma to add. <span class="chip-count"></span></p>
           </div>
           <div class="field">
-            <label for="topics">Topics</label>
-            <input type="text" id="topics" name="topics"
-                   value="${v(project?.topics.join(', '))}" placeholder="backend, devops" />
+            <label for="topics-box">Topics</label>
+            <div class="chip-input" id="topics-box" data-target="topics" data-sep="comma" data-max="20">
+              <input type="text" placeholder="backend, devops…" aria-label="Add topics" />
+            </div>
+            <input type="hidden" id="topics" name="topics" value="${v(project?.topics.join(', '))}" />
+            <p class="hint">Broad areas. <span class="chip-count"></span></p>
           </div>
           <div class="field">
-            <label for="keywords">Keywords</label>
-            <input type="text" id="keywords" name="keywords"
-                   value="${v(project?.keywords.join(', '))}" placeholder="ecommerce, authentication" />
+            <label for="keywords-box">Keywords</label>
+            <div class="chip-input" id="keywords-box" data-target="keywords" data-sep="comma" data-max="20">
+              <input type="text" placeholder="ecommerce, authentication…" aria-label="Add keywords" />
+            </div>
+            <input type="hidden" id="keywords" name="keywords" value="${v(project?.keywords.join(', '))}" />
+            <p class="hint">What it is about. <span class="chip-count"></span></p>
           </div>
           <div class="field" style="margin-bottom:0">
-            <label for="tags">Tags</label>
-            <input type="text" id="tags" name="tags"
-                   value="${v(project?.tags.join(', '))}" placeholder="learning, side-project" />
-            <p class="hint">All four are comma separated, lowercased, and become clickable pages.</p>
+            <label for="tags-box">Tags</label>
+            <div class="chip-input" id="tags-box" data-target="tags" data-sep="comma" data-max="20">
+              <input type="text" placeholder="learning, side-project…" aria-label="Add tags" />
+            </div>
+            <input type="hidden" id="tags" name="tags" value="${v(project?.tags.join(', '))}" />
+            <p class="hint">All four become clickable pages. <span class="chip-count"></span></p>
           </div>
         </div>
       </div>
@@ -301,7 +314,8 @@ ${CSS}
     if (url) { hidden.value = url; preview.src = url; status.textContent = 'Using the GitHub preview image.'; }
   });
 })();
-</script>`;
+</script>
+${CHIP_JS}`;
 
   return layout({
     title: `${editing ? 'Edit' : 'New'} project — admin`,

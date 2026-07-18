@@ -9,6 +9,7 @@ import {
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { slugify } from '../posts/post.model';
+import { SEED_PROJECTS } from './seed-projects';
 import {
   Project,
   ProjectInput,
@@ -63,6 +64,11 @@ export class ProjectsService {
           readFileSync(this.file, 'utf8'),
         ) as Project[];
         this.logger.log(`Loaded ${this.projects.length} project(s)`);
+      } else {
+        this.projects = [];
+        for (const seed of SEED_PROJECTS) this.addFromInput(seed);
+        this.persist();
+        this.logger.log(`Seeded ${this.projects.length} starter project(s)`);
       }
       this.loaded = true;
     } catch (err) {
@@ -210,7 +216,8 @@ export class ProjectsService {
 
   // ---------- writes ----------
 
-  create(input: ProjectInput): Project {
+  /** Builds and appends a project without writing to disk. */
+  private addFromInput(input: ProjectInput): Project {
     const now = new Date().toISOString();
     const fields = sanitiseInput(input);
 
@@ -223,6 +230,11 @@ export class ProjectsService {
     };
 
     this.projects.push(project);
+    return project;
+  }
+
+  create(input: ProjectInput): Project {
+    const project = this.addFromInput(input);
     this.persist();
     return project;
   }

@@ -85,6 +85,10 @@ describe('ProjectsService', () => {
     dir = mkdtempSync(join(tmpdir(), 'projects-test-'));
     process.env.DATA_DIR = dir;
     service = new ProjectsService();
+
+    // A fresh store seeds the starter projects. Clear them so each test
+    // works against a known set; seeding has its own describe block below.
+    for (const project of service.findAll()) service.remove(project.id);
   });
 
   afterEach(() => {
@@ -105,7 +109,7 @@ describe('ProjectsService', () => {
       status: 'ongoing',
     });
 
-  it('starts empty', () => {
+  it('is empty once the seeds are cleared', () => {
     expect(service.findAll()).toEqual([]);
   });
 
@@ -211,6 +215,61 @@ describe('ProjectsService', () => {
     sample();
 
     expect(new ProjectsService().findAll()).toHaveLength(1);
+  });
+
+  describe('seeding', () => {
+    it('seeds the starter projects on a fresh store', () => {
+      const fresh = mkdtempSync(join(tmpdir(), 'projects-seed-'));
+      process.env.DATA_DIR = fresh;
+
+      const seeded = new ProjectsService();
+      expect(seeded.findAll().length).toBeGreaterThanOrEqual(20);
+
+      rmSync(fresh, { recursive: true, force: true });
+    });
+
+    it('gives every seeded project a unique slug and a GitHub cover', () => {
+      const fresh = mkdtempSync(join(tmpdir(), 'projects-seed-'));
+      process.env.DATA_DIR = fresh;
+
+      const projects = new ProjectsService().findAll();
+      const slugs = projects.map((p) => p.slug);
+
+      expect(new Set(slugs).size).toBe(slugs.length);
+      expect(
+        projects.every((p) =>
+          p.coverUrl.includes('opengraph.githubassets.com'),
+        ),
+      ).toBe(true);
+
+      rmSync(fresh, { recursive: true, force: true });
+    });
+
+    it('spreads seeds across several years with real technologies', () => {
+      const fresh = mkdtempSync(join(tmpdir(), 'projects-seed-'));
+      process.env.DATA_DIR = fresh;
+
+      const seeded = new ProjectsService();
+      const tech = seeded.terms('tech').map((t) => t.term);
+
+      expect(seeded.years().length).toBeGreaterThanOrEqual(4);
+      expect(tech).toEqual(expect.arrayContaining(['c#', 'typescript']));
+
+      rmSync(fresh, { recursive: true, force: true });
+    });
+
+    it('does not re-seed once a store exists', () => {
+      const fresh = mkdtempSync(join(tmpdir(), 'projects-seed-'));
+      process.env.DATA_DIR = fresh;
+
+      const first = new ProjectsService();
+      const count = first.findAll().length;
+      first.remove(first.findAll()[0].id);
+
+      expect(new ProjectsService().findAll()).toHaveLength(count - 1);
+
+      rmSync(fresh, { recursive: true, force: true });
+    });
   });
 
   it('rejects an unsafe demo URL', () => {

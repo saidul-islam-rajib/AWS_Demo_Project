@@ -1,5 +1,6 @@
 import { Controller, Get, Header, Param, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
+import { formatDate, readingMinutes } from './post.model';
 import { PostsService } from './posts.service';
 import { renderMarkdown } from './markdown';
 import {
@@ -90,6 +91,38 @@ export class PostsController {
 
     const html = renderMarkdown(post.content);
     res.send(postPage(post, related, html));
+  }
+
+  /** Live search results for the header box. */
+  @Get('api/search')
+  quickSearch(@Query('q') q = ''): {
+    results: { title: string; url: string; kind: string; meta: string }[];
+  } {
+    const query = q.trim();
+    if (query.length < 2) return { results: [] };
+
+    const posts = this.posts
+      .search(query)
+      .slice(0, 6)
+      .map((p) => ({
+        title: p.title,
+        url: `/post/${p.slug}`,
+        kind: 'Post',
+        meta: `${formatDate(p.publishedAt)} · ${readingMinutes(p.content)} min read`,
+      }));
+
+    const tags = this.posts
+      .tagCounts()
+      .filter((t) => t.tag.includes(query.toLowerCase()))
+      .slice(0, 3)
+      .map((t) => ({
+        title: t.tag,
+        url: `/tag/${t.tag}`,
+        kind: 'Tag',
+        meta: `${t.count} post${t.count === 1 ? '' : 's'}`,
+      }));
+
+    return { results: [...posts, ...tags] };
   }
 
   @Get('health')
