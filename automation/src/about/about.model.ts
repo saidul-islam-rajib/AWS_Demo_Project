@@ -2,10 +2,78 @@ import { safeUrl } from '../settings/settings.model';
 
 /** A point on the journey timeline — a job, a course, a project, a move. */
 export interface Milestone {
+  /** Free-text label. Generated from the dates when left blank. */
   period: string;
   title: string;
   org: string;
+  /** Markdown. */
   description: string;
+  /** Optional, YYYY-MM. Drives ordering. */
+  startDate: string;
+  /** Optional, YYYY-MM. Blank means it is still running. */
+  endDate: string;
+}
+
+const MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+/** "2022-10" -> "Oct 2022". Returns the input unchanged if unparseable. */
+export function formatMonth(value: string): string {
+  const match = /^(\d{4})-(\d{2})/.exec(value.trim());
+  if (!match) return value.trim();
+
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) return match[1];
+  return `${MONTHS[month - 1]} ${match[1]}`;
+}
+
+/** The label shown on the timeline, built from the dates when none was typed. */
+export function milestonePeriod(m: Milestone): string {
+  if (m.period.trim()) return m.period.trim();
+  if (!m.startDate.trim()) return '';
+
+  const start = formatMonth(m.startDate);
+  const end = m.endDate.trim() ? formatMonth(m.endDate) : 'Present';
+  return `${start} — ${end}`;
+}
+
+/**
+ * Sort key for a milestone, newest first.
+ *
+ * Prefers the structured start date; falls back to any year found in the
+ * free-text period so entries written before dates existed still order
+ * sensibly rather than dropping to the bottom.
+ */
+function milestoneKey(m: Milestone): string {
+  if (m.startDate.trim()) return m.startDate.trim();
+
+  const year = /\b(19|20)\d{2}\b/.exec(m.period);
+  return year ? year[0] : '';
+}
+
+/** Newest first. Undated entries keep their author-defined order, at the end. */
+export function sortMilestones(milestones: Milestone[]): Milestone[] {
+  return [...milestones].sort((a, b) => {
+    const keyA = milestoneKey(a);
+    const keyB = milestoneKey(b);
+
+    if (!keyA && !keyB) return 0;
+    if (!keyA) return 1;
+    if (!keyB) return -1;
+    return keyB.localeCompare(keyA);
+  });
 }
 
 /** A named group of skills, e.g. "Backend" -> ["NestJS", "PostgreSQL"]. */
@@ -137,11 +205,15 @@ export function parseMilestones(form: {
   milestoneTitle?: string | string[];
   milestoneOrg?: string | string[];
   milestoneDescription?: string | string[];
+  milestoneStart?: string | string[];
+  milestoneEnd?: string | string[];
 }): Milestone[] {
   const periods = toArray(form.milestonePeriod);
   const titles = toArray(form.milestoneTitle);
   const orgs = toArray(form.milestoneOrg);
   const descriptions = toArray(form.milestoneDescription);
+  const starts = toArray(form.milestoneStart);
+  const ends = toArray(form.milestoneEnd);
 
   const rows: Milestone[] = [];
 
@@ -154,6 +226,8 @@ export function parseMilestones(form: {
       title,
       org: (orgs[i] ?? '').trim(),
       description: (descriptions[i] ?? '').trim(),
+      startDate: (starts[i] ?? '').trim(),
+      endDate: (ends[i] ?? '').trim(),
     });
   }
 

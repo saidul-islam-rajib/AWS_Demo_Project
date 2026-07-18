@@ -4,7 +4,10 @@ import { join } from 'path';
 import { AboutService } from './about.service';
 import {
   EMPTY_ABOUT,
+  formatMonth,
   isAboutEmpty,
+  milestonePeriod,
+  sortMilestones,
   parseGallery,
   parseLearning,
   parseMilestones,
@@ -14,26 +17,32 @@ import {
 
 describe('about.model parsers', () => {
   describe('parseMilestones', () => {
-    it('zips parallel form arrays into rows', () => {
+    it('zips parallel form arrays into rows, including dates', () => {
       expect(
         parseMilestones({
-          milestonePeriod: ['2024 — present', '2022 — 2024'],
+          milestonePeriod: ['', ''],
           milestoneTitle: ['Software Engineer', 'Junior Developer'],
           milestoneOrg: ['Acme', 'Startup'],
           milestoneDescription: ['Backend work', 'Learned the ropes'],
+          milestoneStart: ['2024-01', '2022-01'],
+          milestoneEnd: ['', '2024-01'],
         }),
       ).toEqual([
         {
-          period: '2024 — present',
+          period: '',
           title: 'Software Engineer',
           org: 'Acme',
           description: 'Backend work',
+          startDate: '2024-01',
+          endDate: '',
         },
         {
-          period: '2022 — 2024',
+          period: '',
           title: 'Junior Developer',
           org: 'Startup',
           description: 'Learned the ropes',
+          startDate: '2022-01',
+          endDate: '2024-01',
         },
       ]);
     });
@@ -53,6 +62,68 @@ describe('about.model parsers', () => {
 
     it('handles an empty form', () => {
       expect(parseMilestones({})).toEqual([]);
+    });
+  });
+
+  describe('milestone dates', () => {
+    const make = (start: string, end = '', period = '') => ({
+      period,
+      title: 't',
+      org: '',
+      description: '',
+      startDate: start,
+      endDate: end,
+    });
+
+    it('formats a month', () => {
+      expect(formatMonth('2022-10')).toBe('Oct 2022');
+      expect(formatMonth('2025-01')).toBe('Jan 2025');
+      expect(formatMonth('')).toBe('');
+    });
+
+    it('builds a period label from the dates', () => {
+      expect(milestonePeriod(make('2022-10', '2023-01'))).toBe(
+        'Oct 2022 — Jan 2023',
+      );
+    });
+
+    it('says Present when there is no end date', () => {
+      expect(milestonePeriod(make('2025-11'))).toBe('Nov 2025 — Present');
+    });
+
+    it('prefers an explicit period label over the dates', () => {
+      expect(
+        milestonePeriod(make('2022-10', '2023-01', 'While studying')),
+      ).toBe('While studying');
+    });
+
+    it('sorts newest first by start date', () => {
+      const sorted = sortMilestones([
+        make('2022-10'),
+        make('2025-11'),
+        make('2023-01'),
+      ]);
+
+      expect(sorted.map((m) => m.startDate)).toEqual([
+        '2025-11',
+        '2023-01',
+        '2022-10',
+      ]);
+    });
+
+    it('falls back to a year in the period text when there is no start date', () => {
+      const sorted = sortMilestones([
+        make('', '', 'Sometime in 2019'),
+        make('2024-01'),
+      ]);
+
+      expect(sorted[0].startDate).toBe('2024-01');
+    });
+
+    it('puts entries with no date at all last', () => {
+      const sorted = sortMilestones([make(''), make('2020-05')]);
+
+      expect(sorted[0].startDate).toBe('2020-05');
     });
   });
 
@@ -175,7 +246,14 @@ describe('AboutService', () => {
       ...EMPTY_ABOUT,
       intro: 'My story',
       milestones: [
-        { period: '2024', title: 'Engineer', org: 'Acme', description: '' },
+        {
+          period: '2024',
+          title: 'Engineer',
+          org: 'Acme',
+          description: '',
+          startDate: '2024-01',
+          endDate: '',
+        },
       ],
     });
 

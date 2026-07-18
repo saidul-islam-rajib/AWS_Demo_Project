@@ -1,7 +1,9 @@
 import {
   AboutContent,
+  Milestone,
   STATUS_LABELS,
   isAboutEmpty,
+  milestonePeriod,
 } from '../about/about.model';
 import { getSettings } from '../settings/settings.store';
 import { avatarMark, esc, layout } from './layout';
@@ -94,7 +96,20 @@ const ABOUT_CSS = `
   }
   .milestone h3 { font-size: 1.08rem; margin: 0.25rem 0 0.15rem; }
   .milestone .org { font-size: 0.86rem; color: var(--ink-3); margin-bottom: 0.5rem; }
-  .milestone p { font-size: 0.94rem; line-height: 1.65; }
+  .milestone-body { font-size: 0.94rem; line-height: 1.68; color: var(--ink-2); }
+  .milestone-body > * + * { margin-top: 0.6rem; }
+  .milestone-body ul, .milestone-body ol { padding-left: 1.25rem; }
+  .milestone-body li + li { margin-top: 0.25rem; }
+  .milestone-body a { color: var(--accent); text-decoration: underline; }
+  .milestone-body strong { color: var(--ink); }
+  .milestone-body mark {
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
+    color: inherit; padding: 0.05em 0.25em; border-radius: 3px;
+  }
+  .milestone-body code {
+    font-family: var(--mono); font-size: 0.86em; background: var(--surface-2);
+    border: 1px solid var(--border); padding: 0.1em 0.35em; border-radius: 4px;
+  }
 
   /* ---------- skills ---------- */
   .skill-groups { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
@@ -209,6 +224,8 @@ export function aboutPage(
   about: AboutContent,
   introHtml: string,
   isAdmin = false,
+  /** Milestone descriptions, pre-rendered from markdown, in the same order. */
+  milestoneHtml: string[] = [],
 ): string {
   const s = getSettings();
 
@@ -223,20 +240,23 @@ export function aboutPage(
   }
 
   if (about.milestones.length) {
+    const renderMilestone = (m: Milestone, index: number): string => {
+      const label = milestonePeriod(m);
+      const body = milestoneHtml[index] ?? '';
+
+      return `<div class="milestone">
+        ${label ? `<div class="period">${esc(label)}</div>` : ''}
+        <h3>${esc(m.title)}</h3>
+        ${m.org ? `<div class="org">${esc(m.org)}</div>` : ''}
+        ${body ? `<div class="milestone-body">${body}</div>` : ''}
+      </div>`;
+    };
+
     sections.push(`
   <section class="about-section">
     <h2>Journey</h2>
     <div class="timeline">
-      ${about.milestones
-        .map(
-          (m) => `<div class="milestone">
-        ${m.period ? `<div class="period">${esc(m.period)}</div>` : ''}
-        <h3>${esc(m.title)}</h3>
-        ${m.org ? `<div class="org">${esc(m.org)}</div>` : ''}
-        ${m.description ? `<p>${esc(m.description)}</p>` : ''}
-      </div>`,
-        )
-        .join('')}
+      ${about.milestones.map(renderMilestone).join('')}
     </div>
   </section>`);
   }

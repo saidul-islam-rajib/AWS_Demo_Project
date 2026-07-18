@@ -14,6 +14,7 @@ import { AuthService } from '../auth/auth.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { AboutService } from './about.service';
 import {
+  sortMilestones,
   parseGallery,
   parseLearning,
   parseMilestones,
@@ -56,10 +57,14 @@ export class AboutController {
     const content = this.about.get();
     const token = req.cookies?.[AuthService.COOKIE] as string | undefined;
 
+    // Newest first, then render each description so markdown works there too.
+    const milestones = sortMilestones(content.milestones);
+
     return aboutPage(
-      content,
+      { ...content, milestones },
       renderMarkdown(content.intro),
       this.auth.verifyToken(token),
+      milestones.map((m) => renderMarkdown(m.description)),
     );
   }
 

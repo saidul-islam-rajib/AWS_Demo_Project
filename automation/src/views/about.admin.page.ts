@@ -2,6 +2,7 @@ import {
   AboutContent,
   LEARNING_STATUSES,
   LearningItem,
+  Milestone,
   STATUS_LABELS,
 } from '../about/about.model';
 import { adminNav, esc, layout } from './layout';
@@ -74,6 +75,25 @@ const ADMIN_ABOUT_CSS = `
     font-size: 0.86rem; cursor: pointer; margin-bottom: 0.75rem;
   }
   .upload-zone:hover, .upload-zone.dragover { border-color: var(--accent); color: var(--accent); }
+
+  .mini-toolbar {
+    display: flex; flex-wrap: wrap; gap: 0.2rem; padding: 0.3rem 0.35rem;
+    border: 1px solid var(--border); border-bottom: 0;
+    border-radius: 7px 7px 0 0; background: var(--surface-2);
+  }
+  .mini-toolbar button {
+    background: transparent; border: 1px solid transparent; border-radius: 5px;
+    color: var(--ink-3); font-family: inherit; font-size: 0.8rem;
+    padding: 0.2rem 0.45rem; cursor: pointer; line-height: 1.2;
+  }
+  .mini-toolbar button:hover {
+    background: var(--bg); border-color: var(--border); color: var(--ink);
+  }
+  .mini-toolbar .mk {
+    background: color-mix(in srgb, var(--accent) 30%, transparent);
+    padding: 0 0.2rem; border-radius: 3px;
+  }
+  .mini-toolbar + textarea { border-radius: 0 0 7px 7px; margin-bottom: 0.5rem; }
 </style>`;
 
 function rowHead(label: string): string {
@@ -85,24 +105,56 @@ function rowHead(label: string): string {
 
 export function aboutAdminPage(about: AboutContent, saved = false): string {
   const milestoneRow = (
-    m = { period: '', title: '', org: '', description: '' },
+    m: Milestone = {
+      period: '',
+      title: '',
+      org: '',
+      description: '',
+      startDate: '',
+      endDate: '',
+    },
   ) => `
   <div class="repeat-row">
     ${rowHead('Milestone')}
     <div class="grid-2">
       <div>
-        <label>Period</label>
-        <input type="text" name="milestonePeriod" value="${esc(m.period)}" placeholder="2024 — present" />
+        <label>Title</label>
+        <input type="text" name="milestoneTitle" value="${esc(m.title)}" placeholder="Software Engineer" />
       </div>
       <div>
         <label>Organisation / place</label>
         <input type="text" name="milestoneOrg" value="${esc(m.org)}" placeholder="Company, university, self-taught" />
       </div>
     </div>
-    <label>Title</label>
-    <input type="text" name="milestoneTitle" value="${esc(m.title)}" placeholder="Software Engineer" />
+
+    <div class="grid-2">
+      <div>
+        <label>Start</label>
+        <input type="month" name="milestoneStart" value="${esc(m.startDate)}" />
+      </div>
+      <div>
+        <label>End</label>
+        <input type="month" name="milestoneEnd" value="${esc(m.endDate)}" />
+        <p class="hint">Leave blank if it is still ongoing.</p>
+      </div>
+    </div>
+
+    <label>Period label</label>
+    <input type="text" name="milestonePeriod" value="${esc(m.period)}"
+           placeholder="Built from the dates when left blank" />
+
     <label>What happened</label>
-    <textarea name="milestoneDescription" rows="2" placeholder="A line or two">${esc(m.description)}</textarea>
+    <div class="mini-toolbar" role="toolbar" aria-label="Formatting">
+      <button type="button" data-fmt="bold" title="Bold"><strong>B</strong></button>
+      <button type="button" data-fmt="italic" title="Italic"><em>I</em></button>
+      <button type="button" data-fmt="mark" title="Highlight"><span class="mk">H</span></button>
+      <button type="button" data-fmt="ul" title="Bullet list">•</button>
+      <button type="button" data-fmt="ol" title="Numbered list">1.</button>
+      <button type="button" data-fmt="link" title="Link">🔗</button>
+      <button type="button" data-fmt="code" title="Code">&lt;/&gt;</button>
+    </div>
+    <textarea name="milestoneDescription" rows="4"
+              placeholder="What you did. **bold**, *italic*, ==highlight==, - bullets">${esc(m.description)}</textarea>
   </div>`;
 
   const skillRow = (g = { name: '', items: [] as string[] }) => `
@@ -345,6 +397,64 @@ ${ADMIN_ABOUT_CSS}
     ev.preventDefault();
     zone.classList.remove('dragover');
     upload(ev.dataTransfer.files);
+  });
+
+  // ---------- formatting toolbar ----------
+  // Delegated: milestone rows are added after load, so per-button listeners
+  // bound at startup would miss them.
+  function applyFormat(area, kind) {
+    var s = area.selectionStart, e = area.selectionEnd;
+    var sel = area.value.slice(s, e);
+
+    function surround(before, after) {
+      area.value = area.value.slice(0, s) + before + sel + after + area.value.slice(e);
+      area.focus();
+      area.setSelectionRange(s + before.length, s + before.length + sel.length);
+    }
+
+    function prefixLines(prefix) {
+      var lineStart = area.value.lastIndexOf('\n', s - 1) + 1;
+      var block = area.value.slice(lineStart, e) || sel;
+      var n = 0;
+      var out = block.split('\n').map(function (line) {
+        n++;
+        return (prefix === '1. ' ? n + '. ' : prefix) + line;
+      }).join('\n');
+      area.value = area.value.slice(0, lineStart) + out + area.value.slice(e);
+      area.focus();
+      area.setSelectionRange(lineStart, lineStart + out.length);
+    }
+
+    if (kind === 'bold') surround('**', '**');
+    else if (kind === 'italic') surround('*', '*');
+    else if (kind === 'mark') surround('==', '==');
+    else if (kind === 'code') surround('\`', '\`');
+    else if (kind === 'ul') prefixLines('- ');
+    else if (kind === 'ol') prefixLines('1. ');
+    else if (kind === 'link') {
+      var url = prompt('Link URL:', 'https://');
+      if (url) surround('[', '](' + url + ')');
+    }
+  }
+
+  document.addEventListener('click', function (ev) {
+    var btn = ev.target.closest('[data-fmt]');
+    if (!btn) return;
+
+    var toolbar = btn.closest('.mini-toolbar');
+    var area = toolbar && toolbar.parentNode.querySelector('textarea');
+    if (area) applyFormat(area, btn.getAttribute('data-fmt'));
+  });
+
+  // Ctrl+B / Ctrl+I inside any milestone description.
+  document.addEventListener('keydown', function (ev) {
+    if (!(ev.ctrlKey || ev.metaKey)) return;
+    var area = ev.target;
+    if (area.tagName !== 'TEXTAREA' || area.name !== 'milestoneDescription') return;
+
+    var key = ev.key.toLowerCase();
+    if (key === 'b') { ev.preventDefault(); applyFormat(area, 'bold'); }
+    if (key === 'i') { ev.preventDefault(); applyFormat(area, 'italic'); }
   });
 
   // Remember collapsed panels.

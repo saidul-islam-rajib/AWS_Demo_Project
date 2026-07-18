@@ -16,8 +16,18 @@ marked.setOptions({ gfm: true, breaks: false });
  */
 const COLUMN_BLOCK = /^:::columns[ \t]*\n([\s\S]*?)^:::[ \t]*$/gm;
 
+/**
+ * `==text==` becomes a highlight. Not part of GitHub Flavored Markdown, but
+ * widely recognised and the natural way to express "mark this".
+ *
+ * Applied before parsing so marked still escapes the text inside.
+ */
+const HIGHLIGHT = /==([^=\n]+)==/g;
+
 export function renderMarkdown(source: string): string {
-  const withColumns = (source ?? '').replace(
+  const withHighlights = (source ?? '').replace(HIGHLIGHT, '<mark>$1</mark>');
+
+  const withColumns = withHighlights.replace(
     COLUMN_BLOCK,
     (_match, body: string) => {
       const cells = String(body)

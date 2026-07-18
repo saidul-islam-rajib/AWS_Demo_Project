@@ -601,6 +601,54 @@ describe('Blog (e2e)', () => {
         });
     });
 
+    it('orders the journey newest first and renders its markdown', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/about')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          milestoneTitle: [
+            'Intern Engineer',
+            'Senior Engineer',
+            'Junior Engineer',
+          ],
+          milestoneOrg: ['First Co', 'Third Co', 'Second Co'],
+          milestoneStart: ['2022-10', '2025-11', '2023-01'],
+          milestoneEnd: ['2023-01', '', '2025-11'],
+          milestoneDescription: [
+            'Learned **a lot** here.',
+            'Working with ==Kubernetes== now.',
+            '- Built APIs\n- Shipped features',
+          ],
+        })
+        .expect(302);
+
+      await request(server)
+        .get('/about')
+        .expect(200)
+        .expect((res) => {
+          const senior = res.text.indexOf('Senior Engineer');
+          const junior = res.text.indexOf('Junior Engineer');
+          const intern = res.text.indexOf('Intern Engineer');
+
+          // newest first
+          expect(senior).toBeLessThan(junior);
+          expect(junior).toBeLessThan(intern);
+
+          // labels built from the dates
+          expect(res.text).toContain('Nov 2025 — Present');
+          expect(res.text).toContain('Oct 2022 — Jan 2023');
+
+          // markdown in the descriptions
+          expect(res.text).toContain('<strong>a lot</strong>');
+          expect(res.text).toContain('<mark>Kubernetes</mark>');
+          expect(res.text).toContain('<li>Built APIs</li>');
+        });
+    });
+
     it('drops an unsafe social url', async () => {
       const cookie = await signIn();
       const server = app.getHttpServer();
