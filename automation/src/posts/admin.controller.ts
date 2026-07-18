@@ -76,7 +76,8 @@ export class AdminController {
       posts: this.posts.findAll(),
       stats: this.posts.stats(),
       tags: this.posts.tagCounts(),
-      flash: ok && messages[ok] ? { kind: 'ok', text: messages[ok] } : undefined,
+      flash:
+        ok && messages[ok] ? { kind: 'ok', text: messages[ok] } : undefined,
     });
   }
 

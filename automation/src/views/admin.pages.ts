@@ -385,8 +385,13 @@ const EDITOR_JS = `
 export function dashboardPage(opts: {
   posts: Post[];
   stats: {
-    total: number; published: number; drafts: number;
-    tags: number; views: number; words: number; readingMinutes: number;
+    total: number;
+    published: number;
+    drafts: number;
+    tags: number;
+    views: number;
+    words: number;
+    readingMinutes: number;
   };
   tags: { tag: string; count: number }[];
   flash?: { kind: 'ok' | 'err'; text: string };
@@ -477,7 +482,9 @@ ${ADMIN_CSS}
 
 export function editorPage(post?: Post): string {
   const editing = Boolean(post);
-  const action = editing ? `/admin/posts/${esc(post!.id)}/edit` : '/admin/posts/new';
+  const action = editing
+    ? `/admin/posts/${esc(post!.id)}/edit`
+    : '/admin/posts/new';
 
   const body = `
 ${ADMIN_CSS}
@@ -657,5 +664,9 @@ export function loginPage(error?: string, notice?: string): string {
     </div>
   </div>`;
 
-  return layout({ title: 'Sign in — Saidul Islam Rajib', body, nav: '<a href="/">Home</a>' });
+  return layout({
+    title: 'Sign in — Saidul Islam Rajib',
+    body,
+    nav: '<a href="/">Home</a>',
+  });
 }

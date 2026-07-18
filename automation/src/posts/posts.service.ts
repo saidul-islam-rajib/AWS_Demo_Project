@@ -1,5 +1,11 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  renameSync,
+} from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import {
@@ -19,7 +25,8 @@ import {
 @Injectable()
 export class PostsService {
   private readonly logger = new Logger(PostsService.name);
-  private readonly dataDir = process.env.DATA_DIR ?? join(process.cwd(), 'data');
+  private readonly dataDir =
+    process.env.DATA_DIR ?? join(process.cwd(), 'data');
   private readonly file = join(this.dataDir, 'posts.json');
   private posts: Post[] = [];
 
@@ -35,7 +42,9 @@ export class PostsService {
 
       if (existsSync(this.file)) {
         this.posts = JSON.parse(readFileSync(this.file, 'utf8')) as Post[];
-        this.logger.log(`Loaded ${this.posts.length} post(s) from ${this.file}`);
+        this.logger.log(
+          `Loaded ${this.posts.length} post(s) from ${this.file}`,
+        );
         return;
       }
 
@@ -215,8 +224,6 @@ export class PostsService {
 
 /** Starter content so a fresh deploy is not an empty site. */
 function seedPosts(): Post[] {
-  const now = new Date().toISOString();
-
   const make = (
     title: string,
     subtitle: string,

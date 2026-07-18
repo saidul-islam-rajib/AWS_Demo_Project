@@ -74,7 +74,9 @@ export function excerpt(content: string, length = 180): string {
     .replace(/\s+/g, ' ')
     .trim();
 
-  return plain.length <= length ? plain : `${plain.slice(0, length).trimEnd()}…`;
+  return plain.length <= length
+    ? plain
+    : `${plain.slice(0, length).trimEnd()}…`;
 }
 
 /** Split the highlight field into individual takeaways, blank lines dropped. */

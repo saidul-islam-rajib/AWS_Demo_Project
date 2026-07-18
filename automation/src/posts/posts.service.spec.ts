@@ -3,7 +3,12 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { NotFoundException } from '@nestjs/common';
 import { PostsService } from './posts.service';
-import { highlightList, normaliseTags, readingMinutes, slugify } from './post.model';
+import {
+  highlightList,
+  normaliseTags,
+  readingMinutes,
+  slugify,
+} from './post.model';
 
 describe('post.model', () => {
   it('slugifies titles', () => {
@@ -16,8 +21,13 @@ describe('post.model', () => {
   });
 
   it('normalises tags: lowercase, trimmed, deduped, capped at 8', () => {
-    expect(normaliseTags('Docker, docker ,  AWS , ')).toEqual(['docker', 'aws']);
-    expect(normaliseTags(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'])).toHaveLength(8);
+    expect(normaliseTags('Docker, docker ,  AWS , ')).toEqual([
+      'docker',
+      'aws',
+    ]);
+    expect(
+      normaliseTags(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']),
+    ).toHaveLength(8);
     expect(normaliseTags(undefined)).toEqual([]);
   });
 
@@ -84,7 +94,12 @@ describe('PostsService', () => {
     const tags = service.tagCounts().map((t) => t.tag);
 
     expect(tags).toEqual(
-      expect.arrayContaining(['algorithms', 'databases', 'api-design', 'docker']),
+      expect.arrayContaining([
+        'algorithms',
+        'databases',
+        'api-design',
+        'docker',
+      ]),
     );
     expect(tags.length).toBeGreaterThanOrEqual(10);
   });
@@ -128,7 +143,10 @@ describe('PostsService', () => {
 
   it('updates a post and keeps the slug when the title is unchanged', () => {
     const post = service.create({ title: 'Keep Slug', content: 'v1' });
-    const updated = service.update(post.id, { title: 'Keep Slug', content: 'v2' });
+    const updated = service.update(post.id, {
+      title: 'Keep Slug',
+      content: 'v2',
+    });
 
     expect(updated.slug).toBe('keep-slug');
     expect(updated.content).toBe('v2');
@@ -136,7 +154,10 @@ describe('PostsService', () => {
 
   it('re-slugs when the title changes', () => {
     const post = service.create({ title: 'Old Title', content: 'x' });
-    const updated = service.update(post.id, { title: 'New Title', content: 'x' });
+    const updated = service.update(post.id, {
+      title: 'New Title',
+      content: 'x',
+    });
 
     expect(updated.slug).toBe('new-title');
   });
@@ -159,7 +180,11 @@ describe('PostsService', () => {
       status: 'published',
       tags: 'k8s',
     });
-    service.create({ title: 'Secret Draft', content: 'kubernetes', status: 'draft' });
+    service.create({
+      title: 'Secret Draft',
+      content: 'kubernetes',
+      status: 'draft',
+    });
 
     const hits = service.search('kubernetes');
 
@@ -176,11 +201,17 @@ describe('PostsService', () => {
     });
 
     expect(service.byTag('terraform')).toHaveLength(1);
-    expect(service.tagCounts().find((t) => t.tag === 'terraform')?.count).toBe(1);
+    expect(service.tagCounts().find((t) => t.tag === 'terraform')?.count).toBe(
+      1,
+    );
   });
 
   it('counts views', () => {
-    const post = service.create({ title: 'Viewed', content: 'x', status: 'published' });
+    const post = service.create({
+      title: 'Viewed',
+      content: 'x',
+      status: 'published',
+    });
     service.recordView(post.slug);
     service.recordView(post.slug);
 

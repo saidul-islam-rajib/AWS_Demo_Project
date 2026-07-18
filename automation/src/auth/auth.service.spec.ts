@@ -48,7 +48,9 @@ describe('AuthService', () => {
     const auth = new AuthService();
     const past = String(Date.now() - 1000);
     // Sign a stamp that has already passed, using the service's own signer.
-    const signed = (auth as unknown as { sign: (v: string) => string }).sign(past);
+    const signed = (auth as unknown as { sign: (v: string) => string }).sign(
+      past,
+    );
 
     expect(auth.verifyToken(`${past}.${signed}`)).toBe(false);
   });

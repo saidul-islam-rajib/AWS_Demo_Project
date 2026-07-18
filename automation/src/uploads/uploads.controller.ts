@@ -36,12 +36,18 @@ export class UploadsController {
     FileInterceptor('file', {
       storage: diskStorage({
         destination: (_req, _file, cb) => cb(null, uploadDir()),
-        filename: (_req, file, cb) => cb(null, allowed.generateName(file.originalname)),
+        filename: (_req, file, cb) =>
+          cb(null, allowed.generateName(file.originalname)),
       }),
       limits: { fileSize: MAX_UPLOAD_BYTES },
       fileFilter: (_req, file, cb) => {
         if (!allowed.isAllowed(file.originalname)) {
-          cb(new BadRequestException('Only png, jpg, gif, webp and svg are allowed'), false);
+          cb(
+            new BadRequestException(
+              'Only png, jpg, gif, webp and svg are allowed',
+            ),
+            false,
+          );
           return;
         }
         cb(null, true);

@@ -11,6 +11,19 @@ import { AppModule } from './../src/app.module';
 
 const PASSWORD = 'test-password';
 
+interface HealthBody {
+  status: string;
+  uptime: number;
+  posts: number;
+}
+
+interface UploadBody {
+  url: string;
+  name: string;
+  size: number;
+  markdown: string;
+}
+
 describe('Blog (e2e)', () => {
   let app: INestApplication<App>;
   let dir: string;
@@ -73,8 +86,9 @@ describe('Blog (e2e)', () => {
         .get('/health')
         .expect(200)
         .expect((res) => {
-          expect(res.body.status).toBe('ok');
-          expect(typeof res.body.posts).toBe('number');
+          const body = res.body as HealthBody;
+          expect(body.status).toBe('ok');
+          expect(typeof body.posts).toBe('number');
         }));
   });
 
@@ -131,11 +145,12 @@ describe('Blog (e2e)', () => {
         .attach('file', Buffer.from('fake-png-bytes'), 'diagram.png')
         .expect(201);
 
-      expect(res.body.url).toMatch(/^\/uploads\/\d+-[0-9a-f]{12}\.png$/);
-      expect(res.body.markdown).toContain('![diagram](/uploads/');
+      const body = res.body as UploadBody;
+      expect(body.url).toMatch(/^\/uploads\/\d+-[0-9a-f]{12}\.png$/);
+      expect(body.markdown).toContain('![diagram](/uploads/');
 
       // and it is then served back
-      await request(app.getHttpServer()).get(res.body.url).expect(200);
+      await request(app.getHttpServer()).get(body.url).expect(200);
     });
 
     it('rejects a non-image extension', async () => {
@@ -204,7 +219,10 @@ describe('Blog (e2e)', () => {
         .expect((res) => expect(res.text).toContain('Lifecycle Post'));
 
       // locate its id from the dashboard
-      const dash = await request(server).get('/admin').set('Cookie', cookie).expect(200);
+      const dash = await request(server)
+        .get('/admin')
+        .set('Cookie', cookie)
+        .expect(200);
       const id = /\/admin\/posts\/([0-9a-f-]{36})\/edit/.exec(dash.text)?.[1];
       expect(id).toBeDefined();
 

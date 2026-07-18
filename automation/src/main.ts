@@ -13,11 +13,19 @@ async function bootstrap() {
   app.use(urlencoded({ extended: true, limit: '2mb' }));
 
   // Uploaded images live on the data volume so they survive redeploys.
-  const uploadDir = join(process.env.DATA_DIR ?? join(process.cwd(), 'data'), 'uploads');
+  const uploadDir = join(
+    process.env.DATA_DIR ?? join(process.cwd(), 'data'),
+    'uploads',
+  );
   mkdirSync(uploadDir, { recursive: true });
   app.use('/uploads', express.static(uploadDir, { maxAge: '7d' }));
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port, '0.0.0.0');
 }
-bootstrap();
+// Surface a boot failure and exit non-zero, so the pipeline's Verify stage
+// fails fast instead of polling a container that will never answer.
+bootstrap().catch((err) => {
+  console.error('Failed to start:', err);
+  process.exit(1);
+});

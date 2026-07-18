@@ -14,7 +14,10 @@ export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
  * directory when it was a static field.
  */
 export function uploadDir(): string {
-  const dir = join(process.env.DATA_DIR ?? join(process.cwd(), 'data'), 'uploads');
+  const dir = join(
+    process.env.DATA_DIR ?? join(process.cwd(), 'data'),
+    'uploads',
+  );
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   return dir;
 }

@@ -2,7 +2,12 @@ import { Controller, Get, Header, Param, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { PostsService } from './posts.service';
 import { renderMarkdown } from './markdown';
-import { homePage, notFoundPage, postPage, tagsPage } from '../views/public.pages';
+import {
+  homePage,
+  notFoundPage,
+  postPage,
+  tagsPage,
+} from '../views/public.pages';
 
 @Controller()
 export class PostsController {
@@ -63,7 +68,10 @@ export class PostsController {
     // Same tag = related; fall back to most recent when nothing overlaps.
     const related = published
       .filter((p) => p.id !== post.id)
-      .map((p) => ({ p, shared: p.tags.filter((t) => post.tags.includes(t)).length }))
+      .map((p) => ({
+        p,
+        shared: p.tags.filter((t) => post.tags.includes(t)).length,
+      }))
       .sort((a, b) => b.shared - a.shared)
       .slice(0, 3)
       .map(({ p }) => p);

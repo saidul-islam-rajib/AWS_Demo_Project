@@ -160,7 +160,12 @@ function card(post: Post): string {
 export function homePage(opts: {
   posts: Post[];
   tags: { tag: string; count: number }[];
-  stats: { published: number; tags: number; words: number; readingMinutes: number };
+  stats: {
+    published: number;
+    tags: number;
+    words: number;
+    readingMinutes: number;
+  };
   query?: string;
   activeTag?: string;
 }): string {
@@ -172,9 +177,10 @@ export function homePage(opts: {
       ? `Results for “${esc(query)}”`
       : 'Engineering notes';
 
-  const blurb = activeTag || query
-    ? `${posts.length} post${posts.length === 1 ? '' : 's'} found.`
-    : 'Backend development, DevOps and cloud infrastructure — written up as I work through them.';
+  const blurb =
+    activeTag || query
+      ? `${posts.length} post${posts.length === 1 ? '' : 's'} found.`
+      : 'Backend development, DevOps and cloud infrastructure — written up as I work through them.';
 
   const body = `
 ${FEED_CSS}
@@ -234,7 +240,11 @@ ${FEED_CSS}
   });
 }
 
-export function postPage(post: Post, related: Post[], renderedHtml: string): string {
+export function postPage(
+  post: Post,
+  related: Post[],
+  renderedHtml: string,
+): string {
   const mins = readingMinutes(post.content);
 
   const body = `
@@ -465,7 +475,11 @@ export function tagsPage(tags: { tag: string; count: number }[]): string {
     }
   </div>`;
 
-  return layout({ title: 'Tags — Saidul Islam Rajib', body, nav: defaultNav() });
+  return layout({
+    title: 'Tags — Saidul Islam Rajib',
+    body,
+    nav: defaultNav(),
+  });
 }
 
 export function notFoundPage(): string {

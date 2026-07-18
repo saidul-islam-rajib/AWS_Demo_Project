@@ -1,5 +1,10 @@
-/** Escape untrusted text before interpolating it into HTML. */
-export function esc(value: unknown): string {
+/**
+ * Escape untrusted text before interpolating it into HTML.
+ *
+ * Deliberately narrow: passing an object here would stringify to
+ * "[object Object]" and silently render nonsense.
+ */
+export function esc(value: string | number | null | undefined): string {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')

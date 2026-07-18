@@ -17,17 +17,22 @@ marked.setOptions({ gfm: true, breaks: false });
 const COLUMN_BLOCK = /^:::columns[ \t]*\n([\s\S]*?)^:::[ \t]*$/gm;
 
 export function renderMarkdown(source: string): string {
-  const withColumns = (source ?? '').replace(COLUMN_BLOCK, (_match, body: string) => {
-    const cells = String(body)
-      .split(/^\|\|\|[ \t]*$/m)
-      .map((cell) => marked.parse(cell.trim()) as string);
+  const withColumns = (source ?? '').replace(
+    COLUMN_BLOCK,
+    (_match, body: string) => {
+      const cells = String(body)
+        .split(/^\|\|\|[ \t]*$/m)
+        .map((cell) => marked.parse(cell.trim()));
 
-    // Single-cell blocks would be a pointless grid; render the content plainly.
-    if (cells.length < 2) return cells.join('');
+      // Single-cell blocks would be a pointless grid; render the content plainly.
+      if (cells.length < 2) return cells.join('');
 
-    const inner = cells.map((html) => `<div class="md-col">${html}</div>`).join('');
-    return `<div class="md-columns" data-cols="${cells.length}">${inner}</div>`;
-  });
+      const inner = cells
+        .map((html) => `<div class="md-col">${html}</div>`)
+        .join('');
+      return `<div class="md-columns" data-cols="${cells.length}">${inner}</div>`;
+    },
+  );
 
-  return marked.parse(withColumns) as string;
+  return marked.parse(withColumns);
 }
