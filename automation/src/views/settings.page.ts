@@ -16,10 +16,30 @@ export function settingsPage(s: SiteSettings, saved = false): string {
     background: var(--surface-2); border: 1px solid var(--border);
     border-radius: 12px; padding: 1.25rem; margin-bottom: 1.25rem;
   }
-  .card-block h3 {
+  /* Native <details> so panels stay keyboard accessible and collapsed
+     fields still submit with the form. */
+  .card-block > summary {
+    list-style: none; cursor: pointer; user-select: none;
+    display: flex; align-items: center; gap: 0.5rem;
     font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.07em;
-    color: var(--ink-3); margin-bottom: 1rem;
+    color: var(--ink-3); font-weight: 700;
   }
+  .card-block > summary::-webkit-details-marker { display: none; }
+  .card-block > summary::after {
+    content: "+"; margin-left: auto;
+    font-size: 1.05rem; line-height: 1; font-weight: 700;
+    color: var(--ink-3);
+    width: 22px; height: 22px; border-radius: 6px;
+    border: 1px solid var(--border);
+    display: grid; place-items: center;
+  }
+  .card-block[open] > summary::after { content: "−"; }
+  .card-block > summary:hover { color: var(--ink); }
+  .card-block > summary:hover::after { color: var(--ink); border-color: var(--accent); }
+  .card-block > summary:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px;
+  }
+  .card-block[open] > summary { margin-bottom: 1rem; }
   .avatar-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
   .avatar-preview {
     width: 64px; height: 64px; border-radius: 50%;
@@ -55,8 +75,8 @@ export function settingsPage(s: SiteSettings, saved = false): string {
   <form method="post" action="/admin/settings">
     <div class="settings-grid">
       <div>
-        <div class="card-block">
-          <h3>Profile</h3>
+        <details class="card-block" open data-panel="profile">
+          <summary>Profile</summary>
 
           <div class="avatar-row">
             ${avatarMark(s.avatarUrl, s.authorName, 'avatar-preview')}
@@ -87,10 +107,10 @@ export function settingsPage(s: SiteSettings, saved = false): string {
             <textarea id="authorBio" name="authorBio" rows="3"
                       placeholder="One or two lines about you">${esc(s.authorBio)}</textarea>
           </div>
-        </div>
+        </details>
 
-        <div class="card-block">
-          <h3>Site</h3>
+        <details class="card-block" open data-panel="site">
+          <summary>Site</summary>
 
           <div class="field">
             <label for="siteTitle">Home page heading</label>
@@ -102,10 +122,10 @@ export function settingsPage(s: SiteSettings, saved = false): string {
             <textarea id="siteTagline" name="siteTagline" rows="2">${esc(s.siteTagline)}</textarea>
             <p class="hint">The sentence under the heading on the home page.</p>
           </div>
-        </div>
+        </details>
 
-        <div class="card-block">
-          <h3>Footer</h3>
+        <details class="card-block" open data-panel="footer">
+          <summary>Footer</summary>
 
           <div class="field">
             <label for="footerOwner">Owner name</label>
@@ -143,12 +163,12 @@ export function settingsPage(s: SiteSettings, saved = false): string {
             Blank rows are ignored. Up to 6 links. Only <code>/paths</code> and
             <code>http(s)</code> URLs are accepted.
           </p>
-        </div>
+        </details>
       </div>
 
       <aside>
-        <div class="card-block">
-          <h3>Preview</h3>
+        <details class="card-block" open data-panel="preview">
+          <summary>Preview</summary>
           <div style="display:flex;align-items:center;gap:.6rem">
             ${avatarMark(s.avatarUrl, s.authorName, 'mark')}
             <div>
@@ -165,17 +185,17 @@ export function settingsPage(s: SiteSettings, saved = false): string {
               ${s.footerLinks.map((l) => `<a href="#">${esc(l.label)}</a>`).join(' · ')}
             </div>
           </div>
-        </div>
+        </details>
 
-        <div class="card-block">
-          <h3>Save</h3>
+        <details class="card-block" open data-panel="save">
+          <summary>Save</summary>
           <button class="btn" type="submit" style="width:100%;justify-content:center">
             Save settings
           </button>
           <p class="hint" style="margin-top:.6rem">
             Stored on the data volume, so changes survive redeploys.
           </p>
-        </div>
+        </details>
       </aside>
     </div>
   </form>
@@ -222,6 +242,21 @@ export function settingsPage(s: SiteSettings, saved = false): string {
     if (!ev.target.classList.contains('remove-link')) return;
     var row = ev.target.closest('.link-row');
     row.querySelectorAll('input').forEach(function (i) { i.value = ''; });
+  });
+
+  // Remember which panels are collapsed across reloads.
+  document.querySelectorAll('.card-block[data-panel]').forEach(function (panel) {
+    var key = 'settings-panel-' + panel.getAttribute('data-panel');
+
+    try {
+      if (localStorage.getItem(key) === 'closed') panel.open = false;
+    } catch (e) { /* storage blocked; panels just stay open */ }
+
+    panel.addEventListener('toggle', function () {
+      try {
+        localStorage.setItem(key, panel.open ? 'open' : 'closed');
+      } catch (e) { /* ignore */ }
+    });
   });
 })();
 </script>`;
