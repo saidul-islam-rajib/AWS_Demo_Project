@@ -3,7 +3,13 @@ pipeline {
 
     options {
         timestamps()
-        buildDiscarder(logRotator(numToKeepStr: '15'))
+        // 15 builds of logs and metadata on a 6.6GB root volume is more
+        // history than the disk can afford; 8 is plenty to debug from.
+        buildDiscarder(logRotator(numToKeepStr: '8'))
+        // Two builds writing images to a nearly-full disk at once is how a
+        // slow build becomes a stuck one.
+        disableConcurrentBuilds()
+        timeout(time: 20, unit: 'MINUTES')
     }
 
     environment {
@@ -20,6 +26,45 @@ pipeline {
     }
 
     stages {
+
+        /*
+         * Reclaim space before the build needs it.
+         *
+         * Cleanup used to run only in post, which is too late: once the disk
+         * is full, a build cannot get far enough to reach the step that would
+         * have freed the space, so it fails in milliseconds having done
+         * nothing and the disk stays full. Builds #41-#45 were that loop.
+         */
+        stage('Preflight') {
+            steps {
+                sh '''
+                    echo "Disk before preflight:"
+                    df -h / | tail -1
+
+                    docker container prune -f || true
+                    docker image prune -f || true
+                    docker builder prune -af || true
+
+                    # Under 2GB this build cannot finish anyway, so drop every
+                    # image not backing a running container and look again.
+                    free_kb=$(df -Pk / | awk 'NR==2 {print $4}')
+                    if [ "$free_kb" -lt 2097152 ]; then
+                        echo "Under 2GB free — clearing unused images."
+                        docker image prune -af || true
+                    fi
+
+                    echo "Disk after preflight:"
+                    df -h / | tail -1
+
+                    free_kb=$(df -Pk / | awk 'NR==2 {print $4}')
+                    if [ "$free_kb" -lt 1048576 ]; then
+                        echo "Still under 1GB free — the volume needs resizing."
+                        echo "Failing here rather than part-way through a deploy."
+                        exit 1
+                    fi
+                '''
+            }
+        }
 
         stage('Checkout') {
             steps {
