@@ -21,6 +21,17 @@ interface LayoutOptions {
   nav?: string;
   /** Wider reading measure is used for article pages. */
   variant?: 'default' | 'article' | 'admin';
+  /** Site-relative path of this page, for canonical and og:url. */
+  path?: string;
+  /** Preview image. Relative paths are made absolute against siteUrl. */
+  image?: string;
+  ogType?: 'website' | 'article' | 'profile';
+  /** Emitted as article:published_time. */
+  publishedAt?: string;
+  /** Extra <head> markup, e.g. JSON-LD. */
+  head?: string;
+  /** Keep this page out of search results. */
+  noindex?: boolean;
 }
 
 import { initials } from '../settings/settings.model';
@@ -43,8 +54,24 @@ export function layout({
   body,
   nav = defaultNav(),
   variant = 'default',
+  path = '/',
+  image,
+  ogType = 'website',
+  publishedAt,
+  head = '',
+  noindex = false,
 }: LayoutOptions): string {
   const s = getSettings();
+  const base = (s.siteUrl || '').replace(/\/+$/, '');
+  const absolute = (target: string): string =>
+    /^https?:\/\//i.test(target)
+      ? target
+      : `${base}${target.startsWith('/') ? '' : '/'}${target}`;
+
+  const canonical = absolute(path);
+  // Fall back to the author's avatar so a shared link is never imageless.
+  const preview = image ?? (s.avatarUrl || '');
+  const previewUrl = preview ? absolute(preview) : '';
 
   return `<!doctype html>
 <html lang="en">
@@ -53,6 +80,35 @@ export function layout({
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}" />
+<link rel="canonical" href="${esc(canonical)}" />
+${noindex ? '<meta name="robots" content="noindex, nofollow" />' : '<meta name="robots" content="index, follow" />'}
+
+<!-- Open Graph: Facebook, LinkedIn, WhatsApp, Slack -->
+<meta property="og:site_name" content="${esc(s.authorName)}" />
+<meta property="og:type" content="${esc(ogType)}" />
+<meta property="og:title" content="${esc(title)}" />
+<meta property="og:description" content="${esc(description)}" />
+<meta property="og:url" content="${esc(canonical)}" />
+<meta property="og:locale" content="en_US" />
+${
+  previewUrl
+    ? `<meta property="og:image" content="${esc(previewUrl)}" />
+<meta property="og:image:alt" content="${esc(title)}" />`
+    : ''
+}
+${
+  publishedAt
+    ? `<meta property="article:published_time" content="${esc(publishedAt)}" />
+<meta property="article:author" content="${esc(s.authorName)}" />`
+    : ''
+}
+
+<!-- Twitter / X -->
+<meta name="twitter:card" content="${previewUrl ? 'summary_large_image' : 'summary'}" />
+<meta name="twitter:title" content="${esc(title)}" />
+<meta name="twitter:description" content="${esc(description)}" />
+${previewUrl ? `<meta name="twitter:image" content="${esc(previewUrl)}" />` : ''}
+${head}
 <style>
   :root {
     --bg: #ffffff;
@@ -258,9 +314,9 @@ ${body}
 }
 
 export function defaultNav(): string {
-  return `<a href="/">Home</a><a href="/about">About</a><a href="/tags">Tags</a><a href="/admin" class="btn btn-sm">Dashboard</a>`;
+  return `<a href="/">Home</a><a href="/projects">Projects</a><a href="/about">About</a><a href="/admin" class="btn btn-sm">Dashboard</a>`;
 }
 
 export function adminNav(): string {
-  return `<a href="/">View site</a><a href="/admin">Dashboard</a><a href="/admin/about">About</a><a href="/admin/settings">Settings</a><a href="/admin/posts/new" class="btn btn-sm">Write</a><a href="/logout">Sign out</a>`;
+  return `<a href="/">View site</a><a href="/admin">Dashboard</a><a href="/admin/projects">Projects</a><a href="/admin/about">About</a><a href="/admin/settings">Settings</a><a href="/admin/posts/new" class="btn btn-sm">Write</a><a href="/logout">Sign out</a>`;
 }

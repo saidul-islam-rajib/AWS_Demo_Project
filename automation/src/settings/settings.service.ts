@@ -88,6 +88,13 @@ export class SettingsService {
         (input.siteTitle ?? currentValue.siteTitle).trim() ||
         DEFAULT_SETTINGS.siteTitle,
       siteTagline: (input.siteTagline ?? currentValue.siteTagline).trim(),
+      siteUrl: (
+        safeUrl(input.siteUrl ?? currentValue.siteUrl) ||
+        DEFAULT_SETTINGS.siteUrl
+      ).replace(/\/+$/, ''),
+      githubUser: (input.githubUser ?? currentValue.githubUser)
+        .trim()
+        .replace(/^@/, ''),
 
       footerOwner: (input.footerOwner ?? currentValue.footerOwner).trim(),
       footerOwnerUrl: safeUrl(

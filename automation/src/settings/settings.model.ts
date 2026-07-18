@@ -14,6 +14,10 @@ export interface SiteSettings {
   /** Site */
   siteTitle: string;
   siteTagline: string;
+  /** Absolute base URL. Open Graph requires absolute image and page URLs. */
+  siteUrl: string;
+  /** GitHub username, used to import projects. */
+  githubUser: string;
 
   /** Footer */
   footerOwner: string;
@@ -31,6 +35,8 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   siteTitle: 'Engineering notes',
   siteTagline:
     'Backend development, DevOps and cloud infrastructure — written up as I work through them.',
+  siteUrl: 'http://16.171.254.209:3000',
+  githubUser: '',
 
   footerOwner: 'Team Sober',
   footerOwnerUrl: 'https://portfolio-rajib.vercel.app/',

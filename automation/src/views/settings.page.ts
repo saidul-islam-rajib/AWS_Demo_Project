@@ -117,6 +117,20 @@ export function settingsPage(s: SiteSettings, saved = false): string {
             <input type="text" id="siteTitle" name="siteTitle" value="${esc(s.siteTitle)}" />
           </div>
 
+          <div class="field">
+            <label for="siteUrl">Public site URL</label>
+            <input type="text" id="siteUrl" name="siteUrl" value="${esc(s.siteUrl)}"
+                   placeholder="https://example.com" />
+            <p class="hint">Used for link previews on Facebook, LinkedIn and X. Must be absolute.</p>
+          </div>
+
+          <div class="field">
+            <label for="githubUser">GitHub username</label>
+            <input type="text" id="githubUser" name="githubUser" value="${esc(s.githubUser)}"
+                   placeholder="saidul-islam-rajib" />
+            <p class="hint">Enables importing your public repositories as projects.</p>
+          </div>
+
           <div class="field" style="margin-bottom:0">
             <label for="siteTagline">Tagline</label>
             <textarea id="siteTagline" name="siteTagline" rows="2">${esc(s.siteTagline)}</textarea>

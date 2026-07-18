@@ -4,10 +4,13 @@ import { AdminController } from './posts/admin.controller';
 import { UploadsController } from './uploads/uploads.controller';
 import { SettingsController } from './settings/settings.controller';
 import { AboutController } from './about/about.controller';
+import { ProjectsController } from './projects/projects.controller';
+import { SeoController } from './seo/seo.controller';
 import { PostsService } from './posts/posts.service';
 import { UploadsService } from './uploads/uploads.service';
 import { SettingsService } from './settings/settings.service';
 import { AboutService } from './about/about.service';
+import { ProjectsService } from './projects/projects.service';
 import { AuthService } from './auth/auth.service';
 
 @Module({
@@ -17,6 +20,8 @@ import { AuthService } from './auth/auth.service';
   controllers: [
     SettingsController,
     AboutController,
+    ProjectsController,
+    SeoController,
     AdminController,
     UploadsController,
     PostsController,
@@ -26,6 +31,7 @@ import { AuthService } from './auth/auth.service';
     UploadsService,
     SettingsService,
     AboutService,
+    ProjectsService,
     AuthService,
   ],
 })

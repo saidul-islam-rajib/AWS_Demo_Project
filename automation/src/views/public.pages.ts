@@ -288,6 +288,12 @@ ${FEED_CSS}
   });
 }
 
+/** First image in the body, used as the social preview. */
+function firstImage(content: string): string | undefined {
+  const match = /!\[[^\]]*\]\(([^)\s]+)/.exec(content);
+  return match?.[1];
+}
+
 export function postPage(
   post: Post,
   related: Post[],
@@ -473,6 +479,20 @@ export function postPage(
     body: body + LIGHTBOX_JS,
     variant: 'article',
     nav: defaultNav(),
+    path: `/post/${post.slug}`,
+    image: firstImage(post.content),
+    ogType: 'article',
+    publishedAt: post.createdAt,
+    head: `<script type="application/ld+json">${JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'BlogPosting',
+      headline: post.title,
+      description: post.subtitle || excerpt(post.content, 150),
+      datePublished: post.createdAt,
+      dateModified: post.updatedAt,
+      keywords: post.tags.join(', '),
+      author: { '@type': 'Person', name: getSettings().authorName },
+    })}</script>`,
   });
 }
 
