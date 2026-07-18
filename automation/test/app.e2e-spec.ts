@@ -827,6 +827,41 @@ describe('Blog (e2e)', () => {
         });
     });
 
+    it('serves gallery thumbnails resized, not the full original', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/about')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          galleryUrls: ['/uploads/photo.png'],
+          galleryCaption: ['A photo'],
+        })
+        .expect(302);
+
+      await request(server)
+        .get('/about')
+        .expect(200)
+        .expect((res) => {
+          const figure = /<figure class="shot"[\s\S]*?<\/figure>/.exec(
+            res.text,
+          )?.[0] as string;
+
+          // The grid asks for a sized copy, never /uploads directly.
+          expect(figure).toContain('/img/photo.png?w=400');
+          expect(figure).toContain('srcset=');
+          expect(figure).toContain('/img/photo.png?w=800');
+          expect(figure).not.toContain('src="/uploads/');
+
+          // Dimensions and lazy loading keep the grid from shifting.
+          expect(figure).toContain('width="400"');
+          expect(figure).toContain('loading="lazy"');
+          expect(figure).toContain('decoding="async"');
+        });
+    });
+
     it('renders a multi-image record with slider controls', async () => {
       const cookie = await signIn();
       const server = app.getHttpServer();

@@ -163,6 +163,8 @@ const ABOUT_CSS = `
     width: 100%; aspect-ratio: 4 / 3; object-fit: cover;
     border-radius: 10px; border: 1px solid var(--border);
     cursor: zoom-in; display: block;
+    /* Tinted while the bytes are in flight, so the grid never jumps. */
+    background: var(--surface-2);
   }
 
   .shot-nav {
@@ -340,7 +342,12 @@ const GALLERY_JS = `
 
     var urls = item.urls || [];
     slide = (slide + urls.length) % Math.max(urls.length, 1);
-    modalImg.src = urls[slide] || '';
+    // A wide variant: sharp enough for the modal, far smaller than a
+    // multi-megapixel original.
+    var full = urls[slide] || '';
+    modalImg.src = full.indexOf('/uploads/') === 0
+      ? '/img/' + full.slice('/uploads/'.length) + '?w=1600'
+      : full;
     modalImg.alt = item.caption || 'Photo';
     modalCap.textContent = item.caption || '';
 
@@ -387,6 +394,15 @@ const GALLERY_JS = `
   });
 })();
 </script>`;
+
+/**
+ * Uploads are served resized from /img; anything else (an external URL) is
+ * passed through untouched.
+ */
+function sized(url: string, width: number): string {
+  if (!url.startsWith('/uploads/')) return url;
+  return `/img/${url.slice('/uploads/'.length)}?w=${width}`;
+}
 
 export function aboutPage(
   about: AboutContent,
@@ -477,7 +493,14 @@ export function aboutPage(
             ${item.urls
               .map(
                 (url, i) =>
-                  `<img src="${esc(url)}" alt="${esc(item.caption || 'Photo')}" loading="lazy" ${i === 0 ? '' : 'hidden'} />`,
+                  `<img
+                    src="${esc(sized(url, 400))}"
+                    srcset="${esc(sized(url, 400))} 400w, ${esc(sized(url, 800))} 800w"
+                    sizes="(max-width: 600px) 45vw, 220px"
+                    width="400" height="300"
+                    alt="${esc(item.caption || 'Photo')}"
+                    loading="lazy" decoding="async"
+                    ${i === 0 ? '' : 'hidden'} />`,
               )
               .join('')}
           </div>
