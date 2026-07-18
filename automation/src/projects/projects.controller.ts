@@ -26,6 +26,9 @@ import {
   projectsAdminPage,
 } from '../views/projects.admin.page';
 
+/** Rows per page in the admin list. */
+const ADMIN_PAGE_SIZE = 10;
+
 @Controller()
 export class ProjectsController {
   constructor(
@@ -143,6 +146,7 @@ export class ProjectsController {
   @UseGuards(AuthGuard)
   @Header('Content-Type', 'text/html')
   admin(
+    @Query('page') pageParam?: string,
     @Query('ok') ok?: string,
     @Query('added') added?: string,
     @Query('skipped') skipped?: string,
@@ -170,10 +174,25 @@ export class ProjectsController {
       flash = { kind: 'ok', text: messages[ok] };
     }
 
+    const all = this.projects.findAll();
+    const pageCount = Math.max(1, Math.ceil(all.length / ADMIN_PAGE_SIZE));
+
+    // Clamp rather than 404: a stale bookmark should still show something.
+    const parsed = Number.parseInt(pageParam ?? '1', 10);
+    const page = Math.min(
+      Math.max(Number.isFinite(parsed) ? parsed : 1, 1),
+      pageCount,
+    );
+
+    const start = (page - 1) * ADMIN_PAGE_SIZE;
+
     return projectsAdminPage({
-      projects: this.projects.findAll(),
+      projects: all.slice(start, start + ADMIN_PAGE_SIZE),
       githubUser: this.settings.get().githubUser,
       flash,
+      page,
+      pageCount,
+      total: all.length,
     });
   }
 

@@ -12,8 +12,44 @@ const CSS = `
 <style>
   .p-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; }
   .p-thumb {
-    width: 76px; height: 40px; object-fit: cover;
+    width: 76px; height: 44px; object-fit: cover; display: block;
     border-radius: 6px; border: 1px solid var(--border); background: var(--surface-2);
+  }
+  /* These rules live in the posts dashboard stylesheet; without them here the
+     title and description ran together on one line. */
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th {
+    text-align: left; font-size: 0.72rem; text-transform: uppercase;
+    letter-spacing: 0.07em; color: var(--ink-3); font-weight: 700;
+    padding: 0.6rem 0.7rem; border-bottom: 1px solid var(--border);
+  }
+  td { padding: 0.8rem 0.7rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:hover td { background: var(--surface-2); }
+  td .t { color: var(--ink); font-weight: 600; display: block; margin-bottom: 0.2rem; }
+  td .s { font-size: 0.8rem; color: var(--ink-3); display: block; line-height: 1.45; }
+  .col-thumb { width: 90px; }
+  .col-actions { width: 1%; white-space: nowrap; }
+  .actions { display: flex; gap: 0.35rem; flex-wrap: nowrap; }
+
+  .pager {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap;
+  }
+  .pager .count { font-size: 0.82rem; color: var(--ink-3); }
+  .pager-links { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+  .pager-links a, .pager-links span {
+    min-width: 34px; text-align: center;
+    padding: 0.35rem 0.6rem; border-radius: 8px;
+    border: 1px solid var(--border); font-size: 0.84rem; color: var(--ink-2);
+  }
+  .pager-links a:hover { border-color: var(--accent); color: var(--accent); }
+  .pager-links .current {
+    background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+    font-weight: 700;
+  }
+  .pager-links .disabled { opacity: 0.4; }
+  @media (max-width: 700px) {
+    .p-table-wrap table { min-width: 720px; }
   }
   .status-pill {
     font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
@@ -67,8 +103,34 @@ export function projectsAdminPage(opts: {
   projects: Project[];
   githubUser: string;
   flash?: { kind: 'ok' | 'err'; text: string };
+  page?: number;
+  pageCount?: number;
+  total?: number;
 }): string {
-  const { projects, githubUser, flash } = opts;
+  const {
+    projects,
+    githubUser,
+    flash,
+    page = 1,
+    pageCount = 1,
+    total = projects.length,
+  } = opts;
+
+  const pageLink = (n: number, label = String(n), extra = ''): string =>
+    `<a href="/admin/projects?page=${n}" class="${extra}">${label}</a>`;
+
+  // A window around the current page keeps the control short at any size.
+  const windowStart = Math.max(1, Math.min(page - 2, pageCount - 4));
+  const windowEnd = Math.min(pageCount, Math.max(page + 2, 5));
+  const numbers: string[] = [];
+
+  for (let n = windowStart; n <= windowEnd; n++) {
+    numbers.push(
+      n === page
+        ? `<span class="current" aria-current="page">${n}</span>`
+        : pageLink(n),
+    );
+  }
 
   const body = `
 ${CSS}
@@ -98,21 +160,21 @@ ${CSS}
     projects.length
       ? `<div class="p-table-wrap"><table>
     <thead><tr>
-      <th></th><th>Project</th><th>Year</th><th>Status</th><th>Technologies</th><th></th>
+      <th class="col-thumb"></th><th>Project</th><th>Year</th><th>Status</th><th>Technologies</th><th class="col-actions"></th>
     </tr></thead>
     <tbody>
       ${projects
         .map(
           (p) => `<tr>
-        <td>${p.coverUrl ? `<img class="p-thumb" src="${esc(p.coverUrl)}" alt="" loading="lazy" />` : '<div class="p-thumb"></div>'}</td>
+        <td class="col-thumb">${p.coverUrl ? `<img class="p-thumb" src="${esc(p.coverUrl)}" alt="" loading="lazy" />` : '<div class="p-thumb"></div>'}</td>
         <td>
           <span class="t">${esc(p.title)}${p.featured ? ' ★' : ''}</span>
-          <span class="s">${esc(p.description.slice(0, 70) || '—')}</span>
+          <span class="s">${esc(p.description.slice(0, 90) || '—')}</span>
         </td>
         <td class="s">${esc(p.year || '—')}</td>
         <td><span class="status-pill status-${esc(p.status)}">${esc(STATUS_LABELS[p.status])}</span></td>
         <td><div class="tag-row">${p.technologies.map((t) => `<span class="tag">${esc(t)}</span>`).join('') || '<span class="s">—</span>'}</div></td>
-        <td>
+        <td class="col-actions">
           <div class="actions">
             <a class="btn btn-ghost btn-sm" href="/projects/${esc(p.slug)}">View</a>
             <a class="btn btn-ghost btn-sm" href="/admin/projects/${esc(p.id)}/edit">Edit</a>
@@ -126,7 +188,21 @@ ${CSS}
         )
         .join('')}
     </tbody>
-  </table></div>`
+  </table></div>
+  ${
+    pageCount > 1
+      ? `<div class="pager">
+    <span class="count">Page ${page} of ${pageCount} · ${total} project${total === 1 ? '' : 's'}</span>
+    <div class="pager-links">
+      ${page > 1 ? pageLink(page - 1, '← Prev') : '<span class="disabled">← Prev</span>'}
+      ${windowStart > 1 ? pageLink(1, '1') + '<span class="disabled">…</span>' : ''}
+      ${numbers.join('')}
+      ${windowEnd < pageCount ? '<span class="disabled">…</span>' + pageLink(pageCount, String(pageCount)) : ''}
+      ${page < pageCount ? pageLink(page + 1, 'Next →') : '<span class="disabled">Next →</span>'}
+    </div>
+  </div>`
+      : ''
+  }`
       : `<div class="empty">
       <p>No projects yet.</p>
       <p style="margin-top:1.25rem">

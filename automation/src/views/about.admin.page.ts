@@ -97,23 +97,34 @@ const ADMIN_ABOUT_CSS = `
   .mini-toolbar + textarea { border-radius: 0 0 7px 7px; margin-bottom: 0.5rem; }
 
   /* ---------- date range ---------- */
+  /*
+   * Month and year selects rather than <input type="month">: the native
+   * control renders and behaves differently in every browser, and a role
+   * spanning years only needs month precision anyway.
+   */
   .date-range {
     display: flex; align-items: flex-end; gap: 0.6rem;
     margin-bottom: 0.6rem; flex-wrap: wrap;
   }
-  .date-field { flex: 1; min-width: 150px; }
-  .date-field label {
+  .date-field { flex: 1; min-width: 190px; }
+  .date-label {
+    display: block;
     font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em;
     color: var(--ink-3); font-weight: 700; margin-bottom: 0.3rem;
   }
-  .date-field input {
-    margin: 0; border-radius: 9px; padding: 0.55rem 0.7rem;
-    background: var(--surface); font-variant-numeric: tabular-nums;
+  .date-selects { display: flex; gap: 0.4rem; }
+  .date-selects select {
+    margin: 0; border-radius: 9px; padding: 0.55rem 0.6rem;
+    background: var(--surface); font-size: 0.88rem; cursor: pointer;
   }
-  .date-field.is-open input {
-    opacity: 0.45; background: var(--surface-2); pointer-events: none;
+  .date-selects .month-select { flex: 1.3; }
+  .date-selects .year-select { flex: 1; }
+  .date-field.is-open .date-selects { opacity: 0.4; pointer-events: none; }
+  .range-arrow { color: var(--ink-3); padding-bottom: 0.7rem; font-size: 0.95rem; }
+  @media (max-width: 700px) {
+    .range-arrow { display: none; }
+    .date-field { min-width: 100%; }
   }
-  .range-arrow { color: var(--ink-3); padding-bottom: 0.65rem; font-size: 0.95rem; }
 
   .current-toggle {
     display: inline-flex; align-items: center; gap: 0.45rem;
@@ -165,15 +176,33 @@ export function aboutAdminPage(about: AboutContent, saved = false): string {
 
     <div class="date-range">
       <div class="date-field">
-        <label>Start</label>
-        <input type="month" name="milestoneStart" value="${esc(m.startDate)}" />
+        <span class="date-label">Start</span>
+        <div class="date-selects">
+          <select class="month-select" data-target="start" aria-label="Start month">
+            <option value="">Month</option>
+          </select>
+          <select class="year-select" data-target="start" aria-label="Start year">
+            <option value="">Year</option>
+          </select>
+        </div>
+        <input type="hidden" name="milestoneStart" class="date-value" data-role="start"
+               value="${esc(m.startDate)}" />
       </div>
 
       <span class="range-arrow" aria-hidden="true">→</span>
 
       <div class="date-field end-field">
-        <label>End</label>
-        <input type="month" name="milestoneEnd" value="${esc(m.endDate)}" />
+        <span class="date-label">End</span>
+        <div class="date-selects">
+          <select class="month-select" data-target="end" aria-label="End month">
+            <option value="">Month</option>
+          </select>
+          <select class="year-select" data-target="end" aria-label="End year">
+            <option value="">Year</option>
+          </select>
+        </div>
+        <input type="hidden" name="milestoneEnd" class="date-value" data-role="end"
+               value="${esc(m.endDate)}" />
       </div>
     </div>
 
@@ -454,13 +483,13 @@ ${ADMIN_ABOUT_CSS}
     }
 
     function prefixLines(prefix) {
-      var lineStart = area.value.lastIndexOf('\n', s - 1) + 1;
+      var lineStart = area.value.lastIndexOf('\\n', s - 1) + 1;
       var block = area.value.slice(lineStart, e) || sel;
       var n = 0;
-      var out = block.split('\n').map(function (line) {
+      var out = block.split('\\n').map(function (line) {
         n++;
         return (prefix === '1. ' ? n + '. ' : prefix) + line;
-      }).join('\n');
+      }).join('\\n');
       area.value = area.value.slice(0, lineStart) + out + area.value.slice(e);
       area.focus();
       area.setSelectionRange(lineStart, lineStart + out.length);
@@ -500,6 +529,52 @@ ${ADMIN_ABOUT_CSS}
 
   // ---------- date range ----------
   var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var THIS_YEAR = new Date().getFullYear();
+
+  function fillSelects(row) {
+    row.querySelectorAll('.month-select').forEach(function (sel) {
+      if (sel.options.length > 1) return;
+      MONTHS.forEach(function (name, i) {
+        var o = document.createElement('option');
+        o.value = String(i + 1).padStart(2, '0');
+        o.textContent = name;
+        sel.appendChild(o);
+      });
+    });
+
+    row.querySelectorAll('.year-select').forEach(function (sel) {
+      if (sel.options.length > 1) return;
+      // Far enough back for study and early roles, one year ahead for planned.
+      for (var y = THIS_YEAR + 1; y >= THIS_YEAR - 40; y--) {
+        var o = document.createElement('option');
+        o.value = String(y);
+        o.textContent = String(y);
+        sel.appendChild(o);
+      }
+    });
+  }
+
+  // Push the stored YYYY-MM into the two selects.
+  function loadValue(row, role) {
+    var hidden = row.querySelector('.date-value[data-role=' + role + ']');
+    var month = row.querySelector('.month-select[data-target=' + role + ']');
+    var year = row.querySelector('.year-select[data-target=' + role + ']');
+    if (!hidden || !month || !year) return;
+
+    var parts = /^(\\d{4})-(\\d{2})/.exec(hidden.value || '');
+    year.value = parts ? parts[1] : '';
+    month.value = parts ? parts[2] : '';
+  }
+
+  // Collapse the two selects back into YYYY-MM. Both are required.
+  function saveValue(row, role) {
+    var hidden = row.querySelector('.date-value[data-role=' + role + ']');
+    var month = row.querySelector('.month-select[data-target=' + role + ']');
+    var year = row.querySelector('.year-select[data-target=' + role + ']');
+    if (!hidden || !month || !year) return;
+
+    hidden.value = month.value && year.value ? year.value + '-' + month.value : '';
+  }
 
   function label(value) {
     var m = /^(\\d{4})-(\\d{2})/.exec(value || '');
@@ -507,46 +582,56 @@ ${ADMIN_ABOUT_CSS}
     return MONTHS[Number(m[2]) - 1] + ' ' + m[1];
   }
 
-  // Reflects exactly what milestonePeriod() will produce on the public page.
+  // Reflects exactly what milestonePeriod() produces on the public page.
   function refreshRange(row) {
-    var start = row.querySelector('input[name=milestoneStart]');
-    var end = row.querySelector('input[name=milestoneEnd]');
+    fillSelects(row);
+
     var check = row.querySelector('.current-check');
-    var endField = end.closest('.date-field');
+    var endField = row.querySelector('.end-field');
     var preview = row.querySelector('.period-preview');
-    if (!start || !end || !check || !preview) return;
+    if (!check || !endField || !preview) return;
+
+    saveValue(row, 'start');
+    saveValue(row, 'end');
 
     if (check.checked) {
-      // Clearing rather than disabling: a disabled input submits nothing,
-      // which would misalign the parallel form arrays.
-      end.value = '';
-      end.readOnly = true;
+      var endHidden = row.querySelector('.date-value[data-role=end]');
+      var endMonth = row.querySelector('.month-select[data-target=end]');
+      var endYear = row.querySelector('.year-select[data-target=end]');
+      if (endHidden) endHidden.value = '';
+      if (endMonth) endMonth.value = '';
+      if (endYear) endYear.value = '';
       endField.classList.add('is-open');
     } else {
-      end.readOnly = false;
       endField.classList.remove('is-open');
     }
 
-    var from = label(start.value);
+    var startHidden = row.querySelector('.date-value[data-role=start]');
+    var from = label(startHidden ? startHidden.value : '');
+
     if (!from) {
-      preview.innerHTML = 'Pick a start month to build the label.';
+      preview.innerHTML = 'Pick a start month and year to build the label.';
       return;
     }
 
-    var to = check.checked || !end.value ? 'Present' : label(end.value);
+    var endHidden2 = row.querySelector('.date-value[data-role=end]');
+    var to = check.checked || !endHidden2.value ? 'Present' : label(endHidden2.value);
     preview.innerHTML = 'Shows as <strong>' + from + ' — ' + to + '</strong>';
   }
 
+  function initRow(row) {
+    fillSelects(row);
+    loadValue(row, 'start');
+    loadValue(row, 'end');
+    refreshRange(row);
+  }
+
   function refreshAll() {
-    document.querySelectorAll('#list-milestones .repeat-row').forEach(refreshRange);
+    document.querySelectorAll('#list-milestones .repeat-row').forEach(initRow);
   }
 
   // Delegated: milestone rows can be added after load.
   document.addEventListener('change', function (ev) {
-    var row = ev.target.closest('#list-milestones .repeat-row');
-    if (row) refreshRange(row);
-  });
-  document.addEventListener('input', function (ev) {
     var row = ev.target.closest('#list-milestones .repeat-row');
     if (row) refreshRange(row);
   });
