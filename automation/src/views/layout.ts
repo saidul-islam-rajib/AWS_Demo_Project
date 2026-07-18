@@ -258,9 +258,9 @@ ${body}
 }
 
 export function defaultNav(): string {
-  return `<a href="/">Home</a><a href="/tags">Tags</a><a href="/admin" class="btn btn-sm">Dashboard</a>`;
+  return `<a href="/">Home</a><a href="/about">About</a><a href="/tags">Tags</a><a href="/admin" class="btn btn-sm">Dashboard</a>`;
 }
 
 export function adminNav(): string {
-  return `<a href="/">View site</a><a href="/admin">Dashboard</a><a href="/admin/settings">Settings</a><a href="/admin/posts/new" class="btn btn-sm">Write</a><a href="/logout">Sign out</a>`;
+  return `<a href="/">View site</a><a href="/admin">Dashboard</a><a href="/admin/about">About</a><a href="/admin/settings">Settings</a><a href="/admin/posts/new" class="btn btn-sm">Write</a><a href="/logout">Sign out</a>`;
 }

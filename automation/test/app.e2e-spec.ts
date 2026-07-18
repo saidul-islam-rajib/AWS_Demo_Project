@@ -135,6 +135,96 @@ describe('Blog (e2e)', () => {
         .expect('Location', '/login'));
   });
 
+  describe('about page', () => {
+    it('is public and prompts when empty', () =>
+      request(app.getHttpServer())
+        .get('/about')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('has not been filled in yet');
+        }));
+
+    it('requires a session to edit', () =>
+      request(app.getHttpServer())
+        .get('/admin/about')
+        .expect(302)
+        .expect('Location', '/login'));
+
+    it('saves every section and renders them publicly', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/about')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          headline: 'Building things, mostly backends',
+          intro: '## Hello\n\nI am a **software engineer**.',
+          milestonePeriod: ['2024 — present', '2022 — 2024'],
+          milestoneTitle: ['Software Engineer', 'Junior Developer'],
+          milestoneOrg: ['Acme Corp', 'First Startup'],
+          milestoneDescription: ['Backend and infra', 'Where it started'],
+          skillGroupName: ['Backend', 'DevOps'],
+          skillGroupItems: ['NestJS, PostgreSQL', 'Docker, Jenkins'],
+          learningTitle: ['Kubernetes', 'Rust'],
+          learningNote: ['for orchestration', 'for fun'],
+          learningStatus: ['learning', 'planned'],
+          galleryUrl: ['/uploads/photo.png'],
+          galleryCaption: ['At the desk'],
+          socialLabel: ['LinkedIn'],
+          socialUrl: ['https://linkedin.com/in/example'],
+        })
+        .expect(302)
+        .expect('Location', '/admin/about?saved=1');
+
+      await request(server)
+        .get('/about')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('Building things, mostly backends');
+          expect(res.text).toContain('<strong>software engineer</strong>');
+          expect(res.text).toContain('Software Engineer');
+          expect(res.text).toContain('Acme Corp');
+          expect(res.text).toContain('NestJS');
+          expect(res.text).toContain('Kubernetes');
+          expect(res.text).toContain('Learning now');
+          expect(res.text).toContain('Planned');
+          expect(res.text).toContain('/uploads/photo.png');
+          expect(res.text).toContain('At the desk');
+          expect(res.text).toContain('linkedin.com/in/example');
+          expect(res.text).not.toContain('has not been filled in yet');
+        });
+    });
+
+    it('drops an unsafe social url', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/about')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          intro: 'x',
+          socialLabel: ['Evil'],
+          socialUrl: ['javascript:alert(1)'],
+        })
+        .expect(302);
+
+      await request(server)
+        .get('/about')
+        .expect(200)
+        .expect((res) => expect(res.text).not.toContain('javascript:alert'));
+    });
+
+    it('is linked from the public nav', () =>
+      request(app.getHttpServer())
+        .get('/')
+        .expect(200)
+        .expect((res) => expect(res.text).toContain('href="/about"')));
+  });
+
   describe('dashboard paging', () => {
     it('requires a session', () =>
       request(app.getHttpServer())
