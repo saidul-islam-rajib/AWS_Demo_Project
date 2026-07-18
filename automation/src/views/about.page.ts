@@ -41,8 +41,32 @@ const ABOUT_CSS = `
   }
 
   .about-intro {
-    font-family: var(--serif); font-size: 1.12rem; line-height: 1.75;
-    color: var(--ink-2); max-width: 36em;
+    font-family: var(--serif); font-size: 1.12rem; line-height: 1.78;
+    color: var(--ink-2);
+    /* Full measure, justified. Hyphenation is what stops justified text
+       opening up rivers of whitespace between words. */
+    text-align: justify;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    text-wrap: pretty;
+  }
+  .about-intro p { margin: 0; }
+  .about-intro h2 { font-size: 1.4rem; margin-top: 1.75rem; text-align: left; }
+  .about-intro h3 { font-size: 1.15rem; margin-top: 1.4rem; text-align: left; }
+  .about-intro ul, .about-intro ol { padding-left: 1.4rem; text-align: left; }
+  .about-intro li + li { margin-top: 0.35rem; }
+  .about-intro blockquote {
+    border-left: 3px solid var(--accent); padding-left: 1rem;
+    color: var(--ink-3); text-align: left;
+  }
+  .about-intro pre {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 0.9rem 1rem; overflow-x: auto; text-align: left;
+  }
+  .about-intro img { max-width: 100%; border-radius: 10px; }
+  /* Justified text needs room; on a phone it produces huge word gaps. */
+  @media (max-width: 700px) {
+    .about-intro { text-align: left; }
   }
   .about-intro > * + * { margin-top: 1.1rem; }
   .about-intro a { color: var(--accent); text-decoration: underline; }
@@ -70,7 +94,7 @@ const ABOUT_CSS = `
   }
   .milestone h3 { font-size: 1.08rem; margin: 0.25rem 0 0.15rem; }
   .milestone .org { font-size: 0.86rem; color: var(--ink-3); margin-bottom: 0.5rem; }
-  .milestone p { font-size: 0.94rem; line-height: 1.65; max-width: 40em; }
+  .milestone p { font-size: 0.94rem; line-height: 1.65; }
 
   /* ---------- skills ---------- */
   .skill-groups { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }

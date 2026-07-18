@@ -496,6 +496,38 @@ describe('Blog (e2e)', () => {
         });
     });
 
+    it('renders markdown in the intro', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/about')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          intro: [
+            'I build **reliable software** with [C#](https://learn.microsoft.com) and `NestJS`.',
+            '',
+            '## What I focus on',
+            '',
+            '- Backend APIs',
+            '- Deployment',
+          ].join('\n'),
+        })
+        .expect(302);
+
+      await request(server)
+        .get('/about')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('<strong>reliable software</strong>');
+          expect(res.text).toContain('href="https://learn.microsoft.com"');
+          expect(res.text).toContain('<code>NestJS</code>');
+          expect(res.text).toMatch(/<h2[^>]*>What I focus on<\/h2>/);
+          expect(res.text).toContain('<li>Backend APIs</li>');
+        });
+    });
+
     it('drops an unsafe social url', async () => {
       const cookie = await signIn();
       const server = app.getHttpServer();
