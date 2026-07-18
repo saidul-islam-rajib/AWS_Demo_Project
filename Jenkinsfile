@@ -52,9 +52,16 @@ pipeline {
 
                     # ADMIN_PASSWORD lives on the host, not in git. Without it the
                     # blog still serves, but the admin area cannot be signed into.
-                    if [ -f "$ENV_FILE" ]; then
+                    # -r not -f: the docker client runs as the jenkins user, so the
+                    # file existing is not enough — jenkins must be able to read it.
+                    if [ -r "$ENV_FILE" ]; then
                         ENV_ARG="--env-file $ENV_FILE"
                         echo "Loading secrets from $ENV_FILE"
+                    elif [ -f "$ENV_FILE" ]; then
+                        ENV_ARG=""
+                        echo "WARNING: $ENV_FILE exists but is not readable by $(whoami)."
+                        echo "         Fix with: sudo chown root:jenkins $ENV_FILE && sudo chmod 640 $ENV_FILE"
+                        echo "         Deploying without it — admin sign-in will be disabled."
                     else
                         ENV_ARG=""
                         echo "WARNING: $ENV_FILE not found — admin sign-in will be disabled."
