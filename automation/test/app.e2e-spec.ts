@@ -177,6 +177,57 @@ describe('Blog (e2e)', () => {
         .expect('Location', '/login'));
   });
 
+  describe('login rate limiting', () => {
+    const guess = (password = 'wrong') =>
+      request(app.getHttpServer())
+        .post('/login')
+        .type('form')
+        .send({ password });
+
+    it('locks the address after five wrong passwords', async () => {
+      for (let i = 0; i < 4; i++) {
+        await guess().expect(302).expect('Location', '/login?error=1');
+      }
+
+      // The fifth is the one that locks it.
+      await guess().expect(302).expect('Location', '/login?locked=1');
+    });
+
+    it('refuses the correct password while locked', async () => {
+      for (let i = 0; i < 5; i++) await guess();
+
+      // Checked before the password is looked at, so guessing gains nothing
+      // even if the attacker happens to get it right.
+      await guess(PASSWORD).expect(302).expect('Location', '/login?locked=1');
+    });
+
+    it('tells the visitor how long to wait', async () => {
+      for (let i = 0; i < 5; i++) await guess();
+
+      await request(app.getHttpServer())
+        .get('/login?locked=1')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('Too many failed attempts');
+          expect(res.text).toMatch(/Try again in \d+ minutes?\./);
+        });
+    });
+
+    it('does not count a successful sign-in against the limit', async () => {
+      for (let i = 0; i < 4; i++) await guess();
+
+      // Succeeding clears the record, so the next four typos are fresh.
+      await request(app.getHttpServer())
+        .post('/login')
+        .type('form')
+        .send({ password: PASSWORD })
+        .expect(302)
+        .expect('Location', '/admin');
+
+      await guess().expect(302).expect('Location', '/login?error=1');
+    });
+  });
+
   describe('live search', () => {
     it('ignores queries shorter than two characters', () =>
       request(app.getHttpServer())

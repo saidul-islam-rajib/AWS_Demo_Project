@@ -14,6 +14,7 @@ import { SettingsService } from './settings/settings.service';
 import { AboutService } from './about/about.service';
 import { ProjectsService } from './projects/projects.service';
 import { AuthService } from './auth/auth.service';
+import { LoginThrottleService } from './auth/login-throttle.service';
 
 @Module({
   imports: [],
@@ -37,6 +38,7 @@ import { AuthService } from './auth/auth.service';
     AboutService,
     ProjectsService,
     AuthService,
+    LoginThrottleService,
   ],
 })
 export class AppModule {}

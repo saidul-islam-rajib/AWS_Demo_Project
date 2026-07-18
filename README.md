@@ -88,7 +88,7 @@ subject, and the CI/CD that ships it is half the point.
 | Compression | `compression` | gzip; `/about` drops 30.6 KB → 8.1 KB |
 | Auth | Node `crypto` | HMAC-signed cookie, no dependency needed |
 | Storage | JSON on a Docker volume | See [Data and persistence](#data-and-persistence) |
-| Tests | Jest + Supertest | 212 unit, 97 end-to-end |
+| Tests | Jest + Supertest | 222 unit, 101 end-to-end |
 | Container | Docker | Build artifact and runtime |
 | CI/CD | Jenkins (declarative) | Runs on the same EC2 host |
 | Cloud | AWS EC2 | Single instance, Ubuntu |
@@ -158,6 +158,13 @@ the framework.
 A single admin password, compared with `timingSafeEqual` so the comparison cannot be timed. On
 success the server sets an **HMAC-SHA256 signed session cookie** — `httpOnly`, 12-hour expiry,
 carrying its own expiry inside the signed payload. No session store and no JWT library.
+
+**Sign-in is rate limited per client address**: five wrong passwords locks that address out for
+15 minutes, and the lock is checked *before* the password is examined, so guessing gains nothing
+even if the attacker happens to be right. Failures older than the window are forgotten, a correct
+password clears the record, and one address being locked never affects another. Attempts are keyed
+on the socket address rather than `X-Forwarded-For`, which is client-supplied and would otherwise
+let an attacker reset their own limit by changing one header.
 
 ### Image pipeline
 `GET /img/:name?w=` serves resized variants generated **on demand** and cached to disk:
@@ -338,8 +345,8 @@ build #41, because once the disk is full a build cannot reach the step that woul
 ## Testing
 
 ```bash
-npm test          # 212 unit tests across 9 suites
-npm run test:e2e  #  97 end-to-end tests
+npm test          # 222 unit tests across 10 suites
+npm run test:e2e  # 101 end-to-end tests
 ```
 
 End-to-end tests boot the real Nest application against a temporary `DATA_DIR`, exercising HTTP
@@ -386,4 +393,6 @@ Honest about what is not production-grade:
   mitigates it; a larger EBS volume solves it.
 - **No backups.** `blog_data` exists in exactly one place.
 - **Single instance.** In-memory state with file writes does not scale horizontally.
-- **No login rate limiting.** The password compare is timing-safe, but attempts are unlimited.
+- **Rate limiting is per instance and in memory.** Locks are cleared by a restart, and a
+  reverse proxy in front of the app would need Express's `trust proxy` enabled or every
+  visitor arrives as the proxy and shares one bucket.

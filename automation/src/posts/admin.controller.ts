@@ -16,38 +16,86 @@ import { PostsService } from './posts.service';
 import type { PostInput } from './post.model';
 import { AuthService } from '../auth/auth.service';
 import { AuthGuard } from '../auth/auth.guard';
+import { LoginThrottleService } from '../auth/login-throttle.service';
 import { dashboardPage, editorPage, loginPage } from '../views/admin.pages';
 
 /** Rows per dashboard page. */
 const PAGE_SIZE = 10;
+
+/**
+ * Which client a sign-in attempt is counted against.
+ *
+ * Deliberately the socket address and not X-Forwarded-For: that header is
+ * client-supplied, so trusting it here would let an attacker reset their own
+ * limit by changing one string per request. Express fills req.ip from the
+ * header only when `trust proxy` is enabled, which it is not — so putting a
+ * reverse proxy in front of this app means enabling that setting, otherwise
+ * every visitor arrives as the proxy and shares one bucket.
+ */
+function clientKey(req: Request): string {
+  return req.ip ?? req.socket?.remoteAddress ?? 'unknown';
+}
 
 @Controller()
 export class AdminController {
   constructor(
     private readonly posts: PostsService,
     private readonly auth: AuthService,
+    private readonly throttle: LoginThrottleService,
   ) {}
 
   // ---------- auth ----------
 
   @Get('login')
   @Header('Content-Type', 'text/html')
-  loginForm(@Query('error') error?: string): string {
+  loginForm(
+    @Req() req: Request,
+    @Query('error') error?: string,
+    @Query('locked') locked?: string,
+  ): string {
     if (!this.auth.configured) {
       return loginPage(
         undefined,
         'ADMIN_PASSWORD is not set on the server, so sign-in is disabled.',
       );
     }
+
+    if (locked !== undefined) {
+      const ms = this.throttle.retryAfter(clientKey(req));
+      const minutes = Math.max(1, Math.ceil(ms / 60000));
+
+      return loginPage(
+        ms > 0
+          ? `Too many failed attempts. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`
+          : 'Too many failed attempts. You can try again now.',
+      );
+    }
+
     return loginPage(error ? 'Incorrect password.' : undefined);
   }
 
   @HttpPost('login')
-  login(@Body('password') password: string, @Res() res: Response): void {
-    if (!this.auth.verifyPassword(password ?? '')) {
-      res.redirect('/login?error=1');
+  login(
+    @Body('password') password: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): void {
+    const client = clientKey(req);
+
+    // Checked before the password is even looked at, so a locked address
+    // gains nothing by continuing to guess.
+    if (this.throttle.blocked(client)) {
+      res.redirect('/login?locked=1');
       return;
     }
+
+    if (!this.auth.verifyPassword(password ?? '')) {
+      const justLocked = this.throttle.recordFailure(client);
+      res.redirect(justLocked ? '/login?locked=1' : '/login?error=1');
+      return;
+    }
+
+    this.throttle.recordSuccess(client);
 
     res.cookie(AuthService.COOKIE, this.auth.issueToken(), {
       httpOnly: true,
