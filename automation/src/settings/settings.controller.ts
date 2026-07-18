@@ -21,6 +21,7 @@ interface SettingsForm {
   avatarUrl?: string;
   siteTitle?: string;
   siteTagline?: string;
+  shareIntro?: string;
   footerOwner?: string;
   footerOwnerUrl?: string;
   footerSuffix?: string;

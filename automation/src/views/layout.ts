@@ -207,9 +207,15 @@ export function layout({
           ? 'image/webp'
           : '';
 
-  // The site description doubles as the default preview text, so a bio set
-  // in Settings is what people see when a link is shared.
-  const summary = description || s.authorBio || s.siteTagline;
+  /*
+   * What a shared link says under the title.
+   *
+   * A post or project passes its own description and keeps it — it is the
+   * thing being shared. Everything else falls through to the sharing intro
+   * the author wrote for exactly this purpose, then to the bio, then to the
+   * tagline, so the line is never empty.
+   */
+  const summary = description || s.shareIntro || s.authorBio || s.siteTagline;
 
   return `<!doctype html>
 <html lang="en">

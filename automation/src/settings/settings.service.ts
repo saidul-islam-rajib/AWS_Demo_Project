@@ -92,6 +92,7 @@ export class SettingsService {
         safeUrl(input.siteUrl ?? currentValue.siteUrl) ||
         DEFAULT_SETTINGS.siteUrl
       ).replace(/\/+$/, ''),
+      shareIntro: (input.shareIntro ?? currentValue.shareIntro ?? '').trim(),
       githubUser: (input.githubUser ?? currentValue.githubUser)
         .trim()
         .replace(/^@/, ''),

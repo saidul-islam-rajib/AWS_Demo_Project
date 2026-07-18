@@ -1501,6 +1501,85 @@ describe('Blog (e2e)', () => {
       expect(meta.height).toBe(630);
     });
 
+    it('prefers the sharing intro over the bio', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/settings')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          authorName: 'Saidul Islam Rajib',
+          authorBio: 'The bio, which is not written for sharing.',
+          shareIntro: 'Backend engineer writing up what breaks and why.',
+          siteUrl: 'https://example.com',
+        })
+        .expect(302);
+
+      await request(server)
+        .get('/')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain(
+            'property="og:description" content="Backend engineer writing up what breaks and why."',
+          );
+          expect(res.text).not.toContain('The bio, which is not written');
+        });
+    });
+
+    it('lets a post keep its own summary rather than the intro', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/settings')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          shareIntro: 'Site level intro.',
+          siteUrl: 'https://example.com',
+        })
+        .expect(302);
+
+      await request(server)
+        .post('/admin/posts/new')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          title: 'Own Summary',
+          subtitle: 'What this particular post is about.',
+          content: 'Body.',
+          status: 'published',
+        })
+        .expect(302);
+
+      // The post is the thing being shared, so it describes itself.
+      await request(server)
+        .get('/post/own-summary')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('What this particular post is about.');
+          expect(res.text).not.toContain(
+            'property="og:description" content="Site level intro."',
+          );
+        });
+    });
+
+    it('falls back to the bio when no intro is set', async () => {
+      const cookie = await signIn();
+      await setBrand(cookie);
+
+      await request(app.getHttpServer())
+        .get('/')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain(
+            'Backend engineer working with C# and NestJS.',
+          );
+        });
+    });
+
     it('uses the bio as the preview and search description', async () => {
       const cookie = await signIn();
       await setBrand(cookie);

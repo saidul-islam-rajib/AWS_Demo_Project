@@ -131,6 +131,18 @@ export function settingsPage(s: SiteSettings, saved = false): string {
           </div>
 
           <div class="field">
+            <label for="shareIntro">Sharing intro</label>
+            <textarea id="shareIntro" name="shareIntro" rows="3"
+                      placeholder="What someone should know about you in one or two sentences">${esc(s.shareIntro)}</textarea>
+            <p class="hint">
+              The line under the title when you share a link on Facebook,
+              LinkedIn or WhatsApp. Around 160 characters shows in full; more
+              than that gets cut off mid-sentence. A post or project uses its
+              own summary instead. Leave it empty to fall back to your bio.
+            </p>
+          </div>
+
+          <div class="field">
             <label for="githubUser">GitHub username</label>
             <input type="text" id="githubUser" name="githubUser" value="${esc(s.githubUser)}"
                    placeholder="saidul-islam-rajib" />
