@@ -93,6 +93,26 @@ export class PostsService {
     return this.findAll().filter((p) => p.status === 'published');
   }
 
+  /**
+   * One page of posts, newest first, for the dashboard's infinite scroll.
+   * `hasMore` tells the client whether to keep requesting.
+   */
+  page(
+    offset = 0,
+    limit = 10,
+  ): { posts: Post[]; hasMore: boolean; total: number } {
+    const all = this.findAll();
+    const start = Math.max(0, offset);
+    const size = Math.min(Math.max(1, limit), 50);
+    const posts = all.slice(start, start + size);
+
+    return {
+      posts,
+      hasMore: start + posts.length < all.length,
+      total: all.length,
+    };
+  }
+
   findBySlug(slug: string): Post {
     const post = this.posts.find((p) => p.slug === slug);
     if (!post) throw new NotFoundException(`No post with slug "${slug}"`);

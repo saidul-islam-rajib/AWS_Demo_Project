@@ -17,6 +17,13 @@ interface HealthBody {
   posts: number;
 }
 
+interface PageBody {
+  rows: string;
+  count: number;
+  hasMore: boolean;
+  total: number;
+}
+
 interface UploadBody {
   url: string;
   name: string;
@@ -126,6 +133,68 @@ describe('Blog (e2e)', () => {
         .send({ title: 'Sneaky', content: 'x' })
         .expect(302)
         .expect('Location', '/login'));
+  });
+
+  describe('dashboard paging', () => {
+    it('requires a session', () =>
+      request(app.getHttpServer())
+        .get('/admin/posts/page')
+        .expect(302)
+        .expect('Location', '/login'));
+
+    it('renders only the first page plus a sentinel', async () => {
+      const cookie = await signIn();
+
+      await request(app.getHttpServer())
+        .get('/admin')
+        .set('Cookie', cookie)
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('id="post-rows"');
+          expect(res.text).toContain('id="scroll-sentinel"');
+          expect(res.text).toContain('data-has-more="0"');
+          expect(res.text).toContain('Back to site');
+        });
+    });
+
+    it('serves a page of rows as JSON', async () => {
+      const cookie = await signIn();
+
+      const res = await request(app.getHttpServer())
+        .get('/admin/posts/page?offset=0')
+        .set('Cookie', cookie)
+        .expect(200);
+
+      const body = res.body as PageBody;
+      expect(body.count).toBe(10);
+      expect(body.total).toBe(10);
+      expect(body.hasMore).toBe(false);
+      expect(body.rows).toContain('<tr>');
+    });
+
+    it('returns an empty page past the end', async () => {
+      const cookie = await signIn();
+
+      const res = await request(app.getHttpServer())
+        .get('/admin/posts/page?offset=999')
+        .set('Cookie', cookie)
+        .expect(200);
+
+      const body = res.body as PageBody;
+      expect(body.count).toBe(0);
+      expect(body.hasMore).toBe(false);
+    });
+
+    it('treats a junk offset as zero rather than erroring', async () => {
+      const cookie = await signIn();
+
+      const res = await request(app.getHttpServer())
+        .get('/admin/posts/page?offset=abc')
+        .set('Cookie', cookie)
+        .expect(200);
+
+      expect((res.body as PageBody).count).toBe(10);
+    });
   });
 
   describe('settings', () => {

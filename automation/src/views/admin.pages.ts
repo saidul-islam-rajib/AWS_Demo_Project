@@ -135,7 +135,92 @@ const ADMIN_CSS = `
   }
   .chip-input input:focus { box-shadow: none; border: 0; }
   .chip-count { font-size: 0.72rem; color: var(--ink-3); }
+
+  .back-link {
+    display: inline-block; font-size: 0.83rem; color: var(--ink-3);
+    margin-bottom: 0.35rem;
+  }
+  .back-link:hover { color: var(--accent); }
+  .scroll-status {
+    text-align: center; padding: 1.25rem 1rem;
+    font-size: 0.83rem; color: var(--ink-3);
+  }
+  .spinner {
+    display: inline-block; width: 14px; height: 14px; margin-right: 0.5rem;
+    border: 2px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+    vertical-align: -2px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
 </style>`;
+
+/**
+ * Infinite scroll for the dashboard table.
+ *
+ * Uses IntersectionObserver on a sentinel below the table, with a manual
+ * button as the fallback when the API is unavailable. `loading` guards
+ * against the observer firing repeatedly while a request is in flight.
+ */
+const INFINITE_SCROLL_JS = `
+<script>
+(function () {
+  var sentinel = document.getElementById('scroll-sentinel');
+  var tbody = document.getElementById('post-rows');
+  var status = document.getElementById('scroll-status');
+  if (!sentinel || !tbody) return;
+
+  var loading = false;
+  var hasMore = sentinel.getAttribute('data-has-more') === '1';
+  var loaded = parseInt(sentinel.getAttribute('data-loaded') || '0', 10);
+
+  function setStatus(html) { status.innerHTML = html; }
+
+  function load() {
+    if (loading || !hasMore) return;
+    loading = true;
+    setStatus('<span class="spinner"></span>Loading more…');
+
+    fetch('/admin/posts/page?offset=' + loaded, { credentials: 'same-origin' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('Request failed (' + r.status + ')');
+        return r.json();
+      })
+      .then(function (data) {
+        if (data.rows) tbody.insertAdjacentHTML('beforeend', data.rows);
+        loaded += data.count;
+        hasMore = data.hasMore;
+        loading = false;
+
+        if (hasMore) {
+          setStatus('Scroll for more…');
+        } else {
+          setStatus('That is everything — ' + loaded + ' posts.');
+          if (observer) observer.disconnect();
+        }
+      })
+      .catch(function (err) {
+        loading = false;
+        setStatus('Could not load more. <button type="button" class="btn btn-ghost btn-sm" id="retry">Retry</button>');
+        var retry = document.getElementById('retry');
+        if (retry) retry.addEventListener('click', load);
+      });
+  }
+
+  var observer = null;
+
+  if ('IntersectionObserver' in window) {
+    // rootMargin starts the fetch before the sentinel is actually visible.
+    observer = new IntersectionObserver(function (entries) {
+      if (entries[0].isIntersecting) load();
+    }, { rootMargin: '300px' });
+    observer.observe(sentinel);
+  } else if (hasMore) {
+    setStatus('<button type="button" class="btn btn-ghost btn-sm" id="load-more">Load more</button>');
+    document.getElementById('load-more').addEventListener('click', load);
+  }
+})();
+</script>`;
 
 /**
  * Chip input. Progressive enhancement: the real value always lives in a
@@ -382,6 +467,37 @@ const EDITOR_JS = `
 })();
 </script>`;
 
+/**
+ * Table rows only. The dashboard renders the first page with these, and the
+ * infinite-scroll endpoint returns the same markup for the client to append.
+ */
+export function postRows(posts: Post[]): string {
+  return posts
+    .map(
+      (p) => `<tr>
+        <td>
+          <span class="t">${esc(p.title)}</span>
+          <span class="s">${esc(p.subtitle || '—')} · ${readingMinutes(p.content)} min</span>
+        </td>
+        <td><span class="pill ${p.status === 'published' ? 'pub' : 'draft'}">${p.status}</span></td>
+        <td><div class="tag-row">${p.tags.map((t) => `<span class="tag">${esc(t)}</span>`).join('') || '<span class="s">—</span>'}</div></td>
+        <td>${p.views}</td>
+        <td class="s">${esc(formatDate(p.updatedAt))}</td>
+        <td>
+          <div class="actions">
+            ${p.status === 'published' ? `<a class="btn btn-ghost btn-sm" href="/post/${esc(p.slug)}">View</a>` : ''}
+            <a class="btn btn-ghost btn-sm" href="/admin/posts/${esc(p.id)}/edit">Edit</a>
+            <form method="post" action="/admin/posts/${esc(p.id)}/delete"
+                  onsubmit="return confirm('Delete “${esc(p.title).replace(/'/g, '&#39;')}”? This cannot be undone.')">
+              <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+            </form>
+          </div>
+        </td>
+      </tr>`,
+    )
+    .join('');
+}
+
 export function dashboardPage(opts: {
   posts: Post[];
   stats: {
@@ -395,8 +511,9 @@ export function dashboardPage(opts: {
   };
   tags: { tag: string; count: number }[];
   flash?: { kind: 'ok' | 'err'; text: string };
+  hasMore?: boolean;
 }): string {
-  const { posts, stats, tags, flash } = opts;
+  const { posts, stats, tags, flash, hasMore = false } = opts;
 
   const body = `
 ${ADMIN_CSS}
@@ -404,6 +521,7 @@ ${ADMIN_CSS}
 
   <div class="toolbar">
     <div>
+      <a class="back-link" href="/">← Back to site</a>
       <h1 class="page-title" style="margin-bottom:.15rem">Dashboard</h1>
       <p style="color:var(--ink-3);font-size:.9rem">Manage posts, drafts and tags.</p>
     </div>
@@ -447,38 +565,18 @@ ${ADMIN_CSS}
     <thead><tr>
       <th>Title</th><th>Status</th><th>Tags</th><th>Views</th><th>Updated</th><th></th>
     </tr></thead>
-    <tbody>
-      ${posts
-        .map(
-          (p) => `<tr>
-        <td>
-          <span class="t">${esc(p.title)}</span>
-          <span class="s">${esc(p.subtitle || '—')} · ${readingMinutes(p.content)} min</span>
-        </td>
-        <td><span class="pill ${p.status === 'published' ? 'pub' : 'draft'}">${p.status}</span></td>
-        <td><div class="tag-row">${p.tags.map((t) => `<span class="tag">${esc(t)}</span>`).join('') || '<span class="s">—</span>'}</div></td>
-        <td>${p.views}</td>
-        <td class="s">${esc(formatDate(p.updatedAt))}</td>
-        <td>
-          <div class="actions">
-            ${p.status === 'published' ? `<a class="btn btn-ghost btn-sm" href="/post/${esc(p.slug)}">View</a>` : ''}
-            <a class="btn btn-ghost btn-sm" href="/admin/posts/${esc(p.id)}/edit">Edit</a>
-            <form method="post" action="/admin/posts/${esc(p.id)}/delete"
-                  onsubmit="return confirm('Delete “${esc(p.title).replace(/'/g, '&#39;')}”? This cannot be undone.')">
-              <button class="btn btn-danger btn-sm" type="submit">Delete</button>
-            </form>
-          </div>
-        </td>
-      </tr>`,
-        )
-        .join('')}
+    <tbody id="post-rows">
+      ${postRows(posts)}
     </tbody>
-  </table></div>`
+  </table></div>
+  <div id="scroll-sentinel" data-has-more="${hasMore ? '1' : '0'}" data-loaded="${posts.length}"></div>
+  <div id="scroll-status" class="scroll-status">${hasMore ? 'Scroll for more…' : 'That is everything.'}</div>`
       : `<div class="empty">
       <p>No posts yet.</p>
       <p style="margin-top:1.25rem"><a class="btn" href="/admin/posts/new">Write your first post</a></p>
     </div>`
-  }`;
+  }
+${INFINITE_SCROLL_JS}`;
 
   return layout({
     title: 'Dashboard — Saidul Islam Rajib',

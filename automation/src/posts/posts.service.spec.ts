@@ -206,6 +206,52 @@ describe('PostsService', () => {
     );
   });
 
+  describe('page', () => {
+    it('returns the first page with hasMore set', () => {
+      const result = service.page(0, 4);
+
+      expect(result.posts).toHaveLength(4);
+      expect(result.hasMore).toBe(true);
+      expect(result.total).toBe(10);
+    });
+
+    it('returns the last page with hasMore false', () => {
+      const result = service.page(8, 4);
+
+      expect(result.posts).toHaveLength(2);
+      expect(result.hasMore).toBe(false);
+    });
+
+    it('returns nothing past the end', () => {
+      const result = service.page(50, 10);
+
+      expect(result.posts).toHaveLength(0);
+      expect(result.hasMore).toBe(false);
+    });
+
+    it('does not repeat or skip posts across pages', () => {
+      const first = service.page(0, 4).posts.map((p) => p.id);
+      const second = service.page(4, 4).posts.map((p) => p.id);
+      const third = service.page(8, 4).posts.map((p) => p.id);
+      const all = [...first, ...second, ...third];
+
+      expect(all).toHaveLength(10);
+      expect(new Set(all).size).toBe(10);
+    });
+
+    it('keeps newest-first ordering', () => {
+      const paged = [...service.page(0, 5).posts, ...service.page(5, 5).posts];
+      const direct = service.findAll();
+
+      expect(paged.map((p) => p.id)).toEqual(direct.map((p) => p.id));
+    });
+
+    it('clamps a negative offset and an oversized limit', () => {
+      expect(service.page(-5, 3).posts).toHaveLength(3);
+      expect(service.page(0, 999).posts).toHaveLength(10);
+    });
+  });
+
   describe('importStarters', () => {
     it('adds nothing when every starter is already present', () => {
       const result = service.importStarters();
