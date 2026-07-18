@@ -1,0 +1,84 @@
+AWS DEMO PROJECT — copy for the project edit page
+=================================================
+Paste each block into the matching field at /admin/projects.
+Word limits are enforced by the app: short 100, detailed 200.
+
+
+TITLE
+-----
+AWS Demo Project
+
+
+SHORT DESCRIPTION  (field: "Short description" — 82 words)
+----------------------------------------------------------
+A personal blog and project portfolio built with NestJS and TypeScript,
+deployed to an AWS EC2 instance by a Jenkins pipeline that runs on every
+push. Docker builds the image, the tests run inside that image, and a
+named volume keeps posts, projects and uploaded photos alive when the
+container is replaced. It includes a Markdown editor with drafts and
+scheduling, a searchable project portfolio, an About page with a photo
+gallery, and an image pipeline that resizes on demand and builds social
+preview cards.
+
+
+DETAILED DESCRIPTION  (field: "Detailed description" — 189 words, Markdown)
+---------------------------------------------------------------------------
+This repository is the blog you are reading, together with the pipeline
+that puts it on the internet.
+
+**The application.** NestJS renders every page on the server with no view
+engine — the HTML lives in TypeScript template literals. Posts, projects,
+About content and settings are stored as JSON written atomically to a
+mounted Docker volume, so nothing is lost when a deploy replaces the
+running container.
+
+**The pipeline.** A declarative Jenkins pipeline checks out the code,
+builds a Docker image, runs the test suite inside that image, deploys to
+EC2, and verifies the container answers before it reports success. It also
+prunes old image tags, because an EC2 root volume fills faster than you
+expect.
+
+**What it does.** Markdown posts with drafts, backdating and future
+scheduling; a portfolio whose technologies, topics, keywords and tags are
+all clickable; an About page with a timeline and photo gallery; live
+search; Open Graph previews built at 1200x630; a sitemap and structured
+data.
+
+**Images.** Uploads are resized on demand into cached WebP variants with
+EXIF rotation applied, and pages ship gzipped with skeleton placeholders
+while photos arrive.
+
+Over 300 tests cover it. Most of them exist because something broke first.
+
+
+TECHNOLOGIES  (comma separated — lowercased automatically)
+-----------------------------------------------------------
+nestjs, typescript, node.js, docker, jenkins, aws ec2, express, sharp, jest, markdown
+
+
+TOPICS
+------
+ci-cd, devops, backend, cloud, automation, web development
+
+
+KEYWORDS
+--------
+blog engine, cms, continuous deployment, docker volume, server-side rendering,
+image optimization, open graph, seo, rest api, e2e testing, session auth, caching
+
+
+TAGS
+----
+personal project, portfolio, learning, production
+
+
+REMAINING FIELDS
+----------------
+Year:        2026
+Status:      Ongoing
+Repository:  https://github.com/saidul-islam-rajib/AWS_Demo_Project
+Demo URL:    http://16.171.254.209:3000/
+
+Tick both "Show short description" and "Show detailed description" so each
+block appears on the public page — the short one on the card, the detailed
+one on the project's own page.
