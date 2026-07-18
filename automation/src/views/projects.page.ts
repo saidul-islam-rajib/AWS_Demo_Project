@@ -108,6 +108,16 @@ const PROJECTS_CSS = `
   @media (max-width: 820px) { .detail-grid { grid-template-columns: 1fr; gap: 1.5rem; } }
   .fact-list { font-size: 0.88rem; }
   .fact-list div { display: flex; justify-content: space-between; gap: 1rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+  @media (max-width: 600px) {
+    .proj-hero { padding: 1.5rem 0 1.25rem; }
+    .proj-hero h1 { font-size: 1.75rem; }
+    .filters { padding: 0.75rem 0 1rem; }
+    .filters form { min-width: 0; flex-direction: column; }
+    .filters .btn { width: 100%; justify-content: center; }
+    .proj-grid { grid-template-columns: 1fr; }
+    .year-head h2 { font-size: 1.4rem; }
+    .detail-actions .btn { width: 100%; justify-content: center; }
+  }
   .fact-list dt { color: var(--ink-3); }
   .fact-list dd { color: var(--ink); font-weight: 600; text-align: right; }
 

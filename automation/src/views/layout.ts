@@ -181,15 +181,69 @@ ${head}
     font-size: 0.8rem; font-weight: 800; flex-shrink: 0;
   }
   .avatar-img { object-fit: cover; padding: 0; }
+  /* ---------- navigation ---------- */
   .nav { margin-left: auto; display: flex; align-items: center; gap: 1.1rem; font-size: 0.9rem; }
-  .nav a { color: var(--ink-3); position: relative; padding: 0.15rem 0; }
+  .nav a { color: var(--ink-3); position: relative; padding: 0.15rem 0; white-space: nowrap; }
   .nav a:hover { color: var(--ink); }
-  /* Only plain links get the active treatment; .btn is an action, not a location. */
+  /* Only plain links get the active treatment; actions are not locations. */
   .nav a.active:not(.btn) { color: var(--ink); font-weight: 600; }
   .nav a.active:not(.btn)::after {
     content: ""; position: absolute; left: 0; right: 0; bottom: -3px;
     height: 2px; background: var(--accent); border-radius: 2px;
   }
+
+  /*
+   * Pure CSS disclosure: a hidden checkbox drives the panel, so the menu
+   * works with scripting disabled. JS only closes it after a tap.
+   */
+  .nav-toggle { position: absolute; opacity: 0; pointer-events: none; }
+  .nav-burger {
+    display: none; margin-left: auto; cursor: pointer;
+    width: 40px; height: 40px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--surface);
+    align-items: center; justify-content: center; flex-direction: column; gap: 4px;
+  }
+  .nav-burger:hover { border-color: var(--accent); }
+  .nav-burger span {
+    display: block; width: 17px; height: 2px; border-radius: 2px;
+    background: var(--ink-2); transition: transform .2s, opacity .2s;
+  }
+  .nav-toggle:focus-visible + .nav-burger {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+  .nav-toggle:checked + .nav-burger span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+  .nav-toggle:checked + .nav-burger span:nth-child(2) { opacity: 0; }
+  .nav-toggle:checked + .nav-burger span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+
+  /* Tablet: tighten spacing before collapsing entirely. */
+  @media (max-width: 1040px) {
+    .nav { gap: 0.85rem; font-size: 0.86rem; }
+  }
+
+  @media (max-width: 860px) {
+    .header-inner { flex-wrap: wrap; row-gap: 0; }
+    .nav-burger { display: flex; }
+    .nav {
+      display: none; order: 3; width: 100%;
+      flex-direction: column; align-items: stretch; gap: 0;
+      margin: 0.6rem -0.25rem 0.35rem;
+      border-top: 1px solid var(--border);
+    }
+    .nav-toggle:checked ~ .nav { display: flex; }
+    .nav a {
+      padding: 0.75rem 0.25rem; font-size: 0.95rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .nav a:last-child { border-bottom: 0; }
+    /* An underline under a full-width row reads as a divider, not a state. */
+    .nav a.active:not(.btn)::after { display: none; }
+    .nav a.active:not(.btn) {
+      color: var(--accent);
+      box-shadow: inset 3px 0 0 var(--accent);
+      padding-left: 0.75rem;
+    }
+  }
+
   .btn {
     display: inline-flex; align-items: center; gap: 0.4rem;
     padding: 0.45rem 0.9rem; border-radius: 100px;
@@ -284,7 +338,11 @@ ${head}
   <header class="site-header">
     <div class="header-inner">
       <a class="wordmark" href="/">${avatarMark(s.avatarUrl, s.authorName)} ${esc(s.authorName)}</a>
-      <nav class="nav">${navigation}</nav>
+      <input type="checkbox" id="nav-toggle" class="nav-toggle" aria-label="Toggle menu" />
+      <label for="nav-toggle" class="nav-burger" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </label>
+      <nav class="nav" id="site-nav">${navigation}</nav>
     </div>
   </header>
 
@@ -316,6 +374,24 @@ ${body}
       </span>
     </div>
   </footer>
+<script>
+(function () {
+  var toggle = document.getElementById('nav-toggle');
+  if (!toggle) return;
+
+  document.getElementById('site-nav').addEventListener('click', function (ev) {
+    if (ev.target.tagName === 'A') toggle.checked = false;
+  });
+
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') toggle.checked = false;
+  });
+
+  document.addEventListener('click', function (ev) {
+    if (!ev.target.closest('.site-header')) toggle.checked = false;
+  });
+})();
+</script>
 </body>
 </html>`;
 }

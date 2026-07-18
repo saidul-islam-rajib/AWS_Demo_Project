@@ -26,7 +26,7 @@ const ABOUT_CSS = `
     font-family: var(--serif); font-size: clamp(1.9rem, 5vw, 2.6rem);
     line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 0.3rem;
   }
-  .about-hero .role { color: var(--ink-3); font-size: 1rem; }
+  .about-hero .role { color: var(--ink-3); font-size: 1rem; text-align: left; }
   .socials { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.85rem; }
   .social-link {
     font-size: 0.82rem; padding: 0.3rem 0.75rem; border-radius: 100px;
@@ -42,18 +42,31 @@ const ABOUT_CSS = `
     border-bottom: 1px solid var(--border);
   }
 
-  .about-intro {
-    font-family: var(--serif); font-size: 1.12rem; line-height: 1.78;
-    color: var(--ink-2);
-    /* Full measure, justified. Hyphenation is what stops justified text
-       opening up rivers of whitespace between words. */
+  /*
+   * Every prose block on this page is justified, on all screen sizes.
+   * Hyphenation is not optional here: justified text without it stretches
+   * word spacing to fill each line, which opens rivers of whitespace —
+   * worst on narrow screens, which is exactly where it must still hold up.
+   */
+  .about-intro,
+  .milestone-body,
+  .learn-card p,
+  .about-hero .role {
     text-align: justify;
     hyphens: auto;
     -webkit-hyphens: auto;
     text-wrap: pretty;
   }
+
+  .about-intro {
+    font-family: var(--serif); font-size: 1.12rem; line-height: 1.78;
+    color: var(--ink-2);
+  }
   .about-intro p { margin: 0; }
   .about-intro h2 { font-size: 1.4rem; margin-top: 1.75rem; text-align: left; }
+  .milestone-body h2, .milestone-body h3, .learn-card h3 { text-align: left; }
+  .milestone-body ul, .milestone-body ol { text-align: left; }
+  .milestone-body pre, .milestone-body code { text-align: left; }
   .about-intro h3 { font-size: 1.15rem; margin-top: 1.4rem; text-align: left; }
   .about-intro ul, .about-intro ol { padding-left: 1.4rem; text-align: left; }
   .about-intro li + li { margin-top: 0.35rem; }
@@ -66,10 +79,7 @@ const ABOUT_CSS = `
     border-radius: 8px; padding: 0.9rem 1rem; overflow-x: auto; text-align: left;
   }
   .about-intro img { max-width: 100%; border-radius: 10px; }
-  /* Justified text needs room; on a phone it produces huge word gaps. */
-  @media (max-width: 700px) {
-    .about-intro { text-align: left; }
-  }
+
   .about-intro > * + * { margin-top: 1.1rem; }
   .about-intro a { color: var(--accent); text-decoration: underline; }
   .about-intro code {
@@ -154,8 +164,14 @@ const ABOUT_CSS = `
   }
 
   @media (max-width: 600px) {
-    .about-avatar { width: 72px; height: 72px; font-size: 1.5rem; }
-    .gallery { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    .about-avatar { width: 64px; height: 64px; font-size: 1.35rem; }
+    .about-hero { gap: 0.9rem; padding-bottom: 1.5rem; margin-bottom: 1.75rem; }
+    .about-hero h1 { font-size: 1.6rem; }
+    .about-section { margin-bottom: 2.25rem; }
+    .about-intro { font-size: 1.02rem; line-height: 1.7; }
+    .timeline { padding-left: 1.3rem; }
+    .milestone:before { left: -1.3rem; }
+    .gallery { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
   }
 
   /* ---------- lightbox ---------- */

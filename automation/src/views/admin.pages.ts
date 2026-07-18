@@ -46,6 +46,13 @@ const ADMIN_CSS = `
   .pill.sched { color: var(--accent); }
   .actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
   .toolbar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+  @media (max-width: 600px) {
+    .kpi-row { grid-template-columns: 1fr 1fr; }
+    .toolbar > div:last-child { width: 100%; }
+    .toolbar > div:last-child .btn { flex: 1; justify-content: center; }
+    /* The table stays wide and scrolls; squashing it makes rows unreadable. */
+    .table-wrap table { min-width: 640px; }
+  }
   .editor-grid { display: grid; grid-template-columns: 1fr 280px; gap: 1.75rem; align-items: start; }
   @media (max-width: 860px) { .editor-grid { grid-template-columns: 1fr; } }
   .panel {

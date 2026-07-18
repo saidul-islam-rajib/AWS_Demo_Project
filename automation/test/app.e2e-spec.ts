@@ -325,12 +325,23 @@ describe('Blog (e2e)', () => {
 
       // The <nav> must not contain any button-styled links.
       const navOf = (html: string) =>
-        /<nav class="nav">([\s\S]*?)<\/nav>/.exec(html)?.[1] ?? '';
+        /<nav class="nav"[^>]*>([\s\S]*?)<\/nav>/.exec(html)?.[1] ?? '';
 
       expect(navOf(publicNav.text)).not.toContain('btn');
       expect(navOf(adminNav.text)).not.toContain('btn');
       expect(navOf(adminNav.text)).toContain('Write');
       expect(navOf(publicNav.text)).toContain('Dashboard');
+    });
+
+    it('ships a mobile menu that works without JavaScript', async () => {
+      const res = await request(app.getHttpServer()).get('/').expect(200);
+
+      // Checkbox-driven disclosure, so the panel opens with scripting off.
+      expect(res.text).toContain('id="nav-toggle"');
+      expect(res.text).toContain('class="nav-burger"');
+      expect(res.text).toContain('.nav-toggle:checked ~ .nav');
+      // Hidden on desktop, shown only at the mobile breakpoint.
+      expect(res.text).toContain('@media (max-width: 860px)');
     });
 
     it('marks the current section, and never marks Write as current', async () => {
@@ -608,6 +619,19 @@ describe('Blog (e2e)', () => {
           expect(res.text).toContain('linkedin.com/in/example');
           expect(res.text).not.toContain('has not been filled in yet');
         });
+    });
+
+    it('justifies every prose block, on all screen sizes', async () => {
+      const res = await request(app.getHttpServer()).get('/about').expect(200);
+
+      // One rule covers intro, journey bodies and learning notes.
+      expect(res.text).toMatch(
+        /\.about-intro,[\s\S]{0,160}\.milestone-body,[\s\S]{0,160}text-align: justify/,
+      );
+      // Hyphenation must accompany justification or narrow screens get rivers.
+      expect(res.text).toContain('hyphens: auto');
+      // No small-screen opt-out.
+      expect(res.text).not.toContain('.about-intro { text-align: left; }');
     });
 
     it('renders markdown in the intro', async () => {

@@ -78,6 +78,16 @@ const FEED_CSS = `
     /* Sticky in a single column would pin the sidebar over the posts. */
     .feed-side { position: static; }
   }
+  @media (max-width: 600px) {
+    .hero { padding: 1.5rem 0 1.75rem; margin-bottom: 1.75rem; }
+    .hero h1 { font-size: 1.75rem; }
+    .hero p { font-size: 0.98rem; }
+    .search-wrap { max-width: none; }
+    .searchbar { flex-direction: column; }
+    .searchbar .btn { width: 100%; justify-content: center; }
+    .card h2 { font-size: 1.22rem; }
+    .stat-row { grid-template-columns: 1fr 1fr; }
+  }
 
   .card {
     display: block; padding: 1.6rem 0;
@@ -815,6 +825,16 @@ export function tagsPage(opts: {
   .featured-card li { padding: 0.3rem 0; border-top: 1px solid var(--border); }
   .featured-card li a { font-size: 0.87rem; color: var(--ink-2); line-height: 1.45; }
   .featured-card li a:hover { color: var(--accent); }
+
+  @media (max-width: 600px) {
+    .explore-hero { padding: 1.5rem 0 1.25rem; }
+    .explore-hero h1 { font-size: 1.75rem; }
+    .explore-hero p { font-size: 0.96rem; }
+    .explore-section { margin-bottom: 2.25rem; }
+    .featured-grid { grid-template-columns: 1fr; }
+    /* Cap the cloud's largest term so one tag cannot dominate a phone screen. */
+    .cloud a { font-size: 1.05rem !important; }
+  }
 </style>
 
   <section class="explore-hero">
