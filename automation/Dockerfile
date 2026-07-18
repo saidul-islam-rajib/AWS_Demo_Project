@@ -1,4 +1,6 @@
-FROM node:18-alpine
+# NestJS 11 and its CLI require Node >= 20; Node 18 built but logged
+# EBADENGINE warnings for @nestjs/core, @nestjs/cli and others.
+FROM node:20-alpine
 
 WORKDIR /app
 

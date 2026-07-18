@@ -101,8 +101,33 @@ pipeline {
 
     post {
         always {
-            // The root volume is small; drop dangling layers from previous builds.
-            sh 'docker image prune -f || true'
+            // The root volume is only 6.6GB and every build writes a full image.
+            //
+            // `docker image prune -f` alone was not enough: it removes *dangling*
+            // images only, and each build here is tagged with its number, so
+            // nothing was ever collected and the disk filled up at build #15.
+            //
+            // Volumes are deliberately never pruned — blog_data holds the posts.
+            sh '''
+                echo "Disk before cleanup:"
+                df -h / | tail -1
+
+                # Drop numbered tags beyond the three most recent builds.
+                docker images "$IMAGE_NAME" --format '{{.Tag}}' \
+                    | grep -E '^[0-9]+$' \
+                    | sort -rn \
+                    | tail -n +4 \
+                    | while read -r old; do
+                        echo "Removing $IMAGE_NAME:$old"
+                        docker rmi "$IMAGE_NAME:$old" || true
+                      done
+
+                docker image prune -f || true
+                docker builder prune -f || true
+
+                echo "Disk after cleanup:"
+                df -h / | tail -1
+            '''
         }
         success {
             emailext(
