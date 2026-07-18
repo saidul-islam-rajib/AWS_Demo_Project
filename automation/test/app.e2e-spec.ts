@@ -333,15 +333,34 @@ describe('Blog (e2e)', () => {
       expect(navOf(publicNav.text)).toContain('Dashboard');
     });
 
-    it('ships a mobile menu that works without JavaScript', async () => {
+    it('ships an off-canvas drawer that works without JavaScript', async () => {
       const res = await request(app.getHttpServer()).get('/').expect(200);
 
-      // Checkbox-driven disclosure, so the panel opens with scripting off.
+      // Checkbox-driven, so the drawer opens with scripting off.
       expect(res.text).toContain('id="nav-toggle"');
       expect(res.text).toContain('class="nav-burger"');
       expect(res.text).toContain('.nav-toggle:checked ~ .nav');
-      // Hidden on desktop, shown only at the mobile breakpoint.
+
+      // Drawer furniture: title bar, close control and dimming overlay.
+      expect(res.text).toContain('class="nav-head"');
+      expect(res.text).toContain('class="nav-close"');
+      expect(res.text).toContain('class="nav-overlay"');
+      expect(res.text).toContain('.nav-toggle:checked ~ .nav-overlay');
+
+      // Slides in from the left rather than expanding inline.
+      expect(res.text).toContain('transform: translateX(-100%)');
       expect(res.text).toContain('@media (max-width: 860px)');
+    });
+
+    it('puts the burger before the wordmark so it sits on the left', async () => {
+      const res = await request(app.getHttpServer()).get('/').expect(200);
+      const header = /<div class="header-inner">([\s\S]*?)<\/header>/.exec(
+        res.text,
+      )?.[1] as string;
+
+      expect(header.indexOf('nav-burger')).toBeLessThan(
+        header.indexOf('class="wordmark"'),
+      );
     });
 
     it('marks the current section, and never marks Write as current', async () => {

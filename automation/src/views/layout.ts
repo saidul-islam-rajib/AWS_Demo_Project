@@ -185,63 +185,88 @@ ${head}
   .nav { margin-left: auto; display: flex; align-items: center; gap: 1.1rem; font-size: 0.9rem; }
   .nav a { color: var(--ink-3); position: relative; padding: 0.15rem 0; white-space: nowrap; }
   .nav a:hover { color: var(--ink); }
-  /* Only plain links get the active treatment; actions are not locations. */
   .nav a.active:not(.btn) { color: var(--ink); font-weight: 600; }
   .nav a.active:not(.btn)::after {
     content: ""; position: absolute; left: 0; right: 0; bottom: -3px;
     height: 2px; background: var(--accent); border-radius: 2px;
   }
+  .nav-head, .nav-overlay { display: none; }
 
   /*
-   * Pure CSS disclosure: a hidden checkbox drives the panel, so the menu
-   * works with scripting disabled. JS only closes it after a tap.
+   * A hidden checkbox drives the drawer, so it opens with scripting
+   * disabled. Script only closes it on tap, Escape or outside click.
    */
   .nav-toggle { position: absolute; opacity: 0; pointer-events: none; }
   .nav-burger {
-    display: none; margin-left: auto; cursor: pointer;
-    width: 40px; height: 40px; border-radius: 10px;
-    border: 1px solid var(--border); background: var(--surface);
+    display: none; cursor: pointer;
+    width: 42px; height: 42px; border-radius: 10px; margin-right: 0.15rem;
     align-items: center; justify-content: center; flex-direction: column; gap: 4px;
   }
-  .nav-burger:hover { border-color: var(--accent); }
+  .nav-burger:hover { background: var(--surface-2); }
   .nav-burger span {
-    display: block; width: 17px; height: 2px; border-radius: 2px;
-    background: var(--ink-2); transition: transform .2s, opacity .2s;
+    display: block; width: 18px; height: 2px; border-radius: 2px;
+    background: var(--ink); transition: transform .2s, opacity .2s;
   }
   .nav-toggle:focus-visible + .nav-burger {
     outline: 2px solid var(--accent); outline-offset: 2px;
   }
-  .nav-toggle:checked + .nav-burger span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
-  .nav-toggle:checked + .nav-burger span:nth-child(2) { opacity: 0; }
-  .nav-toggle:checked + .nav-burger span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
 
-  /* Tablet: tighten spacing before collapsing entirely. */
+  /* Tablet: tighten before collapsing. */
   @media (max-width: 1040px) {
     .nav { gap: 0.85rem; font-size: 0.86rem; }
   }
 
   @media (max-width: 860px) {
-    .header-inner { flex-wrap: wrap; row-gap: 0; }
-    .nav-burger { display: flex; }
-    .nav {
-      display: none; order: 3; width: 100%;
-      flex-direction: column; align-items: stretch; gap: 0;
-      margin: 0.6rem -0.25rem 0.35rem;
-      border-top: 1px solid var(--border);
+    /* Burger sits first, so it lands on the left of the header. */
+    .nav-burger { display: flex; order: -1; }
+    .wordmark { font-size: 0.98rem; }
+
+    .nav-overlay {
+      display: block; position: fixed; inset: 0; z-index: 40;
+      background: rgba(0, 0, 0, 0.45);
+      opacity: 0; visibility: hidden; transition: opacity .22s;
     }
-    .nav-toggle:checked ~ .nav { display: flex; }
+    .nav-toggle:checked ~ .nav-overlay { opacity: 1; visibility: visible; }
+
+    .nav {
+      position: fixed; top: 0; left: 0; bottom: 0; z-index: 50;
+      width: 82%; max-width: 320px;
+      margin: 0; gap: 0; font-size: 1rem;
+      flex-direction: column; align-items: stretch;
+      background: var(--bg); border-right: 1px solid var(--border);
+      box-shadow: 4px 0 24px rgba(0, 0, 0, 0.18);
+      transform: translateX(-100%);
+      transition: transform .24s ease;
+      overflow-y: auto;
+    }
+    .nav-toggle:checked ~ .nav { transform: translateX(0); }
+
+    .nav-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1rem 1.1rem; background: var(--accent); color: var(--accent-ink);
+      font-weight: 700; font-size: 0.95rem; flex-shrink: 0;
+    }
+    .nav-close {
+      cursor: pointer; font-size: 1.5rem; line-height: 1;
+      color: var(--accent-ink); padding: 0 0.2rem;
+    }
+
     .nav a {
-      padding: 0.75rem 0.25rem; font-size: 0.95rem;
+      padding: 0.95rem 1.1rem; color: var(--ink-2);
       border-bottom: 1px solid var(--border);
     }
-    .nav a:last-child { border-bottom: 0; }
-    /* An underline under a full-width row reads as a divider, not a state. */
+    .nav a:hover { background: var(--surface-2); color: var(--ink); }
+    /* A full-width row needs a bar, not an underline, to read as current. */
     .nav a.active:not(.btn)::after { display: none; }
     .nav a.active:not(.btn) {
-      color: var(--accent);
+      color: var(--accent); background: var(--surface-2);
       box-shadow: inset 3px 0 0 var(--accent);
-      padding-left: 0.75rem;
     }
+  }
+
+  /* Freeze the page behind an open drawer. */
+  @media (max-width: 860px) {
+    html:has(.nav-toggle:checked) { overflow: hidden; }
   }
 
   .btn {
@@ -337,12 +362,19 @@ ${head}
 <body>
   <header class="site-header">
     <div class="header-inner">
-      <a class="wordmark" href="/">${avatarMark(s.avatarUrl, s.authorName)} ${esc(s.authorName)}</a>
-      <input type="checkbox" id="nav-toggle" class="nav-toggle" aria-label="Toggle menu" />
+      <input type="checkbox" id="nav-toggle" class="nav-toggle" aria-label="Open menu" />
       <label for="nav-toggle" class="nav-burger" aria-hidden="true">
         <span></span><span></span><span></span>
       </label>
-      <nav class="nav" id="site-nav">${navigation}</nav>
+      <a class="wordmark" href="/">${avatarMark(s.avatarUrl, s.authorName)} ${esc(s.authorName)}</a>
+      <label for="nav-toggle" class="nav-overlay" aria-hidden="true"></label>
+      <nav class="nav" id="site-nav">
+        <div class="nav-head">
+          <span>Menu</span>
+          <label for="nav-toggle" class="nav-close" aria-hidden="true">&times;</label>
+        </div>
+        ${navigation}
+      </nav>
     </div>
   </header>
 
@@ -388,8 +420,21 @@ ${body}
   });
 
   document.addEventListener('click', function (ev) {
+    // The overlay is inside the header, so an outside click means the page.
     if (!ev.target.closest('.site-header')) toggle.checked = false;
   });
+
+  // Scroll lock for browsers without :has() support.
+  function syncLock() {
+    document.documentElement.style.overflow =
+      toggle.checked && window.matchMedia('(max-width: 860px)').matches
+        ? 'hidden'
+        : '';
+  }
+
+  toggle.addEventListener('change', syncLock);
+  window.addEventListener('resize', syncLock);
+  syncLock();
 })();
 </script>
 </body>
