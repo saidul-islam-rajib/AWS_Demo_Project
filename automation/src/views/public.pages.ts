@@ -1,4 +1,10 @@
-import { Post, excerpt, formatDate, readingMinutes } from '../posts/post.model';
+import {
+  Post,
+  excerpt,
+  formatDate,
+  highlightList,
+  readingMinutes,
+} from '../posts/post.model';
 import { defaultNav, esc, layout } from './layout';
 
 const FEED_CSS = `
@@ -40,6 +46,27 @@ const FEED_CSS = `
     font-family: var(--serif); font-size: 0.98rem;
     color: var(--ink-2); font-style: italic;
   }
+  .takeaways {
+    border-left: 3px solid var(--accent);
+    padding: 0.6rem 0 0.6rem 0.9rem; margin: 0.85rem 0;
+  }
+  .takeaways-label {
+    display: block; font-size: 0.7rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--ink-3); font-weight: 700;
+    margin-bottom: 0.4rem;
+  }
+  .takeaways ul { list-style: none; }
+  .takeaways li {
+    position: relative; padding-left: 1rem; font-size: 0.92rem;
+    color: var(--ink-2); margin-bottom: 0.25rem;
+  }
+  .takeaways li:before {
+    content: "▸"; position: absolute; left: 0; color: var(--accent);
+  }
+  .takeaways.article { margin: 2rem 0; padding: 1rem 0 1rem 1.1rem; }
+  .takeaways.article li { font-family: var(--serif); font-size: 1.05rem; margin-bottom: 0.45rem; }
+  .takeaways.article .takeaways-label { font-family: var(--sans); margin-bottom: 0.6rem; }
+
   .draft-pill {
     font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em;
     color: var(--warn); border: 1px solid currentColor;
@@ -61,6 +88,22 @@ const FEED_CSS = `
   .stat .l { font-size: 0.72rem; color: var(--ink-3); margin-top: 0.15rem; }
 </style>`;
 
+/** One takeaway becomes a pull quote; several become a compact list. */
+function highlightBlock(post: Post, variant: 'card' | 'article'): string {
+  const items = highlightList(post.highlight);
+  if (items.length === 0) return '';
+
+  if (items.length === 1) {
+    const cls = variant === 'article' ? 'pullquote' : 'highlight-chip';
+    return `<p class="${cls}">${esc(items[0])}</p>`;
+  }
+
+  return `<div class="takeaways ${variant}">
+    <span class="takeaways-label">Key takeaways</span>
+    <ul>${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>
+  </div>`;
+}
+
 function card(post: Post): string {
   const mins = readingMinutes(post.content);
 
@@ -75,7 +118,7 @@ function card(post: Post): string {
       </div>
       <h2>${esc(post.title)}</h2>
       ${post.subtitle ? `<p class="sub">${esc(post.subtitle)}</p>` : ''}
-      ${post.highlight ? `<p class="highlight-chip">${esc(post.highlight)}</p>` : ''}
+      ${highlightBlock(post, 'card')}
       <p class="excerpt">${esc(excerpt(post.content))}</p>
     </a>
     <div class="card-footer tag-row">
@@ -208,6 +251,14 @@ export function postPage(post: Post, related: Post[], renderedHtml: string): str
   .prose blockquote {
     border-left: 3px solid var(--border); padding-left: 1.1rem; color: var(--ink-3);
   }
+  .prose img {
+    max-width: 100%; height: auto; border-radius: 10px;
+    border: 1px solid var(--border); display: block; margin: 2rem auto;
+  }
+  .prose table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 0.95rem; }
+  .prose th, .prose td { padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--border); text-align: left; }
+  .prose th { color: var(--ink); font-weight: 600; }
+  .prose hr { border: 0; border-top: 1px solid var(--border); margin: 2.5rem 0; }
   .article-foot { margin-top: 3rem; padding-top: 1.75rem; border-top: 1px solid var(--border); }
   .related { margin-top: 2.5rem; }
   .related a { display: block; padding: 0.85rem 0; border-bottom: 1px solid var(--border); }
@@ -231,7 +282,7 @@ export function postPage(post: Post, related: Post[], renderedHtml: string): str
       </div>
     </header>
 
-    ${post.highlight ? `<p class="pullquote">${esc(post.highlight)}</p>` : ''}
+    ${highlightBlock(post, 'article')}
 
     <div class="prose">${renderedHtml}</div>
 

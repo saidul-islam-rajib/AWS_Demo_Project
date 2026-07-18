@@ -3,7 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import cookieParser from 'cookie-parser';
-import { urlencoded } from 'express';
+import express, { urlencoded } from 'express';
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -27,6 +27,8 @@ describe('Blog (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.use(cookieParser());
     app.use(urlencoded({ extended: true }));
+    // Mirrors main.ts so uploaded images are served in tests too.
+    app.use('/uploads', express.static(join(dir, 'uploads')));
     await app.init();
   });
 
@@ -112,6 +114,57 @@ describe('Blog (e2e)', () => {
         .expect('Location', '/login'));
   });
 
+  describe('uploads and preview', () => {
+    it('blocks uploads without a session', () =>
+      request(app.getHttpServer())
+        .post('/admin/uploads')
+        .attach('file', Buffer.from('fake'), 'x.png')
+        .expect(302)
+        .expect('Location', '/login'));
+
+    it('accepts an image and returns pasteable markdown', async () => {
+      const cookie = await signIn();
+
+      const res = await request(app.getHttpServer())
+        .post('/admin/uploads')
+        .set('Cookie', cookie)
+        .attach('file', Buffer.from('fake-png-bytes'), 'diagram.png')
+        .expect(201);
+
+      expect(res.body.url).toMatch(/^\/uploads\/\d+-[0-9a-f]{12}\.png$/);
+      expect(res.body.markdown).toContain('![diagram](/uploads/');
+
+      // and it is then served back
+      await request(app.getHttpServer()).get(res.body.url).expect(200);
+    });
+
+    it('rejects a non-image extension', async () => {
+      const cookie = await signIn();
+
+      await request(app.getHttpServer())
+        .post('/admin/uploads')
+        .set('Cookie', cookie)
+        .attach('file', Buffer.from('#!/bin/sh'), 'evil.sh')
+        .expect(400);
+    });
+
+    it('renders markdown for the preview pane', async () => {
+      const cookie = await signIn();
+
+      await request(app.getHttpServer())
+        .post('/admin/preview')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({ content: '## Title\n\n**bold** and `code`' })
+        .expect(201)
+        .expect((res) => {
+          expect(res.text).toMatch(/<h2[^>]*>Title<\/h2>/);
+          expect(res.text).toContain('<strong>bold</strong>');
+          expect(res.text).toContain('<code>code</code>');
+        });
+    });
+  });
+
   describe('post lifecycle', () => {
     it('creates, publishes, edits and deletes a post', async () => {
       const cookie = await signIn();
@@ -182,6 +235,57 @@ describe('Blog (e2e)', () => {
         .expect('Location', '/admin?ok=deleted');
 
       await request(server).get('/post/lifecycle-post').expect(404);
+    });
+
+    it('renders multiple highlights as a takeaways list', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/posts/new')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          title: 'Many Takeaways',
+          content: 'body',
+          highlight: 'First thing\nSecond thing\nThird thing',
+          status: 'published',
+        })
+        .expect(302);
+
+      await request(server)
+        .get('/post/many-takeaways')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('Key takeaways');
+          expect(res.text).toContain('First thing');
+          expect(res.text).toContain('Third thing');
+        });
+    });
+
+    it('renders a single highlight as a pull quote, not a list', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/posts/new')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          title: 'One Takeaway',
+          content: 'body',
+          highlight: 'Just the one',
+          status: 'published',
+        })
+        .expect(302);
+
+      await request(server)
+        .get('/post/one-takeaway')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('pullquote');
+          expect(res.text).not.toContain('Key takeaways');
+        });
     });
 
     it('keeps drafts off the public feed', async () => {

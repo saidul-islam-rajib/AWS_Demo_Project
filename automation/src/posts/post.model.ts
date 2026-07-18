@@ -7,7 +7,11 @@ export interface Post {
   subtitle: string;
   /** Markdown body. */
   content: string;
-  /** Pull quote surfaced on the card and at the top of the article. */
+  /**
+   * Key takeaways, one per line. A single line renders as a pull quote;
+   * several render as a takeaways list. Stored as one string so posts
+   * written before this was a list still load unchanged.
+   */
   highlight: string;
   tags: string[];
   status: PostStatus;
@@ -71,6 +75,16 @@ export function excerpt(content: string, length = 180): string {
     .trim();
 
   return plain.length <= length ? plain : `${plain.slice(0, length).trimEnd()}…`;
+}
+
+/** Split the highlight field into individual takeaways, blank lines dropped. */
+export function highlightList(highlight?: string): string[] {
+  if (!highlight) return [];
+
+  return highlight
+    .split('\n')
+    .map((line) => line.replace(/^\s*[-*•]\s*/, '').trim())
+    .filter((line) => line.length > 0);
 }
 
 export function formatDate(iso: string): string {

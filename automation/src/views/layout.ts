@@ -19,6 +19,14 @@ interface LayoutOptions {
 }
 
 const SITE = 'Saidul Islam Rajib';
+const TEAM = 'Team Sober';
+const PORTFOLIO_URL = 'https://portfolio-rajib.vercel.app/';
+
+/**
+ * Override without a code change by adding LINKEDIN_URL to /opt/blog/.env
+ * on the server. Falls back to the portfolio until a LinkedIn URL is set.
+ */
+const LINKEDIN_URL = process.env.LINKEDIN_URL ?? PORTFOLIO_URL;
 
 export function layout({
   title,
@@ -211,11 +219,10 @@ ${body}
 
   <footer class="site-footer">
     <div class="footer-inner">
-      <span>© ${new Date().getFullYear()} ${SITE} · Deployed by Jenkins on AWS EC2</span>
+      <span>© ${new Date().getFullYear()}. <a href="${esc(LINKEDIN_URL)}" target="_blank" rel="noopener noreferrer">${TEAM}</a>. All rights reserved.</span>
       <span>
         <a href="/">Blog</a> ·
-        <a href="/health">Health</a> ·
-        <a href="https://portfolio-rajib.vercel.app/">Portfolio</a>
+        <a href="${esc(PORTFOLIO_URL)}" target="_blank" rel="noopener noreferrer">Portfolio</a>
       </span>
     </div>
   </footer>

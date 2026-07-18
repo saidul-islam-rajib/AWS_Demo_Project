@@ -3,7 +3,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { NotFoundException } from '@nestjs/common';
 import { PostsService } from './posts.service';
-import { normaliseTags, readingMinutes, slugify } from './post.model';
+import { highlightList, normaliseTags, readingMinutes, slugify } from './post.model';
 
 describe('post.model', () => {
   it('slugifies titles', () => {
@@ -24,6 +24,33 @@ describe('post.model', () => {
   it('estimates reading time at 200 wpm with a floor of 1', () => {
     expect(readingMinutes('one two three')).toBe(1);
     expect(readingMinutes('word '.repeat(400))).toBe(2);
+  });
+
+  describe('highlightList', () => {
+    it('splits one takeaway per line', () => {
+      expect(highlightList('First point\nSecond point')).toEqual([
+        'First point',
+        'Second point',
+      ]);
+    });
+
+    it('keeps a single line as one item', () => {
+      expect(highlightList('Only one')).toEqual(['Only one']);
+    });
+
+    it('strips bullet characters the user may type', () => {
+      expect(highlightList('- dashed\n* starred\n• bulleted')).toEqual([
+        'dashed',
+        'starred',
+        'bulleted',
+      ]);
+    });
+
+    it('drops blank lines and handles empty input', () => {
+      expect(highlightList('a\n\n\n  \nb')).toEqual(['a', 'b']);
+      expect(highlightList('')).toEqual([]);
+      expect(highlightList(undefined)).toEqual([]);
+    });
   });
 });
 
