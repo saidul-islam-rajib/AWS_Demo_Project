@@ -23,15 +23,19 @@ interface LayoutOptions {
   variant?: 'default' | 'article' | 'admin';
 }
 
-const SITE = 'Saidul Islam Rajib';
-const TEAM = 'Team Sober';
-const PORTFOLIO_URL = 'https://portfolio-rajib.vercel.app/';
+import { initials } from '../settings/settings.model';
+import { getSettings } from '../settings/settings.store';
 
-/**
- * Override without a code change by adding LINKEDIN_URL to /opt/blog/.env
- * on the server. Falls back to the portfolio until a LinkedIn URL is set.
- */
-const LINKEDIN_URL = process.env.LINKEDIN_URL ?? PORTFOLIO_URL;
+/** Uploaded avatar when one is set, initials otherwise. */
+export function avatarMark(
+  avatarUrl: string,
+  name: string,
+  cls = 'mark',
+): string {
+  return avatarUrl
+    ? `<img class="${cls} avatar-img" src="${esc(avatarUrl)}" alt="${esc(name)}" />`
+    : `<span class="${cls}">${esc(initials(name))}</span>`;
+}
 
 export function layout({
   title,
@@ -40,6 +44,8 @@ export function layout({
   nav = defaultNav(),
   variant = 'default',
 }: LayoutOptions): string {
+  const s = getSettings();
+
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -117,6 +123,7 @@ export function layout({
     display: grid; place-items: center;
     font-size: 0.8rem; font-weight: 800; flex-shrink: 0;
   }
+  .avatar-img { object-fit: cover; padding: 0; }
   .nav { margin-left: auto; display: flex; align-items: center; gap: 1.1rem; font-size: 0.9rem; }
   .nav a { color: var(--ink-3); }
   .nav a:hover { color: var(--ink); }
@@ -213,7 +220,7 @@ export function layout({
 <body>
   <header class="site-header">
     <div class="header-inner">
-      <a class="wordmark" href="/"><span class="mark">SR</span> ${SITE}</a>
+      <a class="wordmark" href="/">${avatarMark(s.avatarUrl, s.authorName)} ${esc(s.authorName)}</a>
       <nav class="nav">${nav}</nav>
     </div>
   </header>
@@ -224,10 +231,25 @@ ${body}
 
   <footer class="site-footer">
     <div class="footer-inner">
-      <span>© ${new Date().getFullYear()}. <a href="${esc(LINKEDIN_URL)}" target="_blank" rel="noopener noreferrer">${TEAM}</a>. All rights reserved.</span>
       <span>
-        <a href="/">Blog</a> ·
-        <a href="${esc(PORTFOLIO_URL)}" target="_blank" rel="noopener noreferrer">Portfolio</a>
+        © ${new Date().getFullYear()}.
+        ${
+          s.footerOwner
+            ? s.footerOwnerUrl
+              ? `<a href="${esc(s.footerOwnerUrl)}" target="_blank" rel="noopener noreferrer">${esc(s.footerOwner)}</a>.`
+              : `${esc(s.footerOwner)}.`
+            : ''
+        }
+        ${esc(s.footerSuffix)}
+      </span>
+      <span>
+        ${s.footerLinks
+          .map((link) =>
+            link.url.startsWith('/')
+              ? `<a href="${esc(link.url)}">${esc(link.label)}</a>`
+              : `<a href="${esc(link.url)}" target="_blank" rel="noopener noreferrer">${esc(link.label)}</a>`,
+          )
+          .join(' · ')}
       </span>
     </div>
   </footer>
@@ -240,5 +262,5 @@ export function defaultNav(): string {
 }
 
 export function adminNav(): string {
-  return `<a href="/">View site</a><a href="/admin">Dashboard</a><a href="/admin/posts/new" class="btn btn-sm">Write</a><a href="/logout">Sign out</a>`;
+  return `<a href="/">View site</a><a href="/admin">Dashboard</a><a href="/admin/settings">Settings</a><a href="/admin/posts/new" class="btn btn-sm">Write</a><a href="/logout">Sign out</a>`;
 }

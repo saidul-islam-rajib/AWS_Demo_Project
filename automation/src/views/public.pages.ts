@@ -5,7 +5,8 @@ import {
   highlightList,
   readingMinutes,
 } from '../posts/post.model';
-import { defaultNav, esc, layout } from './layout';
+import { avatarMark, defaultNav, esc, layout } from './layout';
+import { getSettings } from '../settings/settings.store';
 
 const FEED_CSS = `
 <style>
@@ -184,12 +185,12 @@ export function homePage(opts: {
     ? `Tagged “${esc(activeTag)}”`
     : query
       ? `Results for “${esc(query)}”`
-      : 'Engineering notes';
+      : esc(getSettings().siteTitle);
 
   const blurb =
     activeTag || query
       ? `${posts.length} post${posts.length === 1 ? '' : 's'} found.`
-      : 'Backend development, DevOps and cloud infrastructure — written up as I work through them.';
+      : esc(getSettings().siteTagline);
 
   const body = `
 ${FEED_CSS}
@@ -242,8 +243,8 @@ ${FEED_CSS}
 
   return layout({
     title: activeTag
-      ? `Posts tagged ${activeTag} — Saidul Islam Rajib`
-      : 'Saidul Islam Rajib — Engineering blog',
+      ? `Posts tagged ${activeTag} — ${getSettings().authorName}`
+      : `${getSettings().authorName} — ${getSettings().siteTitle}`,
     body,
     nav: defaultNav(),
   });
@@ -368,9 +369,9 @@ export function postPage(
       <h1>${esc(post.title)}</h1>
       ${post.subtitle ? `<p class="sub">${esc(post.subtitle)}</p>` : ''}
       <div class="byline">
-        <span class="mark" style="width:34px;height:34px">SR</span>
+        ${avatarMark(getSettings().avatarUrl, getSettings().authorName)}
         <span>
-          <span class="who">Saidul Islam Rajib</span><br />
+          <span class="who">${esc(getSettings().authorName)}</span><br />
           ${esc(formatDate(post.createdAt))} · ${mins} min read${post.views ? ` · ${post.views} views` : ''}
         </span>
       </div>
@@ -404,7 +405,7 @@ export function postPage(
   }`;
 
   return layout({
-    title: `${post.title} — Saidul Islam Rajib`,
+    title: `${post.title} — ${getSettings().authorName}`,
     description: post.subtitle || excerpt(post.content, 150),
     body: body + LIGHTBOX_JS,
     variant: 'article',
@@ -485,7 +486,7 @@ export function tagsPage(tags: { tag: string; count: number }[]): string {
   </div>`;
 
   return layout({
-    title: 'Tags — Saidul Islam Rajib',
+    title: `Tags — ${getSettings().authorName}`,
     body,
     nav: defaultNav(),
   });
@@ -493,7 +494,7 @@ export function tagsPage(tags: { tag: string; count: number }[]): string {
 
 export function notFoundPage(): string {
   return layout({
-    title: 'Not found — Saidul Islam Rajib',
+    title: `Not found — ${getSettings().authorName}`,
     body: `<div class="empty">
       <h1 class="page-title">404</h1>
       <p>That post does not exist, or it is still a draft.</p>
