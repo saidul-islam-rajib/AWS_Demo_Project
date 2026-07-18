@@ -4,7 +4,11 @@ import { join } from 'path';
 import { NotFoundException } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
 import {
+  DETAILED_WORD_LIMIT,
+  SHORT_WORD_LIMIT,
+  countWords,
   githubCover,
+  limitWords,
   normaliseList,
   parseStatus,
   parseYear,
@@ -74,6 +78,45 @@ describe('project.model', () => {
       expect(parseStatus('nonsense')).toBe('completed');
       expect(parseStatus(undefined)).toBe('completed');
     });
+  });
+});
+
+describe('description limits', () => {
+  it('counts words', () => {
+    expect(countWords('one two three')).toBe(3);
+    expect(countWords('  padded   out  ')).toBe(2);
+    expect(countWords('')).toBe(0);
+  });
+
+  it('leaves text within the limit untouched', () => {
+    expect(limitWords('short enough', 10)).toBe('short enough');
+  });
+
+  it('trims past the limit rather than rejecting', () => {
+    const long = Array.from({ length: 120 }, (_, i) => `w${i}`).join(' ');
+    const trimmed = limitWords(long, 100);
+
+    expect(countWords(trimmed)).toBe(100);
+    expect(trimmed.endsWith('…')).toBe(true);
+  });
+
+  it('applies the caps when a project is saved', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'projects-limit-'));
+    process.env.DATA_DIR = dir;
+
+    const service = new ProjectsService();
+    const project = service.create({
+      title: 'Wordy',
+      description: Array.from({ length: 150 }, (_, i) => `s${i}`).join(' '),
+      detailedDescription: Array.from({ length: 300 }, (_, i) => `d${i}`).join(
+        ' ',
+      ),
+    });
+
+    expect(countWords(project.description)).toBe(SHORT_WORD_LIMIT);
+    expect(countWords(project.detailedDescription)).toBe(DETAILED_WORD_LIMIT);
+
+    rmSync(dir, { recursive: true, force: true });
   });
 });
 
@@ -270,6 +313,27 @@ describe('ProjectsService', () => {
 
       rmSync(fresh, { recursive: true, force: true });
     });
+  });
+
+  it('defaults both description sections to visible', () => {
+    const project = sample();
+
+    expect(project.showShort).toBe(true);
+    expect(project.showDetailed).toBe(true);
+  });
+
+  it('turns a section off when its checkbox is not submitted', () => {
+    const project = service.create({
+      title: 'Hidden detail',
+      description: 'short',
+      detailedDescription: 'long',
+      // Exactly what the form submits: hidden "off" plus the checkbox when ticked.
+      showShort: ['off', 'on'],
+      showDetailed: 'off',
+    });
+
+    expect(project.showShort).toBe(true);
+    expect(project.showDetailed).toBe(false);
   });
 
   it('rejects an unsafe demo URL', () => {

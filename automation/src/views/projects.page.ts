@@ -110,6 +110,31 @@ const PROJECTS_CSS = `
   .fact-list div { display: flex; justify-content: space-between; gap: 1rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
   .fact-list dt { color: var(--ink-3); }
   .fact-list dd { color: var(--ink); font-weight: 600; text-align: right; }
+
+  .proj-detailed {
+    font-family: var(--serif); font-size: 1.06rem; line-height: 1.75;
+    color: var(--ink-2); margin: 0 0 2rem;
+  }
+  .proj-detailed > * + * { margin-top: 1.1rem; }
+  .proj-detailed h2 { font-size: 1.35rem; font-family: var(--serif); margin-top: 1.75rem; }
+  .proj-detailed h3 { font-size: 1.12rem; font-family: var(--serif); margin-top: 1.4rem; }
+  .proj-detailed ul, .proj-detailed ol { padding-left: 1.4rem; }
+  .proj-detailed li + li { margin-top: 0.35rem; }
+  .proj-detailed a { color: var(--accent); text-decoration: underline; }
+  .proj-detailed strong { color: var(--ink); }
+  .proj-detailed mark {
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
+    color: inherit; padding: 0.05em 0.25em; border-radius: 3px;
+  }
+  .proj-detailed code {
+    font-family: var(--mono); font-size: 0.86em; background: var(--surface-2);
+    border: 1px solid var(--border); padding: 0.1em 0.35em; border-radius: 5px;
+  }
+  .proj-detailed pre {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 0.95rem 1.1rem; overflow-x: auto;
+  }
+  .proj-detailed pre code { background: none; border: 0; padding: 0; }
 </style>`;
 
 function cover(project: Project, cls = 'proj-cover'): string {
@@ -128,7 +153,7 @@ function projectCard(project: Project): string {
         <span class="status-pill status-${esc(project.status)}">${esc(STATUS_LABELS[project.status])}</span>
       </div>
       <a href="/projects/${esc(project.slug)}"><h3 class="proj-title">${esc(project.title)}</h3></a>
-      ${project.description ? `<p class="proj-desc">${esc(project.description)}</p>` : ''}
+      ${project.description && project.showShort !== false ? `<p class="proj-desc">${esc(project.description)}</p>` : ''}
       ${
         project.technologies.length
           ? `<div class="tech-row">${project.technologies
@@ -229,6 +254,8 @@ ${PROJECTS_CSS}
 export function projectDetailPage(
   project: Project,
   related: Project[],
+  /** Detailed description, pre-rendered from markdown. */
+  detailedHtml = '',
 ): string {
   const s = getSettings();
 
@@ -270,7 +297,7 @@ ${PROJECTS_CSS}
     <div>
       <header class="detail-head">
         <h1>${esc(project.title)}</h1>
-        ${project.description ? `<p class="lead">${esc(project.description)}</p>` : ''}
+        ${project.description && project.showShort !== false ? `<p class="lead">${esc(project.description)}</p>` : ''}
       </header>
 
       <div class="detail-actions">
@@ -279,6 +306,12 @@ ${PROJECTS_CSS}
       </div>
 
       ${project.coverUrl ? `<img class="proj-detail-cover" src="${esc(project.coverUrl)}" alt="${esc(project.title)}" />` : ''}
+
+      ${
+        detailedHtml && project.showDetailed !== false
+          ? `<div class="proj-detailed">${detailedHtml}</div>`
+          : ''
+      }
 
       ${facet('Technologies', 'tech', project.technologies)}
       ${facet('Topics', 'topics', project.topics)}

@@ -21,7 +21,12 @@ export interface Project {
   id: string;
   slug: string;
   title: string;
+  /** Short summary, capped at SHORT_WORD_LIMIT. Used on cards. */
   description: string;
+  /** Long form, markdown, capped at DETAILED_WORD_LIMIT. Detail page only. */
+  detailedDescription: string;
+  showShort: boolean;
+  showDetailed: boolean;
   coverUrl: string;
   repoUrl: string;
   demoUrl: string;
@@ -41,6 +46,14 @@ export interface Project {
 export interface ProjectInput {
   title?: string;
   description?: string;
+  detailedDescription?: string;
+  /**
+   * The form pairs each checkbox with a hidden "off" input, so the key is
+   * always submitted: ["off", "on"] when checked, "off" when not. Absent
+   * entirely means the caller is not a form — a seed or a GitHub import.
+   */
+  showShort?: string | string[] | boolean;
+  showDetailed?: string | string[] | boolean;
   coverUrl?: string;
   repoUrl?: string;
   demoUrl?: string;
@@ -53,6 +66,23 @@ export interface ProjectInput {
   endDate?: string;
   status?: string;
   featured?: string | boolean;
+}
+
+export const SHORT_WORD_LIMIT = 100;
+export const DETAILED_WORD_LIMIT = 200;
+
+export function countWords(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+/**
+ * Trims to a word budget rather than rejecting, so a slightly-too-long
+ * description still saves instead of losing the author's work.
+ */
+export function limitWords(text: string, max: number): string {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length <= max) return text.trim();
+  return `${words.slice(0, max).join(' ')}…`;
 }
 
 /** The four taxonomies a project can be browsed by. */
@@ -129,9 +159,23 @@ export function sanitiseInput(
   const repoUrl = safeUrl(input.repoUrl ?? '');
   const explicitCover = safeUrl(input.coverUrl ?? '');
 
+  const flag = (value: string | string[] | boolean | undefined): boolean => {
+    // Not submitted at all: a seed or an import, which should show both.
+    if (value === undefined) return true;
+    if (typeof value === 'boolean') return value;
+    if (Array.isArray(value)) return value.includes('on');
+    return value === 'on';
+  };
+
   return {
     title: (input.title ?? '').trim() || 'Untitled project',
-    description: (input.description ?? '').trim(),
+    description: limitWords((input.description ?? '').trim(), SHORT_WORD_LIMIT),
+    detailedDescription: limitWords(
+      (input.detailedDescription ?? '').trim(),
+      DETAILED_WORD_LIMIT,
+    ),
+    showShort: flag(input.showShort),
+    showDetailed: flag(input.showDetailed),
     // Fall back to GitHub's generated preview so a project is never imageless.
     coverUrl: explicitCover || githubCover(repoUrl),
     repoUrl,

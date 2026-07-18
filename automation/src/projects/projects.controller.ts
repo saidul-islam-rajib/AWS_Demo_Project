@@ -15,6 +15,7 @@ import { ProjectsService } from './projects.service';
 import type { ProjectInput } from './project.model';
 import { Taxonomy } from './project.model';
 import { SettingsService } from '../settings/settings.service';
+import { renderMarkdown } from '../posts/markdown';
 import {
   projectDetailPage,
   projectsPage,
@@ -94,7 +95,13 @@ export class ProjectsController {
       .slice(0, 3)
       .map((entry) => entry.p);
 
-    res.send(projectDetailPage(project, related));
+    res.send(
+      projectDetailPage(
+        project,
+        related,
+        renderMarkdown(project.detailedDescription ?? ''),
+      ),
+    );
   }
 
   @Get('tech/:slug')

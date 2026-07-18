@@ -1,6 +1,8 @@
 import {
+  DETAILED_WORD_LIMIT,
   PROJECT_STATUSES,
   Project,
+  SHORT_WORD_LIMIT,
   STATUS_LABELS,
 } from '../projects/project.model';
 import { adminNav, esc, layout } from './layout';
@@ -41,6 +43,23 @@ const CSS = `
   }
   .check-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; }
   .check-row input { width: auto; }
+  .field-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 0.5rem; margin-bottom: 0.4rem;
+  }
+  .field-head label { margin: 0; }
+  .word-count {
+    font-size: 0.74rem; color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+  .word-count.near { color: var(--warn); }
+  .word-count.over { color: var(--danger); font-weight: 700; }
+  .toggle-row {
+    display: inline-flex; align-items: center; gap: 0.45rem;
+    font-size: 0.84rem; font-weight: 500; color: var(--ink-2);
+    margin-top: 0.5rem; cursor: pointer; user-select: none;
+  }
+  .toggle-row input { width: auto; margin: 0; }
 ${CHIP_CSS}
 </style>`;
 
@@ -152,10 +171,36 @@ ${CSS}
             <label for="title">Title</label>
             <input type="text" id="title" name="title" required value="${v(project?.title)}" />
           </div>
+          <div class="field">
+            <div class="field-head">
+              <label for="description">Short description</label>
+              <span class="word-count" data-for="description"></span>
+            </div>
+            <textarea id="description" name="description" rows="3"
+                      data-limit="${SHORT_WORD_LIMIT}"
+                      placeholder="One or two sentences. Shown on project cards.">${v(project?.description)}</textarea>
+            <label class="toggle-row">
+              <input type="hidden" name="showShort" value="off" />
+              <input type="checkbox" name="showShort" value="on"
+                     ${project === undefined || project.showShort ? 'checked' : ''} />
+              <span>Show the short description</span>
+            </label>
+          </div>
+
           <div class="field" style="margin-bottom:0">
-            <label for="description">Description</label>
-            <textarea id="description" name="description" rows="4"
-                      placeholder="What it does, and why you built it">${v(project?.description)}</textarea>
+            <div class="field-head">
+              <label for="detailedDescription">Detailed description</label>
+              <span class="word-count" data-for="detailedDescription"></span>
+            </div>
+            <textarea id="detailedDescription" name="detailedDescription" rows="8"
+                      data-limit="${DETAILED_WORD_LIMIT}"
+                      placeholder="The full story. Markdown works — **bold**, ==highlight==, lists, links.">${v(project?.detailedDescription)}</textarea>
+            <label class="toggle-row">
+              <input type="hidden" name="showDetailed" value="off" />
+              <input type="checkbox" name="showDetailed" value="on"
+                     ${project === undefined || project.showDetailed ? 'checked' : ''} />
+              <span>Show the detailed description on the project page</span>
+            </label>
           </div>
         </div>
 
@@ -312,6 +357,27 @@ ${CSS}
     if (hidden.value) return;
     var url = githubPreview(repo.value);
     if (url) { hidden.value = url; preview.src = url; status.textContent = 'Using the GitHub preview image.'; }
+  });
+})();
+</script>
+<script>
+(function () {
+  // Live word count against the server-side cap. The server trims rather
+  // than rejecting, so this is guidance, not validation.
+  document.querySelectorAll('textarea[data-limit]').forEach(function (area) {
+    var limit = parseInt(area.getAttribute('data-limit'), 10);
+    var label = document.querySelector('.word-count[data-for="' + area.id + '"]');
+    if (!label) return;
+
+    function update() {
+      var words = area.value.trim().split(/\\s+/).filter(Boolean).length;
+      label.textContent = words + ' / ' + limit + ' words';
+      label.classList.toggle('near', words > limit * 0.8 && words <= limit);
+      label.classList.toggle('over', words > limit);
+    }
+
+    area.addEventListener('input', update);
+    update();
   });
 })();
 </script>
