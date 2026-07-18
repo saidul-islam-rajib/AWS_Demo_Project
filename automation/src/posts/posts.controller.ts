@@ -1,10 +1,8 @@
 import { Controller, Get, Header, Param, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
-import { marked } from 'marked';
 import { PostsService } from './posts.service';
+import { renderMarkdown } from './markdown';
 import { homePage, notFoundPage, postPage, tagsPage } from '../views/public.pages';
-
-marked.setOptions({ gfm: true, breaks: false });
 
 @Controller()
 export class PostsController {
@@ -70,7 +68,7 @@ export class PostsController {
       .slice(0, 3)
       .map(({ p }) => p);
 
-    const html = marked.parse(post.content) as string;
+    const html = renderMarkdown(post.content);
     res.send(postPage(post, related, html));
   }
 

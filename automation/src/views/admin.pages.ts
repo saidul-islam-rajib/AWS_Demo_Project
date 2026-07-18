@@ -86,6 +86,14 @@ const ADMIN_CSS = `
   .preview-pane pre code { background: none; border: 0; padding: 0; }
   .preview-pane blockquote { border-left: 3px solid var(--border); padding-left: 1rem; color: var(--ink-3); }
   .preview-pane table { width: 100%; }
+  .preview-pane .md-columns {
+    display: grid; gap: 1rem; margin: 1.25rem 0;
+    grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr));
+    align-items: start;
+  }
+  .preview-pane .md-columns[data-cols="3"] { --cols: 3; }
+  .preview-pane .md-columns img { margin: 0; width: 100%; max-height: 220px; object-fit: cover; }
+  .preview-pane .md-col > *:first-child { margin-top: 0; }
 
   .md-help { margin-top: 0.9rem; }
   .md-help summary { cursor: pointer; font-size: 0.82rem; color: var(--ink-3); }
@@ -95,7 +103,139 @@ const ADMIN_CSS = `
   .md-table td:first-child { white-space: nowrap; }
 
   .dragover { outline: 2px dashed var(--accent); outline-offset: -4px; }
+
+  /* ---------- chip input ---------- */
+  .chip-input {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem;
+    padding: 0.45rem 0.5rem; min-height: 42px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; cursor: text;
+  }
+  .chip-input.focused {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+  .chip {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    background: var(--accent); color: var(--accent-ink);
+    border-radius: 5px; padding: 0.2rem 0.3rem 0.2rem 0.55rem;
+    font-size: 0.84rem; line-height: 1.4; max-width: 100%;
+  }
+  .chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip button {
+    background: transparent; border: 0; cursor: pointer;
+    color: inherit; opacity: 0.75; font-size: 1rem; line-height: 1;
+    padding: 0 0.25rem; font-family: inherit;
+  }
+  .chip button:hover { opacity: 1; }
+  .chip-input input {
+    flex: 1; min-width: 120px; border: 0; outline: 0; padding: 0.2rem;
+    background: transparent; color: var(--ink); font-size: 0.92rem;
+    font-family: inherit; box-shadow: none;
+  }
+  .chip-input input:focus { box-shadow: none; border: 0; }
+  .chip-count { font-size: 0.72rem; color: var(--ink-3); }
 </style>`;
+
+/**
+ * Chip input. Progressive enhancement: the real value always lives in a
+ * hidden field, so the form still submits correctly if JS never runs.
+ */
+const CHIP_JS = `
+<script>
+(function () {
+  document.querySelectorAll('.chip-input').forEach(function (box) {
+    var hidden = document.getElementById(box.getAttribute('data-target'));
+    var sep = box.getAttribute('data-sep') === 'newline' ? '\\n' : ', ';
+    var splitter = box.getAttribute('data-sep') === 'newline' ? /\\n/ : /,/;
+    var max = parseInt(box.getAttribute('data-max') || '99', 10);
+    var input = box.querySelector('input[type=text]');
+    var counter = box.parentNode.querySelector('.chip-count');
+
+    var items = (hidden.value || '')
+      .split(splitter)
+      .map(function (s) { return s.trim(); })
+      .filter(Boolean);
+
+    function sync() {
+      hidden.value = items.join(sep);
+      if (counter) counter.textContent = items.length + ' / ' + max;
+      input.placeholder = items.length >= max ? 'Limit reached' : input.getAttribute('data-placeholder');
+    }
+
+    function render() {
+      box.querySelectorAll('.chip').forEach(function (c) { c.remove(); });
+
+      items.forEach(function (value, index) {
+        var chip = document.createElement('span');
+        chip.className = 'chip';
+
+        var label = document.createElement('span');
+        label.textContent = value;
+        chip.appendChild(label);
+
+        var x = document.createElement('button');
+        x.type = 'button';
+        x.textContent = '×';
+        x.setAttribute('aria-label', 'Remove ' + value);
+        x.addEventListener('click', function () {
+          items.splice(index, 1);
+          render();
+        });
+        chip.appendChild(x);
+
+        box.insertBefore(chip, input);
+      });
+
+      sync();
+    }
+
+    function add(raw) {
+      raw.split(splitter).forEach(function (part) {
+        var value = part.trim();
+        if (!value) return;
+        if (items.length >= max) return;
+        // Case-insensitive duplicate check, first spelling wins.
+        var exists = items.some(function (i) { return i.toLowerCase() === value.toLowerCase(); });
+        if (exists) return;
+        items.push(value);
+      });
+      input.value = '';
+      render();
+    }
+
+    input.setAttribute('data-placeholder', input.placeholder);
+
+    input.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter' || ev.key === ',') {
+        ev.preventDefault();
+        add(input.value);
+      } else if (ev.key === 'Backspace' && input.value === '' && items.length) {
+        items.pop();
+        render();
+      }
+    });
+
+    input.addEventListener('blur', function () { add(input.value); });
+    input.addEventListener('paste', function (ev) {
+      ev.preventDefault();
+      add((ev.clipboardData || window.clipboardData).getData('text'));
+    });
+
+    box.addEventListener('click', function (ev) {
+      if (ev.target === box) input.focus();
+    });
+    input.addEventListener('focus', function () { box.classList.add('focused'); });
+    input.addEventListener('blur', function () { box.classList.remove('focused'); });
+
+    // The form may submit while text is still in the box.
+    var form = box.closest('form');
+    if (form) form.addEventListener('submit', function () { add(input.value); });
+
+    render();
+  });
+})();
+</script>`;
 
 /** Editor behaviour: formatting toolbar, image upload, server-rendered preview. */
 const EDITOR_JS = `
@@ -148,6 +288,12 @@ const EDITOR_JS = `
     code: function () { surround('\\\`', '\\\`'); },
     codeblock: function () { surround('\\n\\\`\\\`\\\`\\n', '\\n\\\`\\\`\\\`\\n'); },
     hr: function () { insert('\\n\\n---\\n\\n'); },
+    cols2: function () {
+      insert('\\n:::columns\\nLeft column — drop an image here\\n|||\\nRight column — text or another image\\n:::\\n');
+    },
+    cols3: function () {
+      insert('\\n:::columns\\nFirst\\n|||\\nSecond\\n|||\\nThird\\n:::\\n');
+    },
     link: function () {
       var url = prompt('Link URL:', 'https://');
       if (url) surround('[', '](' + url + ')');
@@ -359,13 +505,15 @@ ${ADMIN_CSS}
         </div>
 
         <div class="field">
-          <label for="highlight">Key highlights</label>
-          <textarea id="highlight" name="highlight" rows="3"
-                    placeholder="One takeaway per line">${esc(post?.highlight ?? '')}</textarea>
+          <label for="highlight-box">Key highlights</label>
+          <div class="chip-input" id="highlight-box" data-target="highlight" data-sep="newline" data-max="6">
+            <input type="text" placeholder="Type and press Enter…" aria-label="Add a key highlight" />
+          </div>
+          <input type="hidden" id="highlight" name="highlight" value="${esc(post?.highlight ?? '')}" />
           <p class="hint">
-            <strong>One per line.</strong> A single line renders as a pull quote;
-            several render as a “Key takeaways” list. Write sentences here —
-            keywords like <code>docker</code> belong in Tags.
+            Press <strong>Enter</strong> after each one, <strong>×</strong> to remove.
+            Short entries render as highlight chips on the post; full sentences
+            render as a “Key takeaways” list. <span class="chip-count"></span>
           </p>
         </div>
 
@@ -388,6 +536,8 @@ ${ADMIN_CSS}
             <button type="button" data-md="hr" title="Divider">—</button>
             <span class="tb-sep"></span>
             <button type="button" id="btn-image" title="Upload image">🖼 Image</button>
+            <button type="button" data-md="cols2" title="Two columns (image + text, or image + image)">▮▮</button>
+            <button type="button" data-md="cols3" title="Three columns">▮▮▮</button>
             <button type="button" id="btn-preview" class="tb-right">Preview</button>
           </div>
 
@@ -413,7 +563,15 @@ ${ADMIN_CSS}
               <tr><td><code>- item</code> · <code>1. item</code></td><td>Lists</td></tr>
               <tr><td><code>---</code></td><td>Divider</td></tr>
               <tr><td><code>| a | b |</code></td><td>Tables (GitHub style)</td></tr>
+              <tr>
+                <td><code>:::columns</code> … <code>|||</code> … <code>:::</code></td>
+                <td>Side-by-side columns — cells split on <code>|||</code></td>
+              </tr>
             </table>
+            <p class="hint">
+              Columns stack vertically on phones automatically. Readers can click
+              any image in a published post to view it full size.
+            </p>
             <p class="hint">
               Fonts and colours come from the site theme, so every post looks consistent —
               that is deliberate. Use headings for size rather than styling text directly.
@@ -441,15 +599,21 @@ ${ADMIN_CSS}
         <div class="panel">
           <h3>Tags</h3>
           <div class="field" style="margin-bottom:0">
-            <input type="text" name="tags" value="${esc(post?.tags.join(', ') ?? '')}"
-                   placeholder="jenkins, docker, aws" />
-            <p class="hint">Comma separated, up to 8. Lowercased automatically.</p>
+            <div class="chip-input" id="tags-box" data-target="tags" data-sep="comma" data-max="8">
+              <input type="text" placeholder="Add a tag…" aria-label="Add a tag" />
+            </div>
+            <input type="hidden" id="tags" name="tags" value="${esc(post?.tags.join(', ') ?? '')}" />
+            <p class="hint">
+              Enter or comma to add, × to remove. Lowercased automatically.
+              <span class="chip-count"></span>
+            </p>
           </div>
         </div>
       </aside>
     </div>
   </form>
-${EDITOR_JS}`;
+${EDITOR_JS}
+${CHIP_JS}`;
 
   return layout({
     title: `${editing ? 'Edit' : 'New'} post — Saidul Islam Rajib`,

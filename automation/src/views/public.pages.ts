@@ -46,6 +46,17 @@ const FEED_CSS = `
     font-family: var(--serif); font-size: 0.98rem;
     color: var(--ink-2); font-style: italic;
   }
+  .key-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.75rem 0; }
+  .key-chip {
+    display: inline-block; font-size: 0.8rem; font-weight: 600;
+    padding: 0.25rem 0.65rem; border-radius: 5px;
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    color: var(--accent);
+    border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
+  }
+  .key-chips.article { margin: 1.75rem 0; gap: 0.5rem; }
+  .key-chips.article .key-chip { font-size: 0.88rem; padding: 0.35rem 0.8rem; }
+
   .takeaways {
     border-left: 3px solid var(--accent);
     padding: 0.6rem 0 0.6rem 0.9rem; margin: 0.85rem 0;
@@ -88,10 +99,29 @@ const FEED_CSS = `
   .stat .l { font-size: 0.72rem; color: var(--ink-3); margin-top: 0.15rem; }
 </style>`;
 
-/** One takeaway becomes a pull quote; several become a compact list. */
+/**
+ * A keyword is short *and* only a word or two — length alone is not enough,
+ * since a real takeaway like "Docker containers are ephemeral" is only 31
+ * characters but is plainly a sentence.
+ */
+function isKeyword(text: string): boolean {
+  return text.length <= 24 && text.split(/\s+/).length <= 2;
+}
+
+/**
+ * Three shapes, picked from the content itself:
+ * short entries become chips, one sentence becomes a pull quote,
+ * several sentences become a takeaways list.
+ */
 function highlightBlock(post: Post, variant: 'card' | 'article'): string {
   const items = highlightList(post.highlight);
   if (items.length === 0) return '';
+
+  if (items.every(isKeyword)) {
+    return `<div class="key-chips ${variant}">
+      ${items.map((i) => `<span class="key-chip">${esc(i)}</span>`).join('')}
+    </div>`;
+  }
 
   if (items.length === 1) {
     const cls = variant === 'article' ? 'pullquote' : 'highlight-chip';
@@ -254,6 +284,51 @@ export function postPage(post: Post, related: Post[], renderedHtml: string): str
   .prose img {
     max-width: 100%; height: auto; border-radius: 10px;
     border: 1px solid var(--border); display: block; margin: 2rem auto;
+    cursor: zoom-in;
+  }
+  /* Portrait shots would otherwise run the full column height. */
+  .prose > p > img, .prose > img { max-height: 520px; width: auto; }
+
+  /* ---------- column blocks ---------- */
+  .md-columns {
+    display: grid; gap: 1.25rem; margin: 2rem 0;
+    grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr));
+    align-items: start;
+  }
+  .md-columns[data-cols="3"] { --cols: 3; }
+  .md-columns .md-col > *:first-child { margin-top: 0; }
+  .md-columns .md-col > * + * { margin-top: 0.9rem; }
+  .md-columns img {
+    margin: 0; width: 100%; max-height: 340px; object-fit: cover;
+  }
+  .md-columns p { font-size: 1rem; line-height: 1.65; }
+  @media (max-width: 640px) {
+    .md-columns { grid-template-columns: 1fr; gap: 1rem; }
+    .md-columns img { max-height: 260px; }
+  }
+
+  /* ---------- lightbox ---------- */
+  .lightbox {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex; align-items: center; justify-content: center;
+    padding: 2rem; cursor: zoom-out;
+  }
+  .lightbox img {
+    max-width: 100%; max-height: 100%;
+    border-radius: 6px; border: 0; margin: 0; cursor: default;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  }
+  .lightbox-close {
+    position: absolute; top: 1rem; right: 1.25rem;
+    background: transparent; border: 0; color: #fff;
+    font-size: 2rem; line-height: 1; cursor: pointer; opacity: 0.8;
+    font-family: inherit;
+  }
+  .lightbox-close:hover { opacity: 1; }
+  .lightbox-hint {
+    position: absolute; bottom: 1.25rem; left: 0; right: 0;
+    text-align: center; color: rgba(255, 255, 255, 0.6); font-size: 0.82rem;
   }
   .prose table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 0.95rem; }
   .prose th, .prose td { padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--border); text-align: left; }
@@ -312,11 +387,65 @@ export function postPage(post: Post, related: Post[], renderedHtml: string): str
   return layout({
     title: `${post.title} — Saidul Islam Rajib`,
     description: post.subtitle || excerpt(post.content, 150),
-    body,
+    body: body + LIGHTBOX_JS,
     variant: 'article',
     nav: defaultNav(),
   });
 }
+
+/** Click any article image to view it full size. */
+const LIGHTBOX_JS = `
+<script>
+(function () {
+  var open = null;
+
+  function close() {
+    if (!open) return;
+    open.remove();
+    open = null;
+    document.body.style.overflow = '';
+  }
+
+  document.addEventListener('click', function (ev) {
+    var img = ev.target.closest('.prose img');
+
+    if (img) {
+      if (open) return;
+      var box = document.createElement('div');
+      box.className = 'lightbox';
+
+      var full = document.createElement('img');
+      full.src = img.src;
+      full.alt = img.alt || '';
+      box.appendChild(full);
+
+      var close_ = document.createElement('button');
+      close_.className = 'lightbox-close';
+      close_.type = 'button';
+      close_.innerHTML = '&times;';
+      close_.setAttribute('aria-label', 'Close');
+      box.appendChild(close_);
+
+      var hint = document.createElement('div');
+      hint.className = 'lightbox-hint';
+      hint.textContent = 'Click anywhere or press Esc to close';
+      box.appendChild(hint);
+
+      document.body.appendChild(box);
+      document.body.style.overflow = 'hidden';
+      open = box;
+      return;
+    }
+
+    // Any click outside the image itself dismisses it.
+    if (open && ev.target.tagName !== 'IMG') close();
+  });
+
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') close();
+  });
+})();
+</script>`;
 
 export function tagsPage(tags: { tag: string; count: number }[]): string {
   const body = `

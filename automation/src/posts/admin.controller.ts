@@ -11,7 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { marked } from 'marked';
+import { renderMarkdown } from './markdown';
 import { PostsService } from './posts.service';
 import type { PostInput } from './post.model';
 import { AuthService } from '../auth/auth.service';
@@ -130,7 +130,7 @@ export class AdminController {
   @UseGuards(AuthGuard)
   @Header('Content-Type', 'text/html')
   preview(@Body('content') content?: string): string {
-    return marked.parse(content ?? '') as string;
+    return renderMarkdown(content ?? '');
   }
 
   /** Session probe used by the e2e tests and for quick manual checks. */

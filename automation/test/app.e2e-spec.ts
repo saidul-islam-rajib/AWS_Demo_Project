@@ -248,7 +248,8 @@ describe('Blog (e2e)', () => {
         .send({
           title: 'Many Takeaways',
           content: 'body',
-          highlight: 'First thing\nSecond thing\nThird thing',
+          highlight:
+            'Docker containers are ephemeral\nPolling needs a baseline revision\nImages must live on a volume',
           status: 'published',
         })
         .expect(302);
@@ -258,8 +259,38 @@ describe('Blog (e2e)', () => {
         .expect(200)
         .expect((res) => {
           expect(res.text).toContain('Key takeaways');
-          expect(res.text).toContain('First thing');
-          expect(res.text).toContain('Third thing');
+          expect(res.text).toContain('Docker containers are ephemeral');
+          expect(res.text).toContain('Images must live on a volume');
+        });
+    });
+
+    it('renders short highlights as keyword chips', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/posts/new')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          title: 'Chip Highlights',
+          content: 'body',
+          highlight: 'docker\nci/cd\nAWS\nKafka',
+          status: 'published',
+        })
+        .expect(302);
+
+      await request(server)
+        .get('/post/chip-highlights')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('key-chip');
+          expect(res.text).toContain('>Kafka<');
+          expect(res.text).toContain('>ci/cd<');
+          // short entries must not fall through to the sentence layouts
+          // (match the element, not the CSS rule, which is always present)
+          expect(res.text).not.toContain('Key takeaways');
+          expect(res.text).not.toContain('class="pullquote"');
         });
     });
 
@@ -274,7 +305,7 @@ describe('Blog (e2e)', () => {
         .send({
           title: 'One Takeaway',
           content: 'body',
-          highlight: 'Just the one',
+          highlight: 'A green push is not proof your code shipped',
           status: 'published',
         })
         .expect(302);
@@ -283,8 +314,9 @@ describe('Blog (e2e)', () => {
         .get('/post/one-takeaway')
         .expect(200)
         .expect((res) => {
-          expect(res.text).toContain('pullquote');
+          expect(res.text).toContain('class="pullquote"');
           expect(res.text).not.toContain('Key takeaways');
+          expect(res.text).not.toContain('key-chip');
         });
     });
 
