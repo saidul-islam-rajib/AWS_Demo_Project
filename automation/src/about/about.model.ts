@@ -114,9 +114,49 @@ export interface LearningItem {
   status: LearningStatus;
 }
 
+/** One gallery record: a caption with one or more images. */
 export interface GalleryItem {
-  url: string;
+  urls: string[];
   caption: string;
+}
+
+/** Captions longer than this are cut short, with the rest behind "See more". */
+export const CAPTION_PREVIEW_LIMIT = 100;
+
+/** Cuts on a word boundary so the preview never ends mid-word. */
+export function captionPreview(
+  caption: string,
+  limit = CAPTION_PREVIEW_LIMIT,
+): string {
+  const text = caption.trim();
+  if (text.length <= limit) return text;
+
+  const cut = text.slice(0, limit);
+  const lastSpace = cut.lastIndexOf(' ');
+  return `${(lastSpace > limit * 0.6 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
+}
+
+export function isCaptionLong(
+  caption: string,
+  limit = CAPTION_PREVIEW_LIMIT,
+): boolean {
+  return caption.trim().length > limit;
+}
+
+/**
+ * Records used to hold a single `url`. Anything written before this became a
+ * list arrives in that shape, so it is folded into `urls` on read.
+ */
+export function normaliseGalleryItem(
+  item: Partial<GalleryItem> & { url?: string },
+): GalleryItem {
+  const urls = Array.isArray(item.urls)
+    ? item.urls.filter(Boolean)
+    : item.url
+      ? [item.url]
+      : [];
+
+  return { urls, caption: item.caption ?? '' };
 }
 
 export interface SocialLink {
@@ -306,19 +346,26 @@ export function parseLearning(form: {
 }
 
 export function parseGallery(form: {
-  galleryUrl?: string | string[];
+  galleryUrls?: string | string[];
   galleryCaption?: string | string[];
 }): GalleryItem[] {
-  const urls = toArray(form.galleryUrl);
+  // Each record submits its images as one newline-separated field, which
+  // keeps the parallel arrays aligned however many images a record holds.
+  const groups = toArray(form.galleryUrls);
   const captions = toArray(form.galleryCaption);
 
   const rows: GalleryItem[] = [];
 
-  for (let i = 0; i < urls.length; i++) {
-    const url = safeUrl(urls[i] ?? '');
-    if (!url) continue;
+  for (let i = 0; i < groups.length; i++) {
+    const urls = (groups[i] ?? '')
+      .split('\n')
+      .map((u) => safeUrl(u))
+      .filter(Boolean)
+      .slice(0, 12);
 
-    rows.push({ url, caption: (captions[i] ?? '').trim() });
+    if (urls.length === 0) continue;
+
+    rows.push({ urls, caption: (captions[i] ?? '').trim() });
   }
 
   return rows.slice(0, 60);

@@ -1,11 +1,21 @@
 import {
   AboutContent,
+  CAPTION_PREVIEW_LIMIT,
+  GalleryItem,
   LEARNING_STATUSES,
   LearningItem,
   Milestone,
   STATUS_LABELS,
   isOngoing,
 } from '../about/about.model';
+
+/** One image chip inside a photo record, with its own remove control. */
+function thumb(url: string): string {
+  return `<span class="shot-thumb" data-url="${esc(url)}">
+    <img src="${esc(url)}" alt="" />
+    <button type="button" class="drop-shot" aria-label="Remove image">&times;</button>
+  </span>`;
+}
 import { adminNav, esc, layout } from './layout';
 
 const ADMIN_ABOUT_CSS = `
@@ -65,11 +75,28 @@ const ADMIN_ABOUT_CSS = `
   .add-row:hover { border-color: var(--accent); color: var(--accent); }
   .empty-rows { font-size: 0.82rem; color: var(--ink-3); margin-bottom: 0.75rem; }
 
-  .gallery-admin { display: grid; grid-template-columns: 90px 1fr auto; gap: 0.7rem; align-items: center; }
-  .gallery-admin img {
-    width: 90px; height: 68px; object-fit: cover;
-    border-radius: 8px; border: 1px solid var(--border);
+  .shot-thumbs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.7rem; }
+  .shot-thumb { position: relative; display: inline-block; }
+  .shot-thumb img {
+    width: 84px; height: 64px; object-fit: cover;
+    border-radius: 8px; border: 1px solid var(--border); display: block;
   }
+  .drop-shot {
+    position: absolute; top: -6px; right: -6px;
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 1px solid var(--border); background: var(--bg);
+    color: var(--ink-3); cursor: pointer; font-size: 0.9rem; line-height: 1;
+    font-family: inherit; padding: 0;
+  }
+  .drop-shot:hover { color: var(--danger); border-color: var(--danger); }
+  .add-shot {
+    width: 84px; height: 64px; border-radius: 8px;
+    border: 1px dashed var(--border); background: transparent;
+    color: var(--ink-3); cursor: pointer; font-size: 1.2rem; font-family: inherit;
+  }
+  .add-shot:hover { border-color: var(--accent); color: var(--accent); }
+  .cap-count { font-variant-numeric: tabular-nums; }
+  .cap-count.over { color: var(--accent); font-weight: 600; }
   .upload-zone {
     border: 1px dashed var(--border); border-radius: 10px;
     padding: 1.1rem; text-align: center; color: var(--ink-3);
@@ -261,17 +288,21 @@ export function aboutAdminPage(about: AboutContent, saved = false): string {
     <input type="text" name="learningNote" value="${esc(l.note)}" placeholder="Why, or what you want to build with it" />
   </div>`;
 
-  const galleryRow = (g = { url: '', caption: '' }) => `
-  <div class="repeat-row">
-    <div class="gallery-admin">
-      <img src="${esc(g.url)}" alt="" />
-      <div>
-        <input type="hidden" name="galleryUrl" value="${esc(g.url)}" />
-        <label>Caption</label>
-        <input type="text" name="galleryCaption" value="${esc(g.caption)}" placeholder="Where and when" />
-      </div>
-      <button type="button" class="remove-row">Remove</button>
+  const galleryRow = (g: GalleryItem = { urls: [], caption: '' }) => `
+  <div class="repeat-row shot-row">
+    ${rowHead('Photo record')}
+    <div class="shot-thumbs">
+      ${g.urls.map((u) => thumb(u)).join('')}
+      <button type="button" class="add-shot" title="Add images to this record">＋</button>
     </div>
+    <input type="hidden" name="galleryUrls" class="shot-urls" value="${esc(g.urls.join('\n'))}" />
+    <label>Caption</label>
+    <textarea name="galleryCaption" rows="3"
+              placeholder="What is happening here">${esc(g.caption)}</textarea>
+    <p class="hint">
+      First ${CAPTION_PREVIEW_LIMIT} characters show under the photo; the rest
+      opens in a popup. <span class="cap-count"></span>
+    </p>
   </div>`;
 
   const socialRow = (l = { label: '', url: '' }) => `
@@ -383,6 +414,8 @@ ${ADMIN_ABOUT_CSS}
 
 <script>
 (function () {
+  var CAPTION_LIMIT = ${CAPTION_PREVIEW_LIMIT};
+
   var templates = {
     milestones: ${JSON.stringify(milestoneRow())},
     skills: ${JSON.stringify(skillRow())},
@@ -417,24 +450,46 @@ ${ADMIN_ABOUT_CSS}
     if (row) row.remove();
   });
 
-  // ---------- photo upload ----------
+  // ---------- photo records ----------
   var zone = document.getElementById('photo-zone');
   var input = document.getElementById('photo-input');
   var status = document.getElementById('photo-status');
 
-  function addPhoto(url) {
-    var list = listOf('gallery');
-    clearPlaceholder(list);
-    list.insertAdjacentHTML('beforeend', templates.gallery);
-    var row = list.lastElementChild;
-    row.querySelector('input[name=galleryUrl]').value = url;
-    row.querySelector('img').src = url;
+  function thumbHtml(url) {
+    return '<span class="shot-thumb" data-url="' + url + '">' +
+      '<img src="' + url + '" alt="" />' +
+      '<button type="button" class="drop-shot" aria-label="Remove image">&times;</button>' +
+      '</span>';
   }
 
-  function upload(files) {
+  // The hidden field is the source of truth; the chips mirror it.
+  function syncUrls(row) {
+    var hidden = row.querySelector('.shot-urls');
+    if (!hidden) return;
+
+    var urls = [];
+    row.querySelectorAll('.shot-thumb').forEach(function (chip) {
+      urls.push(chip.getAttribute('data-url'));
+    });
+    hidden.value = urls.join(String.fromCharCode(10));
+  }
+
+  function addImages(row, urls) {
+    var strip = row.querySelector('.shot-thumbs');
+    var addBtn = strip.querySelector('.add-shot');
+
+    urls.forEach(function (url) {
+      addBtn.insertAdjacentHTML('beforebegin', thumbHtml(url));
+    });
+    syncUrls(row);
+  }
+
+  function uploadInto(row, files, done) {
     if (!files || !files.length) return;
+
     var remaining = files.length;
     status.textContent = 'Uploading ' + remaining + ' photo(s)…';
+    var collected = [];
 
     Array.prototype.forEach.call(files, function (file) {
       var data = new FormData();
@@ -446,11 +501,15 @@ ${ADMIN_ABOUT_CSS}
           return r.json();
         })
         .then(function (j) {
-          addPhoto(j.url);
+          collected.push(j.url);
           remaining--;
-          status.textContent = remaining > 0
-            ? 'Uploading ' + remaining + ' more…'
-            : 'Uploaded. Save the page to keep them.';
+          if (remaining === 0) {
+            if (row) addImages(row, collected);
+            else if (done) done(collected);
+            status.textContent = 'Uploaded. Save the page to keep them.';
+          } else {
+            status.textContent = 'Uploading ' + remaining + ' more…';
+          }
         })
         .catch(function (err) {
           remaining--;
@@ -459,15 +518,72 @@ ${ADMIN_ABOUT_CSS}
     });
   }
 
+  // The drop zone starts a new record holding everything dropped at once.
+  function newRecordWith(urls) {
+    var list = listOf('gallery');
+    clearPlaceholder(list);
+    list.insertAdjacentHTML('beforeend', templates.gallery);
+    addImages(list.lastElementChild, urls);
+  }
+
   zone.addEventListener('click', function () { input.click(); });
-  input.addEventListener('change', function () { upload(input.files); input.value = ''; });
+  input.addEventListener('change', function () {
+    uploadInto(null, input.files, newRecordWith);
+    input.value = '';
+  });
   zone.addEventListener('dragover', function (ev) { ev.preventDefault(); zone.classList.add('dragover'); });
   zone.addEventListener('dragleave', function () { zone.classList.remove('dragover'); });
   zone.addEventListener('drop', function (ev) {
     ev.preventDefault();
     zone.classList.remove('dragover');
-    upload(ev.dataTransfer.files);
+    uploadInto(null, ev.dataTransfer.files, newRecordWith);
   });
+
+  // Per-record: add more images, or drop one.
+  var perRecordInput = document.createElement('input');
+  perRecordInput.type = 'file';
+  perRecordInput.accept = 'image/*';
+  perRecordInput.multiple = true;
+  perRecordInput.hidden = true;
+  document.body.appendChild(perRecordInput);
+  var targetRow = null;
+
+  perRecordInput.addEventListener('change', function () {
+    if (targetRow) uploadInto(targetRow, perRecordInput.files);
+    perRecordInput.value = '';
+  });
+
+  document.addEventListener('click', function (ev) {
+    var add = ev.target.closest('.add-shot');
+    if (add) {
+      targetRow = add.closest('.repeat-row');
+      perRecordInput.click();
+      return;
+    }
+
+    var drop = ev.target.closest('.drop-shot');
+    if (drop) {
+      var row = drop.closest('.repeat-row');
+      drop.closest('.shot-thumb').remove();
+      syncUrls(row);
+    }
+  });
+
+  // Live caption length against the preview cutoff.
+  function refreshCaption(area) {
+    var row = area.closest('.repeat-row');
+    var label = row && row.querySelector('.cap-count');
+    if (!label) return;
+
+    var length = area.value.trim().length;
+    label.textContent = length + ' characters';
+    label.classList.toggle('over', length > CAPTION_LIMIT);
+  }
+
+  document.addEventListener('input', function (ev) {
+    if (ev.target.name === 'galleryCaption') refreshCaption(ev.target);
+  });
+  document.querySelectorAll('textarea[name=galleryCaption]').forEach(refreshCaption);
 
   // ---------- formatting toolbar ----------
   // Delegated: milestone rows are added after load, so per-button listeners

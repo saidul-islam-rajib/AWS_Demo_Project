@@ -3,7 +3,11 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { AboutService } from './about.service';
 import {
+  CAPTION_PREVIEW_LIMIT,
   EMPTY_ABOUT,
+  captionPreview,
+  isCaptionLong,
+  normaliseGalleryItem,
   formatMonth,
   isAboutEmpty,
   isOngoing,
@@ -250,22 +254,100 @@ describe('about.model parsers', () => {
   });
 
   describe('parseGallery', () => {
-    it('keeps uploaded paths and captions', () => {
+    it('keeps a single image record', () => {
       expect(
         parseGallery({
-          galleryUrl: ['/uploads/a.png'],
+          galleryUrls: ['/uploads/a.png'],
           galleryCaption: ['At the office'],
         }),
-      ).toEqual([{ url: '/uploads/a.png', caption: 'At the office' }]);
+      ).toEqual([{ urls: ['/uploads/a.png'], caption: 'At the office' }]);
     });
 
-    it('drops entries with an unsafe or empty url', () => {
+    it('keeps several images in one record', () => {
       expect(
         parseGallery({
-          galleryUrl: ['javascript:alert(1)', ''],
-          galleryCaption: ['bad', 'also bad'],
+          galleryUrls: [
+            ['/uploads/a.png', '/uploads/b.png', '/uploads/c.png'].join('\n'),
+          ],
+          galleryCaption: ['A trip'],
+        }),
+      ).toEqual([
+        {
+          urls: ['/uploads/a.png', '/uploads/b.png', '/uploads/c.png'],
+          caption: 'A trip',
+        },
+      ]);
+    });
+
+    it('keeps records aligned with their captions however many images each holds', () => {
+      expect(
+        parseGallery({
+          galleryUrls: ['/uploads/a.png\n/uploads/b.png', '/uploads/c.png'],
+          galleryCaption: ['Two images', 'One image'],
+        }),
+      ).toEqual([
+        { urls: ['/uploads/a.png', '/uploads/b.png'], caption: 'Two images' },
+        { urls: ['/uploads/c.png'], caption: 'One image' },
+      ]);
+    });
+
+    it('drops unsafe urls but keeps the rest of the record', () => {
+      expect(
+        parseGallery({
+          galleryUrls: ['javascript:alert(1)\n/uploads/good.png'],
+          galleryCaption: ['Mixed'],
+        }),
+      ).toEqual([{ urls: ['/uploads/good.png'], caption: 'Mixed' }]);
+    });
+
+    it('drops a record with no usable image', () => {
+      expect(
+        parseGallery({
+          galleryUrls: ['javascript:alert(1)'],
+          galleryCaption: ['bad'],
         }),
       ).toEqual([]);
+    });
+  });
+
+  describe('captions', () => {
+    const long = 'word '.repeat(40).trim();
+
+    it('leaves a short caption alone', () => {
+      expect(captionPreview('Short one')).toBe('Short one');
+      expect(isCaptionLong('Short one')).toBe(false);
+    });
+
+    it('cuts a long caption on a word boundary', () => {
+      const preview = captionPreview(long);
+
+      expect(isCaptionLong(long)).toBe(true);
+      expect(preview.length).toBeLessThanOrEqual(CAPTION_PREVIEW_LIMIT + 1);
+      expect(preview.endsWith('…')).toBe(true);
+
+      // The real property: the preview is a prefix of the original that ends
+      // where a word ends, so no word is cut in half.
+      const body = preview.slice(0, -1);
+      expect(long.startsWith(body)).toBe(true);
+      expect(long.charAt(body.length)).toMatch(/\s|^$/);
+    });
+  });
+
+  describe('normaliseGalleryItem', () => {
+    it('folds a legacy single url into a list', () => {
+      expect(
+        normaliseGalleryItem({ url: '/uploads/a.png', caption: 'x' }),
+      ).toEqual({ urls: ['/uploads/a.png'], caption: 'x' });
+    });
+
+    it('leaves a modern record alone', () => {
+      expect(
+        normaliseGalleryItem({ urls: ['/uploads/a.png'], caption: 'x' }),
+      ).toEqual({ urls: ['/uploads/a.png'], caption: 'x' });
+    });
+
+    it('handles a record with nothing set', () => {
+      expect(normaliseGalleryItem({})).toEqual({ urls: [], caption: '' });
     });
   });
 
@@ -290,7 +372,7 @@ describe('about.model parsers', () => {
       expect(
         isAboutEmpty({
           ...EMPTY_ABOUT,
-          gallery: [{ url: '/uploads/a.png', caption: '' }],
+          gallery: [{ urls: ['/uploads/a.png'], caption: '' }],
         }),
       ).toBe(false);
     });

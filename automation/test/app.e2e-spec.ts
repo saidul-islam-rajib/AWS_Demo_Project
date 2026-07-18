@@ -615,7 +615,7 @@ describe('Blog (e2e)', () => {
           learningTitle: ['Kubernetes', 'Rust'],
           learningNote: ['for orchestration', 'for fun'],
           learningStatus: ['learning', 'planned'],
-          galleryUrl: ['/uploads/photo.png'],
+          galleryUrls: ['/uploads/photo.png'],
           galleryCaption: ['At the desk'],
           socialLabel: ['LinkedIn'],
           socialUrl: ['https://linkedin.com/in/example'],
@@ -824,6 +824,116 @@ describe('Blog (e2e)', () => {
             res.text.indexOf('Finished Recently'),
           );
           expect(res.text).toContain('Jun 2025 — Present');
+        });
+    });
+
+    it('renders a multi-image record with slider controls', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/about')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          galleryUrls: [
+            ['/uploads/a.png', '/uploads/b.png', '/uploads/c.png'].join('\n'),
+          ],
+          galleryCaption: ['A short caption'],
+        })
+        .expect(302);
+
+      await request(server)
+        .get('/about')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('/uploads/a.png');
+          expect(res.text).toContain('/uploads/c.png');
+          expect(res.text).toContain('class="shot-nav next"');
+          expect(res.text).toContain('class="shot-dots"');
+          // The counter is split so only the current index updates.
+          expect(res.text).toMatch(/<span class="at">1<\/span>\/3/);
+        });
+    });
+
+    it('shows no slider controls for a single image', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/about')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          galleryUrls: ['/uploads/only.png'],
+          galleryCaption: ['Just one'],
+        })
+        .expect(302);
+
+      await request(server)
+        .get('/about')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('/uploads/only.png');
+          // Assert inside the figure: the modal keeps its own nav buttons.
+          const figure = /<figure class="shot"[\s\S]*?<\/figure>/.exec(
+            res.text,
+          )?.[0] as string;
+          expect(figure).not.toContain('shot-dots');
+          expect(figure).not.toContain('shot-nav');
+          expect(figure).not.toContain('shot-count');
+        });
+    });
+
+    it('truncates a long caption and offers See more', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+      const longCaption =
+        'I was a student and did not have money for the job application, so I took 500 from my mother to capture this picture and apply for the 44th BCS examination.';
+
+      await request(server)
+        .post('/admin/about')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          galleryUrls: ['/uploads/a.png'],
+          galleryCaption: [longCaption],
+        })
+        .expect(302);
+
+      await request(server)
+        .get('/about')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('class="see-more"');
+          // The full text is only in the JSON the modal reads, never in the
+          // visible caption.
+          const visible =
+            /<span class="cap-text">([^<]*)</.exec(res.text)?.[1] ?? '';
+          expect(visible.length).toBeLessThan(longCaption.length);
+          expect(visible.endsWith('…')).toBe(true);
+          expect(res.text).toContain('id="gallery-data"');
+        });
+    });
+
+    it('keeps a short caption inline with no See more', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/about')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({ galleryUrls: ['/uploads/a.png'], galleryCaption: ['Short.'] })
+        .expect(302);
+
+      await request(server)
+        .get('/about')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('Short.');
+          // The button, not the words — a script comment mentions them too.
+          expect(res.text).not.toContain('class="see-more"');
         });
     });
 

@@ -1,8 +1,11 @@
 import {
   AboutContent,
+  GalleryItem,
   Milestone,
   STATUS_LABELS,
+  captionPreview,
   isAboutEmpty,
+  isCaptionLong,
   milestonePeriod,
 } from '../about/about.model';
 import { getSettings } from '../settings/settings.store';
@@ -153,13 +156,82 @@ const ABOUT_CSS = `
   .learn-card p { font-size: 0.88rem; color: var(--ink-3); line-height: 1.6; }
 
   /* ---------- gallery ---------- */
-  .gallery { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+  .gallery { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
   .gallery figure { margin: 0; }
+  .shot-frame { position: relative; }
   .gallery img {
     width: 100%; aspect-ratio: 4 / 3; object-fit: cover;
     border-radius: 10px; border: 1px solid var(--border);
     cursor: zoom-in; display: block;
   }
+
+  .shot-nav {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 0; cursor: pointer; z-index: 2;
+    background: rgba(0,0,0,.55); color: #fff;
+    font-size: 1.2rem; line-height: 1; font-family: inherit;
+    display: grid; place-items: center;
+    opacity: 0; transition: opacity .18s;
+  }
+  .shot-frame:hover .shot-nav, .shot-nav:focus-visible { opacity: 1; }
+  .shot-nav.prev { left: 0.4rem; }
+  .shot-nav.next { right: 0.4rem; }
+  .shot-nav:hover { background: rgba(0,0,0,.75); }
+  /* Touch has no hover, so the controls stay visible there. */
+  @media (hover: none) { .shot-nav { opacity: 1; } }
+
+  .shot-count {
+    position: absolute; top: 0.45rem; right: 0.45rem; z-index: 2;
+    background: rgba(0,0,0,.6); color: #fff;
+    font-size: 0.68rem; padding: 0.1rem 0.4rem; border-radius: 100px;
+    font-variant-numeric: tabular-nums;
+  }
+  .shot-dots {
+    position: absolute; bottom: 0.45rem; left: 0; right: 0; z-index: 2;
+    display: flex; justify-content: center; gap: 0.25rem;
+  }
+  .shot-dots .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: rgba(255,255,255,.55); cursor: pointer;
+  }
+  .shot-dots .dot.on { background: #fff; width: 14px; border-radius: 100px; }
+
+  .gallery figcaption .see-more {
+    background: none; border: 0; padding: 0; margin-left: 0.3rem;
+    color: var(--accent); cursor: pointer; font-family: inherit;
+    font-size: 0.78rem; font-weight: 600; text-align: left;
+  }
+  .gallery figcaption .see-more:hover { text-decoration: underline; }
+
+  /* ---------- caption modal ---------- */
+  .shot-modal {
+    position: fixed; inset: 0; z-index: 120;
+    background: rgba(0,0,0,.88);
+    display: flex; align-items: center; justify-content: center; padding: 1.5rem;
+  }
+  .shot-modal[hidden] { display: none; }
+  .shot-modal-inner {
+    max-width: 760px; width: 100%; max-height: 100%;
+    display: flex; flex-direction: column; gap: 1rem; overflow-y: auto;
+  }
+  .shot-modal-media { position: relative; }
+  .shot-modal-media img {
+    width: 100%; max-height: 65vh; object-fit: contain;
+    border-radius: 10px; display: block; cursor: default;
+  }
+  .shot-modal-media .shot-nav { opacity: 1; width: 38px; height: 38px; font-size: 1.5rem; }
+  .shot-modal-caption {
+    color: #f2f4f7; font-family: var(--serif); font-size: 1.02rem;
+    line-height: 1.7; text-align: justify; hyphens: auto;
+  }
+  .shot-modal-close {
+    position: absolute; top: 1rem; right: 1.25rem;
+    background: transparent; border: 0; color: #fff;
+    font-size: 2rem; line-height: 1; cursor: pointer; opacity: .8;
+    font-family: inherit; z-index: 2;
+  }
+  .shot-modal-close:hover { opacity: 1; }
   .gallery figcaption {
     font-size: 0.78rem; color: var(--ink-3); margin-top: 0.4rem; line-height: 1.5;
     /* Narrowest measure on the page, so hyphenation does the most work here. */
@@ -195,46 +267,123 @@ const ABOUT_CSS = `
 const GALLERY_JS = `
 <script>
 (function () {
-  var open = null;
+  var dataTag = document.getElementById('gallery-data');
+  if (!dataTag) return;
 
-  function close() {
-    if (!open) return;
-    open.remove();
-    open = null;
-    document.body.style.overflow = '';
+  var records = [];
+  try { records = JSON.parse(dataTag.textContent) || []; } catch (e) { return; }
+
+  // ---------- inline slider ----------
+  function shotOf(figure) {
+    return figure.querySelectorAll('.shot-track img');
+  }
+
+  function showAt(figure, index) {
+    var imgs = shotOf(figure);
+    if (!imgs.length) return;
+
+    var next = (index + imgs.length) % imgs.length;
+    imgs.forEach(function (img, i) { img.hidden = i !== next; });
+
+    var at = figure.querySelector('.shot-count .at');
+    if (at) at.textContent = String(next + 1);
+
+    figure.querySelectorAll('.shot-dots .dot').forEach(function (dot, i) {
+      dot.classList.toggle('on', i === next);
+    });
+
+    figure.dataset.at = String(next);
+  }
+
+  function currentIndex(figure) {
+    return parseInt(figure.dataset.at || '0', 10);
   }
 
   document.addEventListener('click', function (ev) {
-    var img = ev.target.closest('.gallery img');
+    var figure = ev.target.closest('.gallery .shot');
+    if (!figure) return;
 
-    if (img) {
-      if (open) return;
-      var box = document.createElement('div');
-      box.className = 'lightbox';
-
-      var full = document.createElement('img');
-      full.src = img.src;
-      full.alt = img.alt || '';
-      box.appendChild(full);
-
-      var btn = document.createElement('button');
-      btn.className = 'lightbox-close';
-      btn.type = 'button';
-      btn.innerHTML = '&times;';
-      btn.setAttribute('aria-label', 'Close');
-      box.appendChild(btn);
-
-      document.body.appendChild(box);
-      document.body.style.overflow = 'hidden';
-      open = box;
+    if (ev.target.closest('.shot-nav.next')) {
+      showAt(figure, currentIndex(figure) + 1);
+      return;
+    }
+    if (ev.target.closest('.shot-nav.prev')) {
+      showAt(figure, currentIndex(figure) - 1);
+      return;
+    }
+    var dot = ev.target.closest('.shot-dots .dot');
+    if (dot) {
+      showAt(figure, parseInt(dot.getAttribute('data-to'), 10));
       return;
     }
 
-    if (open && ev.target.tagName !== 'IMG') close();
+    // The image and "See more" both open the same modal, so a reader never
+    // has to guess which control shows the rest of the caption.
+    if (ev.target.closest('.see-more') || ev.target.tagName === 'IMG') {
+      openModal(
+        parseInt(figure.getAttribute('data-index'), 10),
+        currentIndex(figure)
+      );
+    }
+  });
+
+  // ---------- modal ----------
+  var modal = document.getElementById('shot-modal');
+  var modalImg = document.getElementById('shot-modal-img');
+  var modalCap = document.getElementById('shot-modal-caption');
+  var record = 0;
+  var slide = 0;
+
+  function paint() {
+    var item = records[record];
+    if (!item) return;
+
+    var urls = item.urls || [];
+    slide = (slide + urls.length) % Math.max(urls.length, 1);
+    modalImg.src = urls[slide] || '';
+    modalImg.alt = item.caption || 'Photo';
+    modalCap.textContent = item.caption || '';
+
+    var multiple = urls.length > 1;
+    document.getElementById('modal-prev').hidden = !multiple;
+    document.getElementById('modal-next').hidden = !multiple;
+  }
+
+  function openModal(recordIndex, slideIndex) {
+    record = recordIndex;
+    slide = slideIndex || 0;
+    paint();
+    modal.hidden = false;
+    document.documentElement.style.overflow = 'hidden';
+  }
+
+  function closeModal() {
+    modal.hidden = true;
+    document.documentElement.style.overflow = '';
+  }
+
+  document.getElementById('modal-next').addEventListener('click', function (ev) {
+    ev.stopPropagation();
+    slide++;
+    paint();
+  });
+  document.getElementById('modal-prev').addEventListener('click', function (ev) {
+    ev.stopPropagation();
+    slide--;
+    paint();
+  });
+  document.querySelector('.shot-modal-close').addEventListener('click', closeModal);
+
+  modal.addEventListener('click', function (ev) {
+    // Only a click on the backdrop closes it, not one on the content.
+    if (!ev.target.closest('.shot-modal-inner')) closeModal();
   });
 
   document.addEventListener('keydown', function (ev) {
-    if (ev.key === 'Escape') close();
+    if (modal.hidden) return;
+    if (ev.key === 'Escape') closeModal();
+    if (ev.key === 'ArrowRight') { slide++; paint(); }
+    if (ev.key === 'ArrowLeft') { slide--; paint(); }
   });
 })();
 </script>`;
@@ -318,20 +467,68 @@ export function aboutPage(
   }
 
   if (about.gallery.length) {
+    const record = (item: GalleryItem, index: number): string => {
+      const many = item.urls.length > 1;
+      const long = isCaptionLong(item.caption);
+
+      return `<figure class="shot" data-index="${index}">
+        <div class="shot-frame">
+          <div class="shot-track">
+            ${item.urls
+              .map(
+                (url, i) =>
+                  `<img src="${esc(url)}" alt="${esc(item.caption || 'Photo')}" loading="lazy" ${i === 0 ? '' : 'hidden'} />`,
+              )
+              .join('')}
+          </div>
+          ${
+            many
+              ? `<button type="button" class="shot-nav prev" aria-label="Previous image">‹</button>
+          <button type="button" class="shot-nav next" aria-label="Next image">›</button>
+          <span class="shot-count"><span class="at">1</span>/${item.urls.length}</span>
+          <div class="shot-dots">${item.urls
+            .map(
+              (_, i) =>
+                `<span class="dot${i === 0 ? ' on' : ''}" data-to="${i}"></span>`,
+            )
+            .join('')}</div>`
+              : ''
+          }
+        </div>
+        ${
+          item.caption
+            ? `<figcaption>
+          <span class="cap-text">${esc(long ? captionPreview(item.caption) : item.caption)}</span>
+          ${long ? '<button type="button" class="see-more">See more</button>' : ''}
+        </figcaption>`
+            : ''
+        }
+      </figure>`;
+    };
+
     sections.push(`
   <section class="about-section">
     <h2>Photos</h2>
     <div class="gallery">
-      ${about.gallery
-        .map(
-          (g) => `<figure>
-        <img src="${esc(g.url)}" alt="${esc(g.caption || 'Photo')}" loading="lazy" />
-        ${g.caption ? `<figcaption>${esc(g.caption)}</figcaption>` : ''}
-      </figure>`,
-        )
-        .join('')}
+      ${about.gallery.map(record).join('')}
     </div>
-  </section>`);
+  </section>
+
+  <div class="shot-modal" id="shot-modal" hidden>
+    <button type="button" class="shot-modal-close" aria-label="Close">&times;</button>
+    <div class="shot-modal-inner" role="dialog" aria-modal="true" aria-label="Photo">
+      <div class="shot-modal-media">
+        <img id="shot-modal-img" src="" alt="" />
+        <button type="button" class="shot-nav prev" id="modal-prev" aria-label="Previous image">‹</button>
+        <button type="button" class="shot-nav next" id="modal-next" aria-label="Next image">›</button>
+      </div>
+      <p class="shot-modal-caption" id="shot-modal-caption"></p>
+    </div>
+  </div>
+
+  <script id="gallery-data" type="application/json">${JSON.stringify(
+    about.gallery,
+  ).replace(/</g, '\u003c')}</script>`);
   }
 
   const body = `

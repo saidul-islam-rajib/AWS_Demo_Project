@@ -37,7 +37,7 @@ interface AboutForm {
   learningTitle?: string | string[];
   learningNote?: string | string[];
   learningStatus?: string | string[];
-  galleryUrl?: string | string[];
+  galleryUrls?: string | string[];
   galleryCaption?: string | string[];
   socialLabel?: string | string[];
   socialUrl?: string | string[];

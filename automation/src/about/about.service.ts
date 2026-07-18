@@ -7,7 +7,12 @@ import {
   writeFileSync,
 } from 'fs';
 import { join } from 'path';
-import { AboutContent, EMPTY_ABOUT, normaliseMilestone } from './about.model';
+import {
+  AboutContent,
+  EMPTY_ABOUT,
+  normaliseGalleryItem,
+  normaliseMilestone,
+} from './about.model';
 
 /** Stored beside posts.json and settings.json on the data volume. */
 @Injectable()
@@ -37,6 +42,7 @@ export class AboutService {
       return {
         ...merged,
         milestones: (merged.milestones ?? []).map(normaliseMilestone),
+        gallery: (merged.gallery ?? []).map(normaliseGalleryItem),
       };
     } catch (err) {
       this.logger.error(`Could not read about content: ${String(err)}`);
