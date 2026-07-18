@@ -1123,6 +1123,189 @@ describe('Blog (e2e)', () => {
     });
   });
 
+  describe('related posts', () => {
+    /** Creates a post and returns its id, read back from the dashboard. */
+    const write = async (
+      cookie: string,
+      title: string,
+      extra: Record<string, unknown> = {},
+    ): Promise<string> => {
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/posts/new')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({ title, content: 'Body.', status: 'published', ...extra })
+        .expect(302);
+
+      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const edit = await request(server)
+        .get('/admin')
+        .set('Cookie', cookie)
+        .expect(200);
+
+      const row = new RegExp(
+        `/admin/posts/([0-9a-f-]+)/edit"[^]{0,400}?${title}`,
+      ).exec(edit.text);
+
+      return row?.[1] ?? slug;
+    };
+
+    it('offers the other posts to pick from in the editor', async () => {
+      const cookie = await signIn();
+      await write(cookie, 'Pickable Post');
+
+      await request(app.getHttpServer())
+        .get('/admin/posts/new')
+        .set('Cookie', cookie)
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('More like this');
+          expect(res.text).toContain('name="relatedIds"');
+          expect(res.text).toContain('Pickable Post');
+        });
+    });
+
+    it('shows only the posts the author picked, in their order', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      // Ignored Post shares the host's tag, so the automatic guess would
+      // rank it first. Picking the two untagged ones instead is the only
+      // way this passes — otherwise it proves nothing.
+      await write(cookie, 'Ignored Post', { tags: 'kubernetes' });
+      const first = await write(cookie, 'Chosen One');
+      const second = await write(cookie, 'Chosen Two');
+      await write(cookie, 'Host Post', {
+        tags: 'kubernetes',
+        relatedIds: [second, first],
+      });
+
+      await request(server)
+        .get('/post/host-post')
+        .expect(200)
+        .expect((res) => {
+          const section = /<section class="related">[\s\S]*?<\/section>/.exec(
+            res.text,
+          )?.[0] as string;
+
+          expect(section).not.toContain('Ignored Post');
+          // Listed in the order the author's picks were stored.
+          expect(section.indexOf('Chosen Two')).toBeLessThan(
+            section.indexOf('Chosen One'),
+          );
+        });
+    });
+
+    it('keeps the tick when the editor is reopened', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      const target = await write(cookie, 'Target Post');
+      const host = await write(cookie, 'Host Post', { relatedIds: [target] });
+
+      await request(server)
+        .get(`/admin/posts/${host}/edit`)
+        .set('Cookie', cookie)
+        .expect(200)
+        .expect((res) => {
+          // Whitespace between the attributes is not the point; the checked
+          // state travelling with the right id is.
+          const box = new RegExp(
+            `name="relatedIds" value="${target}"\\s*checked`,
+          );
+          expect(res.text).toMatch(box);
+        });
+    });
+
+    it('never offers a post as related to itself', async () => {
+      const cookie = await signIn();
+      const id = await write(cookie, 'Lonely Post');
+
+      await request(app.getHttpServer())
+        .get(`/admin/posts/${id}/edit`)
+        .set('Cookie', cookie)
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).not.toContain(`name="relatedIds" value="${id}"`);
+        });
+    });
+
+    it('drops a pick that is no longer published', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      const draft = await write(cookie, 'Now A Draft');
+      await write(cookie, 'Host Post', { relatedIds: [draft] });
+
+      await request(server)
+        .post(`/admin/posts/${draft}/edit`)
+        .set('Cookie', cookie)
+        .type('form')
+        .send({ title: 'Now A Draft', content: 'Body.', status: 'draft' })
+        .expect(302);
+
+      // The stored id still points at it, so this has to be resolved against
+      // what is actually published rather than trusted.
+      await request(server)
+        .get('/post/host-post')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).not.toContain('Now A Draft');
+        });
+    });
+
+    it('falls back to shared tags when the author picked nothing', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await write(cookie, 'Tagged Neighbour', { tags: 'kubernetes' });
+      await write(cookie, 'Host Post', { tags: 'kubernetes' });
+
+      await request(server)
+        .get('/post/host-post')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('Tagged Neighbour');
+        });
+    });
+  });
+
+  describe('photo modal scrolling', () => {
+    it('scrolls the caption alone, holding the photo in place', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/about')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          galleryUrls: ['/uploads/a.png'],
+          galleryCaption: ['A very long story. '.repeat(40)],
+        })
+        .expect(302);
+
+      await request(server)
+        .get('/about')
+        .expect(200)
+        .expect((res) => {
+          // The panel must not scroll: doing so dragged the photo out of
+          // view as you read the words describing it.
+          expect(res.text).toMatch(
+            /\.shot-modal-inner \{[^}]*overflow: hidden/,
+          );
+          expect(res.text).toMatch(
+            /\.shot-modal-caption \{[^}]*overflow-y: auto/,
+          );
+          // Without min-height: 0 a flex item refuses to shrink below its
+          // content, and the overflow lands back on the panel.
+          expect(res.text).toMatch(/\.shot-modal-caption \{[^}]*min-height: 0/);
+        });
+    });
+  });
+
   describe('image loading skeleton', () => {
     it('shimmers gallery images on the about page until they arrive', async () => {
       const cookie = await signIn();

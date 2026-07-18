@@ -12,6 +12,7 @@ import {
   Post,
   PostInput,
   isScheduled,
+  normaliseRelatedIds,
   normaliseTags,
   parsePublishedAt,
   slugify,
@@ -44,10 +45,12 @@ export class PostsService {
 
       if (existsSync(this.file)) {
         const stored = JSON.parse(readFileSync(this.file, 'utf8')) as Post[];
-        // Posts written before scheduling existed have no publishedAt.
+        // Posts written before scheduling existed have no publishedAt, and
+        // ones written before hand-picked related posts have no relatedIds.
         this.posts = stored.map((p) => ({
           ...p,
           publishedAt: p.publishedAt ?? p.createdAt,
+          relatedIds: p.relatedIds ?? [],
         }));
         this.logger.log(
           `Loaded ${this.posts.length} post(s) from ${this.file}`,
@@ -236,6 +239,7 @@ export class PostsService {
       content: input.content ?? '',
       highlight: input.highlight?.trim() ?? '',
       tags: normaliseTags(input.tags),
+      relatedIds: normaliseRelatedIds(input.relatedIds),
       status: input.status === 'published' ? 'published' : 'draft',
       publishedAt: parsePublishedAt(input.publishedAt, now),
       createdAt: now,
@@ -262,6 +266,10 @@ export class PostsService {
     post.content = input.content ?? '';
     post.highlight = input.highlight?.trim() ?? '';
     post.tags = normaliseTags(input.tags);
+    // A post can never be related to itself, however the form was submitted.
+    post.relatedIds = normaliseRelatedIds(input.relatedIds).filter(
+      (id) => id !== post.id,
+    );
     post.status = input.status === 'published' ? 'published' : 'draft';
     post.publishedAt = parsePublishedAt(
       input.publishedAt,
@@ -318,6 +326,9 @@ function seedPosts(): Post[] {
       highlight,
       content,
       tags,
+      // Seeded posts suggest by tag; the author picks their own once they
+      // have something in mind.
+      relatedIds: [],
       status: 'published',
       publishedAt: created,
       createdAt: created,

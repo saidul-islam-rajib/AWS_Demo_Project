@@ -5,6 +5,7 @@ import { NotFoundException } from '@nestjs/common';
 import { PostsService } from './posts.service';
 import {
   highlightList,
+  normaliseRelatedIds,
   normaliseTags,
   readingMinutes,
   relativeDate,
@@ -13,6 +14,26 @@ import {
 } from './post.model';
 
 describe('post.model', () => {
+  describe('normaliseRelatedIds', () => {
+    it('accepts the single string a form sends for one ticked box', () => {
+      expect(normaliseRelatedIds('abc')).toEqual(['abc']);
+    });
+
+    it('accepts the array a form sends for several', () => {
+      expect(normaliseRelatedIds(['a', 'b'])).toEqual(['a', 'b']);
+    });
+
+    it('treats an omitted field as no picks at all', () => {
+      // Which is what makes the automatic suggestions the default.
+      expect(normaliseRelatedIds(undefined)).toEqual([]);
+      expect(normaliseRelatedIds('')).toEqual([]);
+    });
+
+    it('keeps the order the author sees, and drops duplicates', () => {
+      expect(normaliseRelatedIds(['b', 'a', 'b'])).toEqual(['b', 'a']);
+    });
+  });
+
   it('slugifies titles', () => {
     expect(slugify('Hello, World! A Post')).toBe('hello-world-a-post');
     expect(slugify('  Trim   Me  ')).toBe('trim-me');

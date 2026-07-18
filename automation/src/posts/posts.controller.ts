@@ -1,6 +1,6 @@
 import { Controller, Get, Header, Param, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
-import { formatDate, readingMinutes } from './post.model';
+import { formatDate, Post, readingMinutes } from './post.model';
 import { PostsService } from './posts.service';
 import { ProjectsService } from '../projects/projects.service';
 import { renderMarkdown } from './markdown';
@@ -101,16 +101,32 @@ export class PostsController {
 
     this.posts.recordView(slug);
 
+    const others = published.filter((p) => p.id !== post.id);
+
+    /*
+     * The author's own picks win outright, in the order they are listed. A
+     * pick that has since been deleted, unpublished or scheduled forward
+     * simply drops out, which is why this resolves against the published
+     * list rather than trusting the stored ids.
+     *
+     * They are not topped up to three from the automatic guess: having
+     * chosen, the author gets exactly what they chose.
+     */
+    const chosen = post.relatedIds
+      .map((id) => others.find((p) => p.id === id))
+      .filter((p): p is Post => Boolean(p));
+
     // Same tag = related; fall back to most recent when nothing overlaps.
-    const related = published
-      .filter((p) => p.id !== post.id)
-      .map((p) => ({
-        p,
-        shared: p.tags.filter((t) => post.tags.includes(t)).length,
-      }))
-      .sort((a, b) => b.shared - a.shared)
-      .slice(0, 3)
-      .map(({ p }) => p);
+    const related = chosen.length
+      ? chosen
+      : others
+          .map((p) => ({
+            p,
+            shared: p.tags.filter((t) => post.tags.includes(t)).length,
+          }))
+          .sort((a, b) => b.shared - a.shared)
+          .slice(0, 3)
+          .map(({ p }) => p);
 
     const html = renderMarkdown(post.content);
     res.send(postPage(post, related, html));

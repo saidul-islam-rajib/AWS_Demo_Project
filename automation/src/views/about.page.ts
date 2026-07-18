@@ -223,11 +223,18 @@ const ABOUT_CSS = `
     display: flex; align-items: center; justify-content: center; padding: 1.5rem;
   }
   .shot-modal[hidden] { display: none; }
+  /*
+   * The panel itself does not scroll. It used to, which meant a long caption
+   * dragged the photo up out of view as you read — you had to scroll back to
+   * see what the words were about. Now the photo holds its place and only the
+   * caption moves.
+   */
   .shot-modal-inner {
     max-width: 760px; width: 100%; max-height: 100%;
-    display: flex; flex-direction: column; gap: 1rem; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 1rem; overflow: hidden;
   }
-  .shot-modal-media { position: relative; }
+  /* flex: none, or a tall photo would squeeze the caption to nothing. */
+  .shot-modal-media { position: relative; flex: none; }
   .shot-modal-media img {
     width: 100%; max-height: 65vh; object-fit: contain;
     border-radius: 10px; display: block; cursor: default;
@@ -242,7 +249,23 @@ const ABOUT_CSS = `
   .shot-modal-caption {
     color: #f2f4f7; font-family: var(--serif); font-size: 1.02rem;
     line-height: 1.7; text-align: justify; hyphens: auto;
+    /*
+     * Takes the height left over after the photo and scrolls inside it.
+     * min-height: 0 is what makes that work — a flex item defaults to
+     * min-height: auto, which refuses to shrink below its content and would
+     * push the overflow back out onto the panel.
+     */
+    flex: 1 1 auto; min-height: 0; overflow-y: auto;
+    padding-right: 0.9rem;
+    /* Firefox; the WebKit equivalent is below. */
+    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.35) transparent;
   }
+  .shot-modal-caption::-webkit-scrollbar { width: 8px; }
+  .shot-modal-caption::-webkit-scrollbar-track { background: transparent; }
+  .shot-modal-caption::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,.3); border-radius: 100px;
+  }
+  .shot-modal-caption::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.5); }
   .shot-modal-close {
     position: absolute; top: 1rem; right: 1.25rem;
     background: transparent; border: 0; color: #fff;

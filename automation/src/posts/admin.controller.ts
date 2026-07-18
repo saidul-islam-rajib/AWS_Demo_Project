@@ -125,7 +125,7 @@ export class AdminController {
   @UseGuards(AuthGuard)
   @Header('Content-Type', 'text/html')
   newForm(): string {
-    return editorPage();
+    return editorPage(undefined, this.posts.findAll());
   }
 
   @HttpPost('admin/posts/new')
@@ -141,7 +141,7 @@ export class AdminController {
   @UseGuards(AuthGuard)
   @Header('Content-Type', 'text/html')
   editForm(@Param('id') id: string): string {
-    return editorPage(this.posts.findById(id));
+    return editorPage(this.posts.findById(id), this.posts.findAll());
   }
 
   @HttpPost('admin/posts/:id/edit')

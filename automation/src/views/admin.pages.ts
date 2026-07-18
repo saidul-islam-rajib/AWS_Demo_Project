@@ -61,6 +61,31 @@ const ADMIN_CSS = `
   }
   .panel h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-3); margin-bottom: 0.9rem; }
 
+  /* ---------- related post picker ---------- */
+  /*
+   * Capped and scrolled in place: with fifty posts this list would otherwise
+   * push the save button so far down the sidebar it left the screen.
+   */
+  .related-picker {
+    max-height: 260px; overflow-y: auto;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: var(--surface);
+  }
+  .related-option {
+    display: flex; gap: 0.6rem; align-items: flex-start;
+    padding: 0.55rem 0.7rem; cursor: pointer;
+    border-bottom: 1px solid var(--border);
+  }
+  .related-option:last-child { border-bottom: 0; }
+  .related-option:hover { background: var(--surface-2); }
+  .related-option input { width: auto; margin: 0.15rem 0 0; flex: none; }
+  .related-option span { display: block; min-width: 0; }
+  .related-option strong {
+    display: block; font-size: 0.85rem; font-weight: 600; color: var(--ink);
+    line-height: 1.35;
+  }
+  .related-option em { font-style: normal; font-size: 0.72rem; color: var(--ink-3); }
+
   /* ---------- markdown toolbar ---------- */
   .toolbar-md {
     display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem;
@@ -470,7 +495,45 @@ ${ADMIN_CSS}
   });
 }
 
-export function editorPage(post?: Post): string {
+/**
+ * The "More like this" picker.
+ *
+ * Checkboxes rather than a multi-select: a multi-select needs ctrl-click to
+ * add a second item and silently drops the lot on a plain click, which is a
+ * cruel way to lose a choice you made three edits ago.
+ */
+function relatedPicker(post: Post | undefined, all: Post[]): string {
+  const chosen = new Set(post?.relatedIds ?? []);
+  const options = all.filter((p) => p.id !== post?.id);
+
+  if (!options.length) {
+    return `<p class="hint" style="margin:0">
+      Nothing to link to yet. Write a second post and it will appear here.
+    </p>`;
+  }
+
+  return `<div class="related-picker">
+    ${options
+      .map(
+        (p) => `<label class="related-option">
+      <input type="checkbox" name="relatedIds" value="${esc(p.id)}"
+             ${chosen.has(p.id) ? 'checked' : ''} />
+      <span>
+        <strong>${esc(p.title)}</strong>
+        <em>${esc(formatDate(p.publishedAt))}${p.status === 'draft' ? ' · draft' : ''}</em>
+      </span>
+    </label>`,
+      )
+      .join('')}
+  </div>
+  <p class="hint">
+    Tick the posts to show under <strong>More like this</strong>. Leave them
+    all unticked and posts sharing a tag are suggested automatically.
+    A draft stays hidden there until it is published.
+  </p>`;
+}
+
+export function editorPage(post?: Post, all: Post[] = []): string {
   const editing = Boolean(post);
   const action = editing
     ? `/admin/posts/${esc(post!.id)}/edit`
@@ -615,6 +678,11 @@ ${ADMIN_CSS}
               <span class="chip-count"></span>
             </p>
           </div>
+        </div>
+
+        <div class="panel">
+          <h3>More like this</h3>
+          ${relatedPicker(post, all)}
         </div>
       </aside>
     </div>

@@ -14,6 +14,12 @@ export interface Post {
    */
   highlight: string;
   tags: string[];
+  /**
+   * Posts the author picked to appear under "More like this". Empty means
+   * the tag-overlap guess is used instead, which is what every post did
+   * before this existed.
+   */
+  relatedIds: string[];
   status: PostStatus;
   /**
    * When the post goes live. Distinct from createdAt so a post can be
@@ -31,8 +37,19 @@ export interface PostInput {
   content: string;
   highlight?: string;
   tags?: string | string[];
+  relatedIds?: string | string[];
   status?: PostStatus;
   publishedAt?: string;
+}
+
+/**
+ * A form posts one checkbox as a bare string and several as an array, and
+ * omits the field entirely when none are ticked.
+ */
+export function normaliseRelatedIds(value?: string | string[]): string[] {
+  const list = Array.isArray(value) ? value : value ? [value] : [];
+
+  return [...new Set(list.map((id) => id.trim()).filter(Boolean))];
 }
 
 /** A published post whose publish time has not arrived yet. */
