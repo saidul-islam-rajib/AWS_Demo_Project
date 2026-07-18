@@ -65,19 +65,36 @@ export class AdminController {
   @Get('admin')
   @UseGuards(AuthGuard)
   @Header('Content-Type', 'text/html')
-  dashboard(@Query('ok') ok?: string): string {
+  dashboard(
+    @Query('ok') ok?: string,
+    @Query('imported') imported?: string,
+    @Query('skipped') skipped?: string,
+  ): string {
     const messages: Record<string, string> = {
       created: 'Post created.',
       updated: 'Post updated.',
       deleted: 'Post deleted.',
     };
 
+    let flash: { kind: 'ok' | 'err'; text: string } | undefined;
+
+    if (imported !== undefined) {
+      const added = Number(imported);
+      flash = {
+        kind: 'ok',
+        text: added
+          ? `Imported ${added} starter post${added === 1 ? '' : 's'}. ${skipped ?? 0} already existed.`
+          : 'Nothing to import — all starter posts are already present.',
+      };
+    } else if (ok && messages[ok]) {
+      flash = { kind: 'ok', text: messages[ok] };
+    }
+
     return dashboardPage({
       posts: this.posts.findAll(),
       stats: this.posts.stats(),
       tags: this.posts.tagCounts(),
-      flash:
-        ok && messages[ok] ? { kind: 'ok', text: messages[ok] } : undefined,
+      flash,
     });
   }
 
@@ -115,6 +132,14 @@ export class AdminController {
   ): void {
     this.posts.update(id, body);
     res.redirect('/admin?ok=updated');
+  }
+
+  /** Adds starter posts that are missing, without touching existing ones. */
+  @HttpPost('admin/import-starters')
+  @UseGuards(AuthGuard)
+  importStarters(@Res() res: Response): void {
+    const { added, skipped } = this.posts.importStarters();
+    res.redirect(`/admin?imported=${added}&skipped=${skipped}`);
   }
 
   // ---------- delete ----------

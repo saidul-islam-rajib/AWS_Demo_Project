@@ -128,6 +128,38 @@ describe('Blog (e2e)', () => {
         .expect('Location', '/login'));
   });
 
+  describe('importing starter posts', () => {
+    it('requires a session', () =>
+      request(app.getHttpServer())
+        .post('/admin/import-starters')
+        .expect(302)
+        .expect('Location', '/login'));
+
+    it('adds missing starters without touching the author’s posts', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/posts/new')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({ title: 'Mine Only', content: 'x', status: 'published' })
+        .expect(302);
+
+      // seeded store is already full, so nothing should be added
+      await request(server)
+        .post('/admin/import-starters')
+        .set('Cookie', cookie)
+        .expect(302)
+        .expect('Location', '/admin?imported=0&skipped=10');
+
+      await request(server)
+        .get('/post/mine-only')
+        .expect(200)
+        .expect((res) => expect(res.text).toContain('Mine Only'));
+    });
+  });
+
   describe('uploads and preview', () => {
     it('blocks uploads without a session', () =>
       request(app.getHttpServer())

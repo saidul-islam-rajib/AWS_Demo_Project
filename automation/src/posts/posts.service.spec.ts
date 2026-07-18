@@ -206,6 +206,49 @@ describe('PostsService', () => {
     );
   });
 
+  describe('importStarters', () => {
+    it('adds nothing when every starter is already present', () => {
+      const result = service.importStarters();
+
+      expect(result.added).toBe(0);
+      expect(result.skipped).toBe(10);
+      expect(service.findAll()).toHaveLength(10);
+    });
+
+    it('restores only the starters that are missing', () => {
+      const [first, second] = service.findAll();
+      service.remove(first.id);
+      service.remove(second.id);
+      expect(service.findAll()).toHaveLength(8);
+
+      const result = service.importStarters();
+
+      expect(result.added).toBe(2);
+      expect(service.findAll()).toHaveLength(10);
+    });
+
+    it('leaves the author’s own posts untouched', () => {
+      const mine = service.create({
+        title: 'My Own Post',
+        content: 'mine',
+        status: 'published',
+      });
+
+      service.importStarters();
+
+      const still = service.findById(mine.id);
+      expect(still.title).toBe('My Own Post');
+      expect(still.content).toBe('mine');
+    });
+
+    it('does not duplicate on a second run', () => {
+      service.importStarters();
+      service.importStarters();
+
+      expect(service.findAll()).toHaveLength(10);
+    });
+  });
+
   it('counts views', () => {
     const post = service.create({
       title: 'Viewed',

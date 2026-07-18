@@ -407,7 +407,15 @@ ${ADMIN_CSS}
       <h1 class="page-title" style="margin-bottom:.15rem">Dashboard</h1>
       <p style="color:var(--ink-3);font-size:.9rem">Manage posts, drafts and tags.</p>
     </div>
-    <a class="btn" href="/admin/posts/new" style="margin-left:auto">＋ New post</a>
+    <div style="margin-left:auto;display:flex;gap:.5rem;flex-wrap:wrap">
+      <form method="post" action="/admin/import-starters"
+            onsubmit="return confirm('Add the 10 starter posts? Existing posts are left untouched, and any already present are skipped.')">
+        <button class="btn btn-ghost" type="submit" title="Add starter posts that are not already here">
+          ↓ Import starter posts
+        </button>
+      </form>
+      <a class="btn" href="/admin/posts/new">＋ New post</a>
+    </div>
   </div>
 
   <div class="kpi-row">

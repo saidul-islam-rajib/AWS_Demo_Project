@@ -21,7 +21,11 @@ const FEED_CSS = `
   .searchbar { display: flex; gap: 0.5rem; margin: 1.75rem 0 0; max-width: 460px; }
 
   .feed-layout { display: grid; grid-template-columns: 1fr 260px; gap: 3rem; align-items: start; }
-  @media (max-width: 900px) { .feed-layout { grid-template-columns: 1fr; gap: 2rem; } }
+  @media (max-width: 900px) {
+    .feed-layout { grid-template-columns: 1fr; gap: 2rem; }
+    /* Sticky in a single column would pin the sidebar over the posts. */
+    .feed-side { position: static; }
+  }
 
   .card {
     display: block; padding: 1.6rem 0;
@@ -84,7 +88,12 @@ const FEED_CSS = `
     padding: 0.1rem 0.45rem; border-radius: 100px; font-weight: 700;
   }
 
-  .rail { position: sticky; top: 5rem; }
+  /*
+   * The aside sticks as one unit. Making each .rail sticky pinned both to the
+   * same offset, so "Browse tags" scrolled up underneath "At a glance".
+   */
+  .feed-side { position: sticky; top: 5rem; }
+  .rail { display: block; }
   .rail h3 {
     font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em;
     color: var(--ink-3); margin-bottom: 0.9rem;
@@ -202,7 +211,7 @@ ${FEED_CSS}
       }
     </div>
 
-    <aside>
+    <aside class="feed-side">
       <div class="rail">
         <h3>At a glance</h3>
         <div class="stat-row">

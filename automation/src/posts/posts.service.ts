@@ -213,6 +213,23 @@ export class PostsService {
     return post;
   }
 
+  /**
+   * Adds any starter post whose slug is not already present.
+   *
+   * Seeding otherwise only runs on an empty store, so an existing deployment
+   * never sees new starter content. Skipping by slug means posts the author
+   * has since deleted do not come back, and their own work is untouched.
+   */
+  importStarters(): { added: number; skipped: number } {
+    const existing = new Set(this.posts.map((p) => p.slug));
+    const missing = seedPosts().filter((p) => !existing.has(p.slug));
+
+    this.posts.push(...missing);
+    if (missing.length) this.persist();
+
+    return { added: missing.length, skipped: 10 - missing.length };
+  }
+
   remove(id: string): void {
     const index = this.posts.findIndex((p) => p.id === id);
     if (index === -1) throw new NotFoundException(`No post with id "${id}"`);

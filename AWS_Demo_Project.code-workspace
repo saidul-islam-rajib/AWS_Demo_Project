@@ -1,0 +1,22 @@
+{
+  "folders": [
+    {
+      "name": "AWS_Demo_Project (repo root)",
+      "path": "."
+    },
+    {
+      "name": "automation (NestJS app)",
+      "path": "automation"
+    }
+  ],
+  "settings": {
+    "typescript.tsdk": "automation/node_modules/typescript/lib",
+    "files.exclude": {
+      "automation": true
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/dist": true
+    }
+  }
+}
