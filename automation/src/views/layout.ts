@@ -50,7 +50,7 @@ export function avatarMark(
 
 export function layout({
   title,
-  description = 'Engineering notes on backend development, DevOps and cloud infrastructure.',
+  description,
   body,
   nav,
   variant = 'default',
@@ -70,9 +70,22 @@ export function layout({
       : `${base}${target.startsWith('/') ? '' : '/'}${target}`;
 
   const canonical = absolute(path);
-  // Fall back to the author's avatar so a shared link is never imageless.
+
+  // Fall back to the avatar so a shared link is never imageless. Crawlers
+  // will not follow a relative path, so this must be absolute.
   const preview = image ?? (s.avatarUrl || '');
   const previewUrl = preview ? absolute(preview) : '';
+  const previewType = /\.png(\?|$)/i.test(previewUrl)
+    ? 'image/png'
+    : /\.(jpe?g)(\?|$)/i.test(previewUrl)
+      ? 'image/jpeg'
+      : /\.webp(\?|$)/i.test(previewUrl)
+        ? 'image/webp'
+        : '';
+
+  // The site description doubles as the default preview text, so a bio set
+  // in Settings is what people see when a link is shared.
+  const summary = description || s.authorBio || s.siteTagline;
 
   return `<!doctype html>
 <html lang="en">
@@ -80,7 +93,7 @@ export function layout({
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>${esc(title)}</title>
-<meta name="description" content="${esc(description)}" />
+<meta name="description" content="${esc(summary)}" />
 <link rel="canonical" href="${esc(canonical)}" />
 ${noindex ? '<meta name="robots" content="noindex, nofollow" />' : '<meta name="robots" content="index, follow" />'}
 
@@ -88,13 +101,27 @@ ${noindex ? '<meta name="robots" content="noindex, nofollow" />' : '<meta name="
 <meta property="og:site_name" content="${esc(s.authorName)}" />
 <meta property="og:type" content="${esc(ogType)}" />
 <meta property="og:title" content="${esc(title)}" />
-<meta property="og:description" content="${esc(description)}" />
+<meta property="og:description" content="${esc(summary)}" />
 <meta property="og:url" content="${esc(canonical)}" />
 <meta property="og:locale" content="en_US" />
 ${
   previewUrl
-    ? `<meta property="og:image" content="${esc(previewUrl)}" />
-<meta property="og:image:alt" content="${esc(title)}" />`
+    ? [
+        `<meta property="og:image" content="${esc(previewUrl)}" />`,
+        // Facebook and LinkedIn size the card from these; without
+        // them the preview is often dropped or rendered small.
+        `<meta property="og:image:width" content="1200" />`,
+        `<meta property="og:image:height" content="630" />`,
+        previewType
+          ? `<meta property="og:image:type" content="${previewType}" />`
+          : '',
+        previewUrl.startsWith('https://')
+          ? `<meta property="og:image:secure_url" content="${esc(previewUrl)}" />`
+          : '',
+        `<meta property="og:image:alt" content="${esc(title)}" />`,
+      ]
+        .filter(Boolean)
+        .join('\\n')
     : ''
 }
 ${
@@ -107,7 +134,7 @@ ${
 <!-- Twitter / X -->
 <meta name="twitter:card" content="${previewUrl ? 'summary_large_image' : 'summary'}" />
 <meta name="twitter:title" content="${esc(title)}" />
-<meta name="twitter:description" content="${esc(description)}" />
+<meta name="twitter:description" content="${esc(summary)}" />
 ${previewUrl ? `<meta name="twitter:image" content="${esc(previewUrl)}" />` : ''}
 ${head}
 <style>

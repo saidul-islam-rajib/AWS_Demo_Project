@@ -854,6 +854,97 @@ describe('Blog (e2e)', () => {
         .expect((res) => expect(res.text).toContain('href="/about"')));
   });
 
+  describe('social link previews', () => {
+    const setBrand = async (cookie: string) =>
+      request(app.getHttpServer())
+        .post('/admin/settings')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          authorName: 'Saidul Islam Rajib',
+          authorBio: 'Backend engineer working with C# and NestJS.',
+          avatarUrl: '/uploads/me.png',
+          siteUrl: 'https://example.com',
+          siteTitle: 'Engineering notes',
+          showIntro: 'true',
+        })
+        .expect(302);
+
+    it('emits a complete Open Graph image block', async () => {
+      const cookie = await signIn();
+      await setBrand(cookie);
+
+      await request(app.getHttpServer())
+        .get('/')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain(
+            '<meta property="og:image" content="https://example.com/uploads/me.png" />',
+          );
+          // Crawlers size the card from these.
+          expect(res.text).toContain(
+            'property="og:image:width" content="1200"',
+          );
+          expect(res.text).toContain(
+            'property="og:image:height" content="630"',
+          );
+          expect(res.text).toContain(
+            'property="og:image:type" content="image/png"',
+          );
+          // https, so the secure variant must be present too.
+          expect(res.text).toContain('property="og:image:secure_url"');
+          expect(res.text).toContain(
+            'name="twitter:card" content="summary_large_image"',
+          );
+        });
+    });
+
+    it('uses the bio as the preview and search description', async () => {
+      const cookie = await signIn();
+      await setBrand(cookie);
+
+      await request(app.getHttpServer())
+        .get('/')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain(
+            'content="Backend engineer working with C# and NestJS."',
+          );
+        });
+    });
+
+    it('makes every preview URL absolute', async () => {
+      const cookie = await signIn();
+      await setBrand(cookie);
+
+      await request(app.getHttpServer())
+        .get('/')
+        .expect(200)
+        .expect((res) => {
+          const images = [
+            ...res.text.matchAll(/(?:og|twitter):image" content="([^"]+)"/g),
+          ].map((m) => m[1]);
+
+          expect(images.length).toBeGreaterThan(0);
+          // A relative path is never followed by a crawler.
+          images.forEach((url) => expect(url).toMatch(/^https?:\/\//));
+        });
+    });
+
+    it('never leaves a page without a preview image', async () => {
+      const cookie = await signIn();
+      await setBrand(cookie);
+      const server = app.getHttpServer();
+
+      for (const path of ['/', '/about', '/projects', '/tags']) {
+        await request(server)
+          .get(path)
+          .expect(200)
+          .expect((res) => expect(res.text).toContain('property="og:image"'));
+      }
+    });
+  });
+
   describe('admin lists: search and pagination', () => {
     it('paginates posts and reports the page count', async () => {
       const cookie = await signIn();

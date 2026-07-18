@@ -106,6 +106,12 @@ export function settingsPage(s: SiteSettings, saved = false): string {
             <label for="authorBio">Short bio</label>
             <textarea id="authorBio" name="authorBio" rows="3"
                       placeholder="One or two lines about you">${esc(s.authorBio)}</textarea>
+            <p class="hint">
+              Used as the description when a link is shared on LinkedIn,
+              Facebook or X, and by search engines. It is not printed on the
+              page, so it does not duplicate the About intro. Around 150
+              characters reads best.
+            </p>
           </div>
         </details>
 
@@ -193,6 +199,16 @@ export function settingsPage(s: SiteSettings, saved = false): string {
       </div>
 
       <aside>
+        <details class="card-block" open data-panel="save">
+          <summary>Save</summary>
+          <button class="btn" type="submit" style="width:100%;justify-content:center">
+            Save settings
+          </button>
+          <p class="hint" style="margin-top:.6rem">
+            Stored on the data volume, so changes survive redeploys.
+          </p>
+        </details>
+
         <details class="card-block" open data-panel="preview">
           <summary>Preview</summary>
           <div style="display:flex;align-items:center;gap:.6rem">
@@ -213,15 +229,7 @@ export function settingsPage(s: SiteSettings, saved = false): string {
           </div>
         </details>
 
-        <details class="card-block" open data-panel="save">
-          <summary>Save</summary>
-          <button class="btn" type="submit" style="width:100%;justify-content:center">
-            Save settings
-          </button>
-          <p class="hint" style="margin-top:.6rem">
-            Stored on the data volume, so changes survive redeploys.
-          </p>
-        </details>
+
       </aside>
     </div>
   </form>
