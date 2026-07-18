@@ -11,8 +11,35 @@ describe('renderMarkdown', () => {
   it('renders an image', () => {
     const html = renderMarkdown('![alt text](/uploads/a.png)');
 
-    expect(html).toContain('<img src="/uploads/a.png"');
+    expect(html).toContain('src="/uploads/a.png"');
     expect(html).toContain('alt="alt text"');
+  });
+
+  it('gives article images a loading skeleton and defers them', () => {
+    const html = renderMarkdown('![alt text](/uploads/a.png)');
+
+    expect(html).toContain('class="skel"');
+    expect(html).toContain('loading="lazy"');
+    expect(html).toContain('decoding="async"');
+  });
+
+  it('keeps a title when one is given, and omits it when not', () => {
+    expect(renderMarkdown('![a](/uploads/a.png "A caption")')).toContain(
+      'title="A caption"',
+    );
+    expect(renderMarkdown('![a](/uploads/a.png)')).not.toContain('title=');
+  });
+
+  it('escapes an image built from untrusted text', () => {
+    // Writing the tag by hand took escaping away from marked, so quotes in a
+    // src or alt must not be able to close the attribute and add their own.
+    const html = renderMarkdown(
+      '![" onerror="alert(1)](/uploads/a.png?x="&y=1)',
+    );
+
+    expect(html).not.toContain('onerror="alert(1)"');
+    expect(html).toContain('&quot;');
+    expect(html).toContain('&amp;y=1');
   });
 
   it('builds a two column block', () => {

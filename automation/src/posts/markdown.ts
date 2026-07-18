@@ -1,6 +1,35 @@
 import { marked } from 'marked';
 
-marked.setOptions({ gfm: true, breaks: false });
+/** Local rather than imported from the views, to keep posts free of them. */
+function attr(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+const renderer = new marked.Renderer();
+
+/**
+ * Article images carry the loading skeleton and are deferred.
+ *
+ * Building the tag here rather than post-processing the rendered HTML means
+ * the attributes are added once, at the only place images are created, and
+ * no regex has to be trusted against arbitrary markup. Escaping is ours to
+ * do now that marked is no longer writing the tag.
+ */
+renderer.image = (href: string | null, title: string | null, text: string) =>
+  [
+    `<img class="skel" src="${attr(href ?? '')}"`,
+    `alt="${attr(text ?? '')}"`,
+    title ? `title="${attr(title)}"` : '',
+    'loading="lazy" decoding="async" />',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+marked.setOptions({ gfm: true, breaks: false, renderer });
 
 /**
  * Column blocks.

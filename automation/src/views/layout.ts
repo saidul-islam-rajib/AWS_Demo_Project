@@ -68,6 +68,89 @@ export function avatarMark(
  */
 export const HTML_CACHE_CONTROL = 'no-cache, must-revalidate';
 
+/**
+ * A loading placeholder for images, as one drop-in block of style and
+ * behaviour. Add `class="skel"` to any img and include this once per page.
+ *
+ * The shimmer is painted as the image's own background rather than as a
+ * separate element underneath it. An image that has not arrived draws
+ * nothing, so the background shows through, and the photo covers it the
+ * instant it paints. That ordering matters: the obvious alternative, fading
+ * the image in from opacity zero, leaves a permanently blank box if the
+ * script fails to run. Here a failed script costs a shimmer that keeps
+ * animating behind a visible photo, which is a far cheaper way to be wrong.
+ *
+ * The element must have a reserved height for any of this to be seen — the
+ * gallery and cards get theirs from aspect-ratio, and the two that size
+ * themselves from the image are given one below for as long as they load.
+ */
+export const IMAGE_SKELETON = `
+<style>
+  .skel {
+    background-color: var(--surface-2);
+    background-image: linear-gradient(
+      100deg,
+      transparent 25%,
+      color-mix(in srgb, var(--ink-3) 14%, transparent) 45%,
+      transparent 65%
+    );
+    background-size: 220% 100%;
+    background-repeat: no-repeat;
+    animation: skel-sweep 1.25s ease-in-out infinite;
+  }
+  /*
+   * Loaded: drop the sweep so it is not animating for the rest of the visit
+   * behind a picture nobody can see it through, and fade the image in. The
+   * fade is a one-shot keyframe applied only here, so opacity is never held
+   * at zero waiting for an event that might not come.
+   */
+  .skel.is-loaded {
+    background-image: none;
+    animation: skel-in .3s ease-out;
+  }
+  /* A broken image keeps the tint but stops pretending it is still coming. */
+  .skel.is-error { background-image: none; animation: none; }
+
+  @keyframes skel-sweep {
+    from { background-position: 180% 0; }
+    to { background-position: -80% 0; }
+  }
+  @keyframes skel-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* A sweeping gradient is exactly the motion this setting asks us to drop. */
+  @media (prefers-reduced-motion: reduce) {
+    .skel, .skel.is-loaded { animation: none; }
+  }
+</style>
+<script>
+(function () {
+  function settle(target, state) {
+    if (target && target.tagName === 'IMG' && target.classList.contains('skel')) {
+      target.classList.add(state);
+    }
+  }
+
+  // load and error do not bubble, so these listen in the capture phase.
+  // One pair then covers every skeleton image on the page, including the
+  // ones the slider reveals later and the one the modal swaps its src on.
+  document.addEventListener('load', function (ev) {
+    settle(ev.target, 'is-loaded');
+  }, true);
+  document.addEventListener('error', function (ev) {
+    settle(ev.target, 'is-error');
+  }, true);
+
+  // An image already in cache can finish before this runs, and its load
+  // event is then long gone. Catch those by asking rather than waiting.
+  document.querySelectorAll('img.skel').forEach(function (img) {
+    if (img.complete && img.naturalWidth > 0) img.classList.add('is-loaded');
+  });
+})();
+</script>`;
+
 export function layout({
   title,
   description,

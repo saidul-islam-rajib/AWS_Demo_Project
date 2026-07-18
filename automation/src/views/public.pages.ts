@@ -7,7 +7,7 @@ import {
   relativeDate,
   wordCount,
 } from '../posts/post.model';
-import { avatarMark, esc, layout } from './layout';
+import { avatarMark, esc, IMAGE_SKELETON, layout } from './layout';
 import { getSettings } from '../settings/settings.store';
 
 const FEED_CSS = `
@@ -544,6 +544,12 @@ export function postPage(
     border: 1px solid var(--border); display: block; margin: 2rem auto;
     cursor: zoom-in;
   }
+  /*
+   * Markdown carries no dimensions, so an article image has no height until
+   * it arrives and the skeleton would have nothing to fill. This gives it an
+   * area to occupy; the image replaces it at whatever height it really is.
+   */
+  .prose img.skel:not(.is-loaded) { min-height: 220px; width: 100%; }
   /* Portrait shots would otherwise run the full column height. */
   .prose > p > img, .prose > img { max-height: 520px; width: auto; }
 
@@ -669,7 +675,7 @@ export function postPage(
   return layout({
     title: `${post.title} — ${getSettings().authorName}`,
     description: post.subtitle || excerpt(post.content, 150),
-    body: body + LIGHTBOX_JS,
+    body: body + LIGHTBOX_JS + IMAGE_SKELETON,
     variant: 'article',
     path: `/post/${post.slug}`,
     image: firstImage(post.content),

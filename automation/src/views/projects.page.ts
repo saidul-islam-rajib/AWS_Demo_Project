@@ -7,7 +7,7 @@ import {
   termSlug,
 } from '../projects/project.model';
 import { getSettings } from '../settings/settings.store';
-import { esc, layout } from './layout';
+import { esc, IMAGE_SKELETON, layout } from './layout';
 
 const PROJECTS_CSS = `
 <style>
@@ -55,7 +55,7 @@ const PROJECTS_CSS = `
   .proj-card:hover { border-color: var(--accent); transform: translateY(-2px); }
   .proj-cover {
     display: block; width: 100%; aspect-ratio: 2 / 1; object-fit: cover;
-    background: var(--surface-2); border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
   }
   .proj-cover-fallback {
     display: grid; place-items: center; aspect-ratio: 2 / 1;
@@ -92,6 +92,12 @@ const PROJECTS_CSS = `
     width: 100%; border-radius: 14px; border: 1px solid var(--border);
     margin-bottom: 1.75rem; display: block;
   }
+  /*
+   * The detail cover is shown at its own proportions, which are unknown until
+   * it arrives. Borrow the card ratio while loading so there is an area to
+   * shimmer in and the text below does not jump when the image lands.
+   */
+  .proj-detail-cover.skel:not(.is-loaded) { aspect-ratio: 2 / 1; }
   .detail-head h1 {
     font-family: var(--serif); font-size: clamp(1.9rem, 5vw, 2.6rem);
     line-height: 1.12; letter-spacing: -0.03em; margin-bottom: 0.6rem;
@@ -147,9 +153,13 @@ const PROJECTS_CSS = `
   .proj-detailed pre code { background: none; border: 0; padding: 0; }
 </style>`;
 
+/** Everything a projects view puts in the page before its markup. */
+const PROJECTS_HEAD = `${PROJECTS_CSS}
+${IMAGE_SKELETON}`;
+
 function cover(project: Project, cls = 'proj-cover'): string {
   return project.coverUrl
-    ? `<img class="${cls}" src="${esc(project.coverUrl)}" alt="${esc(project.title)}" loading="lazy" />`
+    ? `<img class="${cls} skel" src="${esc(project.coverUrl)}" alt="${esc(project.title)}" loading="lazy" />`
     : `<div class="proj-cover-fallback">${esc(project.title.slice(0, 2).toUpperCase())}</div>`;
 }
 
@@ -196,7 +206,7 @@ export function projectsPage(opts: {
   const s = getSettings();
 
   const body = `
-${PROJECTS_CSS}
+${PROJECTS_HEAD}
   <section class="proj-hero">
     <h1>Projects</h1>
     <p>Things I have built — ${total} project${total === 1 ? '' : 's'} across ${years.length} year${years.length === 1 ? '' : 's'}. Every technology, tag and topic is clickable.</p>
@@ -300,7 +310,7 @@ export function projectDetailPage(
   };
 
   const body = `
-${PROJECTS_CSS}
+${PROJECTS_HEAD}
   <a href="/projects" style="font-size:.86rem;color:var(--ink-3)">← All projects</a>
 
   <div class="detail-grid" style="margin-top:1.25rem">
@@ -315,7 +325,7 @@ ${PROJECTS_CSS}
         ${project.demoUrl ? `<a class="btn btn-ghost" href="${esc(project.demoUrl)}" target="_blank" rel="noopener noreferrer">Live demo ↗</a>` : ''}
       </div>
 
-      ${project.coverUrl ? `<img class="proj-detail-cover" src="${esc(project.coverUrl)}" alt="${esc(project.title)}" />` : ''}
+      ${project.coverUrl ? `<img class="proj-detail-cover skel" src="${esc(project.coverUrl)}" alt="${esc(project.title)}" />` : ''}
 
       ${
         detailedHtml && project.showDetailed !== false
@@ -376,7 +386,7 @@ export function taxonomyPage(opts: {
   const label = TAXONOMY_LABELS[taxonomy];
 
   const body = `
-${PROJECTS_CSS}
+${PROJECTS_HEAD}
   <section class="proj-hero">
     <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);font-weight:700;margin-bottom:.5rem">
       ${esc(label)}

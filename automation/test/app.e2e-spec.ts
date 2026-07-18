@@ -1109,6 +1109,115 @@ describe('Blog (e2e)', () => {
     });
   });
 
+  describe('image loading skeleton', () => {
+    it('shimmers gallery images on the about page until they arrive', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/about')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({ galleryUrls: ['/uploads/a.png'], galleryCaption: ['A photo'] })
+        .expect(302);
+
+      await request(server)
+        .get('/about')
+        .expect(200)
+        .expect((res) => {
+          const figure = /<figure class="shot"[\s\S]*?<\/figure>/.exec(
+            res.text,
+          )?.[0] as string;
+
+          expect(figure).toContain('class="skel"');
+          // The block that makes the class mean something.
+          expect(res.text).toContain('@keyframes skel-sweep');
+          expect(res.text).toContain('classList.add(state)');
+        });
+    });
+
+    it('re-arms the skeleton when the modal pages to another photo', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/about')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          galleryUrls: ['/uploads/a.png\n/uploads/b.png'],
+          galleryCaption: ['Two photos'],
+        })
+        .expect(302);
+
+      await request(server)
+        .get('/about')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('id="shot-modal-img" class="skel"');
+          // Without this the second photo inherits the first one's finished
+          // state and its wait looks like a frozen picture.
+          expect(res.text).toContain("modalImg.classList.remove('is-loaded')");
+        });
+    });
+
+    it('shimmers the cover on a project detail page', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/projects/new')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          title: 'Skeleton Demo',
+          description: 'x',
+          coverUrl: '/uploads/cover.png',
+          year: '2026',
+          status: 'ongoing',
+        })
+        .expect(302);
+
+      await request(server)
+        .get('/projects/skeleton-demo')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('class="proj-detail-cover skel"');
+          // It sizes itself from the image, so it needs a reserved area or
+          // there is nothing for the shimmer to fill.
+          expect(res.text).toContain(
+            '.proj-detail-cover.skel:not(.is-loaded) { aspect-ratio: 2 / 1; }',
+          );
+          expect(res.text).toContain('@keyframes skel-sweep');
+        });
+    });
+
+    it('shimmers images inside a post body', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/posts/new')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          title: 'Post With Photo',
+          content: 'Look:\n\n![A diagram](/uploads/d.png)',
+          status: 'published',
+        })
+        .expect(302);
+
+      await request(server)
+        .get('/post/post-with-photo')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('<img class="skel" src="/uploads/d.png"');
+          expect(res.text).toContain('loading="lazy"');
+          expect(res.text).toContain('@keyframes skel-sweep');
+        });
+    });
+  });
+
   describe('social link previews', () => {
     const setBrand = async (cookie: string) =>
       request(app.getHttpServer())

@@ -9,7 +9,7 @@ import {
   milestonePeriod,
 } from '../about/about.model';
 import { getSettings } from '../settings/settings.store';
-import { avatarMark, esc, layout } from './layout';
+import { avatarMark, esc, IMAGE_SKELETON, layout } from './layout';
 
 const ABOUT_CSS = `
 <style>
@@ -163,8 +163,11 @@ const ABOUT_CSS = `
     width: 100%; aspect-ratio: 4 / 3; object-fit: cover;
     border-radius: 10px; border: 1px solid var(--border);
     cursor: zoom-in; display: block;
-    /* Tinted while the bytes are in flight, so the grid never jumps. */
-    background: var(--surface-2);
+    /*
+     * No background here: the skeleton supplies one, and this selector is
+     * the more specific of the two, so a tint set here would win and the
+     * shimmer would never be seen.
+     */
   }
   /*
    * The display rule above outranks the hidden attribute, which is only
@@ -229,6 +232,12 @@ const ABOUT_CSS = `
     width: 100%; max-height: 65vh; object-fit: contain;
     border-radius: 10px; display: block; cursor: default;
   }
+  /*
+   * The modal image takes its height from the picture, so before one arrives
+   * it collapses to nothing and the skeleton has no area to show in. Hold a
+   * viewport-relative height until it loads, then let the image decide.
+   */
+  .shot-modal-media img.skel:not(.is-loaded) { min-height: 45vh; }
   .shot-modal-media .shot-nav { opacity: 1; width: 38px; height: 38px; font-size: 1.5rem; }
   .shot-modal-caption {
     color: #f2f4f7; font-family: var(--serif); font-size: 1.02rem;
@@ -364,6 +373,11 @@ const GALLERY_JS = `
     // A wide variant: sharp enough for the modal, far smaller than a
     // multi-megapixel original.
     var full = urls[slide] || '';
+    // Paging to another photo starts a fresh download, so the skeleton has to
+    // go back to loading; otherwise the second image inherits the first one's
+    // finished state and the wait looks like a frozen picture.
+    modalImg.classList.remove('is-loaded');
+    modalImg.classList.remove('is-error');
     modalImg.src = full.indexOf('/uploads/') === 0
       ? '/img/' + full.slice('/uploads/'.length) + '?w=1600'
       : full;
@@ -512,7 +526,7 @@ export function aboutPage(
             ${item.urls
               .map((url, i) =>
                 i === 0
-                  ? `<img
+                  ? `<img class="skel"
                     src="${esc(sized(url, 400))}"
                     srcset="${esc(sized(url, 400))} 400w, ${esc(sized(url, 800))} 800w"
                     sizes="(max-width: 600px) 45vw, 220px"
@@ -521,7 +535,7 @@ export function aboutPage(
                     loading="lazy" decoding="async" />`
                   : // Held back until the reader actually pages to it, so a
                     // record with six images still costs one request.
-                    `<img
+                    `<img class="skel"
                     data-src="${esc(sized(url, 400))}"
                     data-srcset="${esc(sized(url, 400))} 400w, ${esc(sized(url, 800))} 800w"
                     sizes="(max-width: 600px) 45vw, 220px"
@@ -568,7 +582,7 @@ export function aboutPage(
     <button type="button" class="shot-modal-close" aria-label="Close">&times;</button>
     <div class="shot-modal-inner" role="dialog" aria-modal="true" aria-label="Photo">
       <div class="shot-modal-media">
-        <img id="shot-modal-img" src="" alt="" />
+        <img id="shot-modal-img" class="skel" src="" alt="" />
         <button type="button" class="shot-nav prev" id="modal-prev" aria-label="Previous image">‹</button>
         <button type="button" class="shot-nav next" id="modal-next" aria-label="Next image">›</button>
       </div>
@@ -583,6 +597,7 @@ export function aboutPage(
 
   const body = `
 ${ABOUT_CSS}
+${IMAGE_SKELETON}
   <header class="about-hero">
     ${avatarMark(s.avatarUrl, s.authorName, 'about-avatar')}
     <div>
