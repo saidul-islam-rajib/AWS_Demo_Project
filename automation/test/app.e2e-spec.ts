@@ -83,8 +83,30 @@ describe('Blog (e2e)', () => {
           expect(res.text).toContain('Engineering notes');
         }));
 
-    it('GET /tags renders the tag index', () =>
-      request(app.getHttpServer()).get('/tags').expect(200));
+    it('GET /tags renders an explore page, not just a tag list', () =>
+      request(app.getHttpServer())
+        .get('/tags')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('Explore');
+          // the weighted cloud
+          expect(res.text).toContain('class="cloud"');
+          // recurring themes with their latest posts
+          expect(res.text).toContain('Most written about');
+          // cross-links into the project taxonomies
+          expect(res.text).toContain('Technologies');
+          expect(res.text).toContain('/tech/');
+          expect(res.text).toContain('Project topics');
+        }));
+
+    it('links tags to their own pages from the explore page', () =>
+      request(app.getHttpServer())
+        .get('/tags')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('href="/tag/jenkins"');
+          expect(res.text).toContain('href="/tag/docker"');
+        }));
 
     it('GET /search filters posts', () =>
       request(app.getHttpServer()).get('/search?q=jenkins').expect(200));
@@ -291,6 +313,26 @@ describe('Blog (e2e)', () => {
   });
 
   describe('navigation', () => {
+    it('renders every nav item as a plain link, with no button styling', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      const publicNav = await request(server).get('/').expect(200);
+      const adminNav = await request(server)
+        .get('/admin')
+        .set('Cookie', cookie)
+        .expect(200);
+
+      // The <nav> must not contain any button-styled links.
+      const navOf = (html: string) =>
+        /<nav class="nav">([\s\S]*?)<\/nav>/.exec(html)?.[1] ?? '';
+
+      expect(navOf(publicNav.text)).not.toContain('btn');
+      expect(navOf(adminNav.text)).not.toContain('btn');
+      expect(navOf(adminNav.text)).toContain('Write');
+      expect(navOf(publicNav.text)).toContain('Dashboard');
+    });
+
     it('marks the current section, and never marks Write as current', async () => {
       const cookie = await signIn();
       const server = app.getHttpServer();
@@ -301,9 +343,8 @@ describe('Blog (e2e)', () => {
         .expect(200);
 
       expect(about.text).toContain('href="/admin/about" class="active"');
-      expect(about.text).toContain(
-        '<a href="/admin/posts/new" class="btn btn-sm">Write</a>',
-      );
+      // Write links to the editor but is never the highlighted section.
+      expect(about.text).toContain('<a href="/admin/posts/new" class="">Write');
 
       const home = await request(server).get('/').expect(200);
       expect(home.text).toContain('href="/" class="active"');

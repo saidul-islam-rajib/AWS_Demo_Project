@@ -727,27 +727,180 @@ const LIGHTBOX_JS = `
 })();
 </script>`;
 
-export function tagsPage(tags: { tag: string; count: number }[]): string {
-  const body = `
-  <h1 class="page-title">Tags</h1>
-  <p class="page-sub">${tags.length} tag${tags.length === 1 ? '' : 's'} across all published posts.</p>
+export function tagsPage(opts: {
+  tags: { tag: string; count: number }[];
+  /** The few most-used tags, with their latest posts. */
+  featured: { tag: string; count: number; posts: Post[] }[];
+  technologies: { term: string; slug: string; count: number }[];
+  topics: { term: string; slug: string; count: number }[];
+  keywords: { term: string; slug: string; count: number }[];
+  postCount: number;
+  projectCount: number;
+}): string {
+  const {
+    tags,
+    featured,
+    technologies,
+    topics,
+    keywords,
+    postCount,
+    projectCount,
+  } = opts;
 
-  <div class="tag-row" style="gap:.6rem">
-    ${
-      tags.length
-        ? tags
+  // Cloud weighting: scale font size between the least and most used tag, so
+  // the shape of what gets written about is visible at a glance.
+  const counts = tags.map((t) => t.count);
+  const min = Math.min(...counts, 1);
+  const max = Math.max(...counts, 1);
+  const weight = (count: number): number => {
+    if (max === min) return 1;
+    return (count - min) / (max - min);
+  };
+
+  const termSection = (
+    heading: string,
+    blurb: string,
+    prefix: string,
+    terms: { term: string; slug: string; count: number }[],
+  ): string =>
+    terms.length
+      ? `<section class="explore-section">
+    <div class="section-label">${esc(heading)}</div>
+    <p class="section-blurb">${esc(blurb)}</p>
+    <div class="tag-row">
+      ${terms
+        .map(
+          (t) =>
+            `<a class="tag" href="/${prefix}/${esc(t.slug)}">${esc(t.term)} <span style="opacity:.55">${t.count}</span></a>`,
+        )
+        .join('')}
+    </div>
+  </section>`
+      : '';
+
+  const body = `
+<style>
+  .explore-hero { padding: 2rem 0 1.5rem; }
+  .explore-hero h1 {
+    font-family: var(--serif); font-size: clamp(2rem, 5vw, 2.9rem);
+    line-height: 1.08; letter-spacing: -0.03em; margin-bottom: 0.7rem;
+  }
+  .explore-hero p { color: var(--ink-3); font-size: 1.04rem; max-width: 40em; }
+  .explore-section { margin-bottom: 3rem; }
+  .section-blurb { font-size: 0.88rem; color: var(--ink-3); margin: -0.5rem 0 1rem; }
+
+  .cloud { display: flex; flex-wrap: wrap; gap: 0.5rem 0.6rem; align-items: baseline; }
+  .cloud a {
+    color: var(--ink-2); border-bottom: 2px solid transparent;
+    line-height: 1.3; padding-bottom: 1px;
+  }
+  .cloud a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  .cloud a .n { font-size: 0.7rem; color: var(--ink-3); vertical-align: super; }
+
+  .featured-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .featured-card {
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 1.1rem 1.15rem; background: var(--surface-2);
+  }
+  .featured-card .head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 0.5rem; margin-bottom: 0.7rem;
+  }
+  .featured-card .name {
+    font-size: 1rem; font-weight: 700; color: var(--ink);
+  }
+  .featured-card:hover .name { color: var(--accent); }
+  .featured-card .n { font-size: 0.75rem; color: var(--ink-3); white-space: nowrap; }
+  .featured-card ul { list-style: none; }
+  .featured-card li { padding: 0.3rem 0; border-top: 1px solid var(--border); }
+  .featured-card li a { font-size: 0.87rem; color: var(--ink-2); line-height: 1.45; }
+  .featured-card li a:hover { color: var(--accent); }
+</style>
+
+  <section class="explore-hero">
+    <h1>Explore</h1>
+    <p>
+      ${tags.length} tag${tags.length === 1 ? '' : 's'} across ${postCount}
+      post${postCount === 1 ? '' : 's'}, plus the technologies and topics behind
+      ${projectCount} project${projectCount === 1 ? '' : 's'}. Everything here is a link.
+    </p>
+  </section>
+
+  ${
+    tags.length
+      ? `<section class="explore-section">
+    <div class="section-label">All tags</div>
+    <p class="section-blurb">Sized by how often each one comes up.</p>
+    <div class="cloud">
+      ${tags
+        .map((t) => {
+          const size = (0.95 + weight(t.count) * 0.85).toFixed(2);
+          const strength = 500 + Math.round(weight(t.count) * 200);
+          return `<a href="/tag/${esc(t.tag)}" style="font-size:${size}rem;font-weight:${strength}">${esc(t.tag)}<span class="n">${t.count}</span></a>`;
+        })
+        .join('')}
+    </div>
+  </section>`
+      : '<div class="empty"><p>No tags yet.</p></div>'
+  }
+
+  ${
+    featured.length
+      ? `<section class="explore-section">
+    <div class="section-label">Most written about</div>
+    <p class="section-blurb">The recurring themes, with their latest posts.</p>
+    <div class="featured-grid">
+      ${featured
+        .map(
+          (f) => `<div class="featured-card">
+        <a href="/tag/${esc(f.tag)}">
+          <div class="head">
+            <span class="name">${esc(f.tag)}</span>
+            <span class="n">${f.count} post${f.count === 1 ? '' : 's'}</span>
+          </div>
+        </a>
+        <ul>
+          ${f.posts
             .map(
-              ({ tag, count }) =>
-                `<a class="tag" style="font-size:.88rem;padding:.4rem .9rem" href="/tag/${esc(tag)}">${esc(tag)} <span style="opacity:.6">${count}</span></a>`,
+              (p) =>
+                `<li><a href="/post/${esc(p.slug)}">${esc(p.title)}</a></li>`,
             )
-            .join('')
-        : '<div class="empty">No tags yet.</div>'
-    }
-  </div>`;
+            .join('')}
+        </ul>
+      </div>`,
+        )
+        .join('')}
+    </div>
+  </section>`
+      : ''
+  }
+
+  ${termSection(
+    'Technologies',
+    'What the projects are actually built with.',
+    'tech',
+    technologies,
+  )}
+
+  ${termSection(
+    'Project topics',
+    'Broader areas the projects fall into.',
+    'topics',
+    topics,
+  )}
+
+  ${termSection(
+    'Keywords',
+    'Problem domains rather than tools.',
+    'keywords',
+    keywords,
+  )}`;
 
   return layout({
-    title: `Tags — ${getSettings().authorName}`,
+    title: `Explore — ${getSettings().authorName}`,
+    description: `Browse ${tags.length} tags, technologies and topics across the posts and projects of ${getSettings().authorName}.`,
     body,
+    path: '/tags',
   });
 }
 

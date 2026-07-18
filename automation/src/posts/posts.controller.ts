@@ -2,6 +2,7 @@ import { Controller, Get, Header, Param, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { formatDate, readingMinutes } from './post.model';
 import { PostsService } from './posts.service';
+import { ProjectsService } from '../projects/projects.service';
 import { renderMarkdown } from './markdown';
 import {
   homePage,
@@ -12,7 +13,10 @@ import {
 
 @Controller()
 export class PostsController {
-  constructor(private readonly posts: PostsService) {}
+  constructor(
+    private readonly posts: PostsService,
+    private readonly projects: ProjectsService,
+  ) {}
 
   /** Site-level figures for the feed sidebar — recency and breadth, not volume. */
   private feedStats() {
@@ -50,7 +54,26 @@ export class PostsController {
   @Get('tags')
   @Header('Content-Type', 'text/html')
   tags(): string {
-    return tagsPage(this.posts.tagCounts());
+    const tags = this.posts.tagCounts();
+
+    // The handful of recurring themes, each with its latest few posts.
+    const featured = tags
+      .filter((t) => t.count > 1)
+      .slice(0, 6)
+      .map((t) => ({
+        ...t,
+        posts: this.posts.byTag(t.tag).slice(0, 3),
+      }));
+
+    return tagsPage({
+      tags,
+      featured,
+      technologies: this.projects.terms('tech'),
+      topics: this.projects.terms('topics'),
+      keywords: this.projects.terms('keywords'),
+      postCount: this.posts.findPublished().length,
+      projectCount: this.projects.findAll().length,
+    });
   }
 
   @Get('tag/:tag')

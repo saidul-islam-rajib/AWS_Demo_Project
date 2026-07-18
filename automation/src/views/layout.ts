@@ -324,11 +324,17 @@ ${body}
  * Marks the current section. Longest matching prefix wins, so /projects/x
  * highlights Projects rather than Home.
  */
-function navLink(href: string, label: string, path: string): string {
+function navLink(
+  href: string,
+  label: string,
+  path: string,
+  /** Where the link goes, when that differs from the section it matches. */
+  target = href,
+): string {
   const active =
     href === '/' ? path === '/' : path === href || path.startsWith(`${href}/`);
 
-  return `<a href="${href}" class="${active ? 'active' : ''}"${active ? ' aria-current="page"' : ''}>${label}</a>`;
+  return `<a href="${target}" class="${active ? 'active' : ''}"${active ? ' aria-current="page"' : ''}>${label}</a>`;
 }
 
 export function defaultNav(path = '/'): string {
@@ -337,8 +343,7 @@ export function defaultNav(path = '/'): string {
     navLink('/projects', 'Projects', path),
     navLink('/about', 'About', path),
     navLink('/tags', 'Tags', path),
-    // Outline, not filled: a solid accent pill reads as "you are here".
-    '<a href="/admin" class="btn btn-ghost btn-sm">Dashboard</a>',
+    navLink('/admin', 'Dashboard', path),
   ].join('');
 }
 
@@ -350,7 +355,7 @@ export function adminNav(path = '/admin'): string {
     navLink('/admin/projects', 'Projects', path),
     navLink('/admin/about', 'About', path),
     navLink('/admin/settings', 'Settings', path),
-    '<a href="/admin/posts/new" class="btn btn-sm">Write</a>',
+    navLink('/admin/posts', 'Write', path, '/admin/posts/new'),
     '<a href="/logout">Sign out</a>',
   ].join('');
 }
