@@ -2,7 +2,10 @@ import { safeUrl } from '../settings/settings.model';
 
 /** A point on the journey timeline — a job, a course, a project, a move. */
 export interface Milestone {
-  /** Free-text label. Generated from the dates when left blank. */
+  /**
+   * Legacy free-text label. No longer editable — kept so entries written
+   * before the date fields existed still render and sort.
+   */
   period: string;
   title: string;
   org: string;
@@ -41,44 +44,59 @@ export function formatMonth(value: string): string {
 
 /** The label shown on the timeline, built from the dates when none was typed. */
 export function milestonePeriod(m: Milestone): string {
-  // Fields are read defensively: entries saved before dates existed have
-  // neither startDate nor endDate.
-  const period = (m.period ?? '').trim();
   const start = (m.startDate ?? '').trim();
   const end = (m.endDate ?? '').trim();
 
-  if (period) return period;
-  if (!start) return '';
+  // Dates win. The stored label only surfaces for entries that predate them.
+  if (start) {
+    return `${formatMonth(start)} — ${end ? formatMonth(end) : 'Present'}`;
+  }
+  if (end) return formatMonth(end);
 
-  return `${formatMonth(start)} — ${end ? formatMonth(end) : 'Present'}`;
+  return (m.period ?? '').trim();
+}
+
+/** No end date with a start date set means the role is current. */
+export function isOngoing(m: Milestone): boolean {
+  return Boolean((m.startDate ?? '').trim()) && !(m.endDate ?? '').trim();
 }
 
 /**
- * Sort key for a milestone, newest first.
+ * Sort keys for a milestone, newest first.
  *
- * Prefers the structured start date; falls back to any year found in the
- * free-text period so entries written before dates existed still order
- * sensibly rather than dropping to the bottom.
+ * End date is primary, so the thing that finished most recently comes first;
+ * an ongoing role has no end date and outranks everything finished. Start
+ * date breaks ties between roles that ended in the same month.
+ *
+ * Entries predating the date fields fall back to any year in their free-text
+ * period, so they still order sensibly instead of dropping to the bottom.
  */
-function milestoneKey(m: Milestone): string {
-  // Read defensively: entries saved before dates existed have no startDate.
+const ONGOING = '9999-12';
+
+function milestoneKeys(m: Milestone): [string, string] {
   const start = (m.startDate ?? '').trim();
-  if (start) return start;
+  const end = (m.endDate ?? '').trim();
+
+  if (start || end) {
+    return [end || ONGOING, start];
+  }
 
   const year = /\b(19|20)\d{2}\b/.exec(m.period ?? '');
-  return year ? year[0] : '';
+  return year ? [year[0], year[0]] : ['', ''];
 }
 
 /** Newest first. Undated entries keep their author-defined order, at the end. */
 export function sortMilestones(milestones: Milestone[]): Milestone[] {
   return [...milestones].sort((a, b) => {
-    const keyA = milestoneKey(a);
-    const keyB = milestoneKey(b);
+    const [endA, startA] = milestoneKeys(a);
+    const [endB, startB] = milestoneKeys(b);
 
-    if (!keyA && !keyB) return 0;
-    if (!keyA) return 1;
-    if (!keyB) return -1;
-    return keyB.localeCompare(keyA);
+    if (!endA && !endB) return 0;
+    if (!endA) return 1;
+    if (!endB) return -1;
+
+    if (endA !== endB) return endB.localeCompare(endA);
+    return startB.localeCompare(startA);
   });
 }
 
@@ -207,14 +225,12 @@ function toArray(value?: string | string[]): string[] {
 
 /** Zip parallel form arrays into rows, dropping any with no meaningful content. */
 export function parseMilestones(form: {
-  milestonePeriod?: string | string[];
   milestoneTitle?: string | string[];
   milestoneOrg?: string | string[];
   milestoneDescription?: string | string[];
   milestoneStart?: string | string[];
   milestoneEnd?: string | string[];
 }): Milestone[] {
-  const periods = toArray(form.milestonePeriod);
   const titles = toArray(form.milestoneTitle);
   const orgs = toArray(form.milestoneOrg);
   const descriptions = toArray(form.milestoneDescription);
@@ -228,7 +244,8 @@ export function parseMilestones(form: {
     if (!title) continue;
 
     rows.push({
-      period: (periods[i] ?? '').trim(),
+      // Not editable any more; dates drive the label.
+      period: '',
       title,
       org: (orgs[i] ?? '').trim(),
       description: (descriptions[i] ?? '').trim(),

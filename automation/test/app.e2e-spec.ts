@@ -739,6 +739,48 @@ describe('Blog (e2e)', () => {
         });
     });
 
+    it('has no period label field in the editor', async () => {
+      const cookie = await signIn();
+
+      await request(app.getHttpServer())
+        .get('/admin/about')
+        .set('Cookie', cookie)
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).not.toContain('name="milestonePeriod"');
+          expect(res.text).toContain('current-check');
+          expect(res.text).toContain('period-preview');
+        });
+    });
+
+    it('treats a cleared end date as the current role and ranks it first', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/about')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          milestoneTitle: ['Finished Recently', 'Current Role'],
+          milestoneOrg: ['Old Co', 'New Co'],
+          milestoneStart: ['2024-01', '2025-06'],
+          milestoneEnd: ['2026-02', ''],
+          milestoneDescription: ['a', 'b'],
+        })
+        .expect(302);
+
+      await request(server)
+        .get('/about')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text.indexOf('Current Role')).toBeLessThan(
+            res.text.indexOf('Finished Recently'),
+          );
+          expect(res.text).toContain('Jun 2025 — Present');
+        });
+    });
+
     it('drops an unsafe social url', async () => {
       const cookie = await signIn();
       const server = app.getHttpServer();

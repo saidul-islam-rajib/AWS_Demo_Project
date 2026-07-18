@@ -6,6 +6,7 @@ import {
   EMPTY_ABOUT,
   formatMonth,
   isAboutEmpty,
+  isOngoing,
   milestonePeriod,
   normaliseMilestone,
   sortMilestones,
@@ -21,7 +22,6 @@ describe('about.model parsers', () => {
     it('zips parallel form arrays into rows, including dates', () => {
       expect(
         parseMilestones({
-          milestonePeriod: ['', ''],
           milestoneTitle: ['Software Engineer', 'Junior Developer'],
           milestoneOrg: ['Acme', 'Startup'],
           milestoneDescription: ['Backend work', 'Learned the ropes'],
@@ -67,9 +67,9 @@ describe('about.model parsers', () => {
   });
 
   describe('milestone dates', () => {
-    const make = (start: string, end = '', period = '') => ({
-      period,
-      title: 't',
+    const make = (start: string, end = '', title = 't') => ({
+      period: '',
+      title,
       org: '',
       description: '',
       startDate: start,
@@ -82,7 +82,7 @@ describe('about.model parsers', () => {
       expect(formatMonth('')).toBe('');
     });
 
-    it('builds a period label from the dates', () => {
+    it('builds the label from the dates', () => {
       expect(milestonePeriod(make('2022-10', '2023-01'))).toBe(
         'Oct 2022 — Jan 2023',
       );
@@ -92,39 +92,67 @@ describe('about.model parsers', () => {
       expect(milestonePeriod(make('2025-11'))).toBe('Nov 2025 — Present');
     });
 
-    it('prefers an explicit period label over the dates', () => {
-      expect(
-        milestonePeriod(make('2022-10', '2023-01', 'While studying')),
-      ).toBe('While studying');
+    it('ignores a stored legacy label once dates are set', () => {
+      const withLabel = { ...make('2022-10', '2023-01'), period: 'Old label' };
+
+      expect(milestonePeriod(withLabel)).toBe('Oct 2022 — Jan 2023');
     });
 
-    it('sorts newest first by start date', () => {
+    it('detects an ongoing role', () => {
+      expect(isOngoing(make('2025-11'))).toBe(true);
+      expect(isOngoing(make('2025-11', '2026-01'))).toBe(false);
+      expect(isOngoing(make(''))).toBe(false);
+    });
+
+    it('orders by end date, most recently finished first', () => {
       const sorted = sortMilestones([
-        make('2022-10'),
-        make('2025-11'),
-        make('2023-01'),
+        make('2020-01', '2021-06', 'oldest'),
+        make('2022-01', '2024-03', 'newest'),
+        make('2021-01', '2022-08', 'middle'),
       ]);
 
-      expect(sorted.map((m) => m.startDate)).toEqual([
-        '2025-11',
-        '2023-01',
-        '2022-10',
+      expect(sorted.map((m) => m.title)).toEqual([
+        'newest',
+        'middle',
+        'oldest',
       ]);
     });
 
-    it('falls back to a year in the period text when there is no start date', () => {
+    it('puts an ongoing role above everything finished', () => {
       const sorted = sortMilestones([
-        make('', '', 'Sometime in 2019'),
-        make('2024-01'),
+        make('2024-01', '2026-01', 'finished recently'),
+        make('2025-11', '', 'current'),
       ]);
 
-      expect(sorted[0].startDate).toBe('2024-01');
+      expect(sorted[0].title).toBe('current');
     });
 
-    it('puts entries with no date at all last', () => {
-      const sorted = sortMilestones([make(''), make('2020-05')]);
+    it('breaks a tie on end date using the start date', () => {
+      const sorted = sortMilestones([
+        make('2020-01', '2024-01', 'started earlier'),
+        make('2023-01', '2024-01', 'started later'),
+      ]);
 
-      expect(sorted[0].startDate).toBe('2020-05');
+      expect(sorted.map((m) => m.title)).toEqual([
+        'started later',
+        'started earlier',
+      ]);
+    });
+
+    it('puts entries with no dates at all last', () => {
+      const sorted = sortMilestones([
+        {
+          period: '',
+          title: 'undated',
+          org: '',
+          description: '',
+          startDate: '',
+          endDate: '',
+        },
+        make('2020-05', '2021-01', 'dated'),
+      ]);
+
+      expect(sorted[0].title).toBe('dated');
     });
   });
 

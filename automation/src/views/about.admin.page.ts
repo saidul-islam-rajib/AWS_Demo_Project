@@ -4,6 +4,7 @@ import {
   LearningItem,
   Milestone,
   STATUS_LABELS,
+  isOngoing,
 } from '../about/about.model';
 import { adminNav, esc, layout } from './layout';
 
@@ -94,6 +95,41 @@ const ADMIN_ABOUT_CSS = `
     padding: 0 0.2rem; border-radius: 3px;
   }
   .mini-toolbar + textarea { border-radius: 0 0 7px 7px; margin-bottom: 0.5rem; }
+
+  /* ---------- date range ---------- */
+  .date-range {
+    display: flex; align-items: flex-end; gap: 0.6rem;
+    margin-bottom: 0.6rem; flex-wrap: wrap;
+  }
+  .date-field { flex: 1; min-width: 150px; }
+  .date-field label {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--ink-3); font-weight: 700; margin-bottom: 0.3rem;
+  }
+  .date-field input {
+    margin: 0; border-radius: 9px; padding: 0.55rem 0.7rem;
+    background: var(--surface); font-variant-numeric: tabular-nums;
+  }
+  .date-field.is-open input {
+    opacity: 0.45; background: var(--surface-2); pointer-events: none;
+  }
+  .range-arrow { color: var(--ink-3); padding-bottom: 0.65rem; font-size: 0.95rem; }
+
+  .current-toggle {
+    display: inline-flex; align-items: center; gap: 0.45rem;
+    font-size: 0.85rem; font-weight: 500; color: var(--ink-2);
+    cursor: pointer; margin-bottom: 0.5rem; user-select: none;
+  }
+  .current-toggle input { width: auto; margin: 0; cursor: pointer; }
+
+  .period-preview {
+    font-size: 0.8rem; color: var(--ink-3); margin-bottom: 0.75rem;
+    min-height: 1.2em;
+  }
+  .period-preview strong {
+    color: var(--accent); font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
 </style>`;
 
 function rowHead(label: string): string {
@@ -127,21 +163,26 @@ export function aboutAdminPage(about: AboutContent, saved = false): string {
       </div>
     </div>
 
-    <div class="grid-2">
-      <div>
+    <div class="date-range">
+      <div class="date-field">
         <label>Start</label>
         <input type="month" name="milestoneStart" value="${esc(m.startDate)}" />
       </div>
-      <div>
+
+      <span class="range-arrow" aria-hidden="true">→</span>
+
+      <div class="date-field end-field">
         <label>End</label>
         <input type="month" name="milestoneEnd" value="${esc(m.endDate)}" />
-        <p class="hint">Leave blank if it is still ongoing.</p>
       </div>
     </div>
 
-    <label>Period label</label>
-    <input type="text" name="milestonePeriod" value="${esc(m.period)}"
-           placeholder="Built from the dates when left blank" />
+    <label class="current-toggle">
+      <input type="checkbox" class="current-check" ${isOngoing(m) ? 'checked' : ''} />
+      <span>I am currently here</span>
+    </label>
+
+    <p class="period-preview" aria-live="polite"></p>
 
     <label>What happened</label>
     <div class="mini-toolbar" role="toolbar" aria-label="Formatting">
@@ -456,6 +497,66 @@ ${ADMIN_ABOUT_CSS}
     if (key === 'b') { ev.preventDefault(); applyFormat(area, 'bold'); }
     if (key === 'i') { ev.preventDefault(); applyFormat(area, 'italic'); }
   });
+
+  // ---------- date range ----------
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  function label(value) {
+    var m = /^(\\d{4})-(\\d{2})/.exec(value || '');
+    if (!m) return '';
+    return MONTHS[Number(m[2]) - 1] + ' ' + m[1];
+  }
+
+  // Reflects exactly what milestonePeriod() will produce on the public page.
+  function refreshRange(row) {
+    var start = row.querySelector('input[name=milestoneStart]');
+    var end = row.querySelector('input[name=milestoneEnd]');
+    var check = row.querySelector('.current-check');
+    var endField = end.closest('.date-field');
+    var preview = row.querySelector('.period-preview');
+    if (!start || !end || !check || !preview) return;
+
+    if (check.checked) {
+      // Clearing rather than disabling: a disabled input submits nothing,
+      // which would misalign the parallel form arrays.
+      end.value = '';
+      end.readOnly = true;
+      endField.classList.add('is-open');
+    } else {
+      end.readOnly = false;
+      endField.classList.remove('is-open');
+    }
+
+    var from = label(start.value);
+    if (!from) {
+      preview.innerHTML = 'Pick a start month to build the label.';
+      return;
+    }
+
+    var to = check.checked || !end.value ? 'Present' : label(end.value);
+    preview.innerHTML = 'Shows as <strong>' + from + ' — ' + to + '</strong>';
+  }
+
+  function refreshAll() {
+    document.querySelectorAll('#list-milestones .repeat-row').forEach(refreshRange);
+  }
+
+  // Delegated: milestone rows can be added after load.
+  document.addEventListener('change', function (ev) {
+    var row = ev.target.closest('#list-milestones .repeat-row');
+    if (row) refreshRange(row);
+  });
+  document.addEventListener('input', function (ev) {
+    var row = ev.target.closest('#list-milestones .repeat-row');
+    if (row) refreshRange(row);
+  });
+
+  var addButton = document.querySelector('[data-add="milestones"]');
+  if (addButton) addButton.addEventListener('click', function () {
+    setTimeout(refreshAll, 0);
+  });
+
+  refreshAll();
 
   // Remember collapsed panels.
   document.querySelectorAll('.panel-block[data-panel]').forEach(function (panel) {
