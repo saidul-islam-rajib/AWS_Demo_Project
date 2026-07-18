@@ -645,10 +645,11 @@ describe('Blog (e2e)', () => {
     it('justifies every prose block, on all screen sizes', async () => {
       const res = await request(app.getHttpServer()).get('/about').expect(200);
 
-      // One rule covers intro, journey bodies and learning notes.
+      // One rule covers intro, journey bodies, learning notes and captions.
       expect(res.text).toMatch(
-        /\.about-intro,[\s\S]{0,160}\.milestone-body,[\s\S]{0,160}text-align: justify/,
+        /\.about-intro,[\s\S]{0,200}\.milestone-body,[\s\S]{0,200}text-align: justify/,
       );
+      expect(res.text).toContain('.gallery figcaption,');
       // Hyphenation must accompany justification or narrow screens get rivers.
       expect(res.text).toContain('hyphens: auto');
       // No small-screen opt-out.

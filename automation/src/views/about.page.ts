@@ -51,6 +51,7 @@ const ABOUT_CSS = `
   .about-intro,
   .milestone-body,
   .learn-card p,
+  .gallery figcaption,
   .about-hero .role {
     text-align: justify;
     hyphens: auto;
@@ -160,7 +161,9 @@ const ABOUT_CSS = `
     cursor: zoom-in; display: block;
   }
   .gallery figcaption {
-    font-size: 0.78rem; color: var(--ink-3); margin-top: 0.4rem; line-height: 1.45;
+    font-size: 0.78rem; color: var(--ink-3); margin-top: 0.4rem; line-height: 1.5;
+    /* Narrowest measure on the page, so hyphenation does the most work here. */
+    hyphens: auto; -webkit-hyphens: auto;
   }
 
   @media (max-width: 600px) {
