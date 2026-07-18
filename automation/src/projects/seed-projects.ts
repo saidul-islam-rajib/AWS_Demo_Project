@@ -15,7 +15,12 @@ import { ProjectInput } from './project.model';
 export const SEED_PROJECTS: ProjectInput[] = [
   {
     title: 'AWS Demo Project',
-    description: '',
+    description:
+      'A NestJS blog and portfolio deployed to AWS EC2 by a Jenkins pipeline.',
+    detailedDescription:
+      'This repository is the blog you are reading. A NestJS application is built into a Docker image, tested inside that image, then deployed to an EC2 instance by a declarative Jenkins pipeline that runs on every push.\n\nPosts, projects, settings and uploaded images persist on a mounted Docker volume, so content survives the container being replaced on each deploy. The write-up of what broke along the way is in the posts.',
+    showShort: true,
+    showDetailed: true,
     repoUrl: 'https://github.com/saidul-islam-rajib/AWS_Demo_Project',
     demoUrl: '',
     technologies: ['typescript', 'aws', 'docker', 'jenkins'],
@@ -31,6 +36,10 @@ export const SEED_PROJECTS: ProjectInput[] = [
     title: 'Bachelor Mess Manager',
     description:
       'Manage bachelor messes efficiently by creating groups, inviting members, recording meals, tracking expenses, and calculating monthly costsâ€”all in one place.',
+    detailedDescription:
+      'Manage bachelor messes by creating groups, inviting members, recording meals, tracking expenses and calculating monthly costs in one place.\n\nThe problem it solves is arithmetic nobody wants to do by hand: who ate how many meals, who paid for what, and what each person owes at the end of the month. Written in TypeScript.',
+    showShort: true,
+    showDetailed: true,
     repoUrl: 'https://github.com/saidul-islam-rajib/Bachelor-Mess-Manager',
     demoUrl: '',
     technologies: ['typescript'],
@@ -46,6 +55,10 @@ export const SEED_PROJECTS: ProjectInput[] = [
     title: 'BcsExamPlatform',
     description:
       'The primary purpose of this app is to help student and bcs candidates',
+    detailedDescription:
+      'The primary purpose of this app is to help students and BCS candidates prepare for the examination.\n\nBuilt on ASP.NET Core and C#, covering question banks and practice sessions. BCS is a competitive civil service examination in Bangladesh with a very large candidate pool, so the emphasis is on repeated practice rather than one-off tests.',
+    showShort: true,
+    showDetailed: true,
     repoUrl: 'https://github.com/saidul-islam-rajib/BcsExamPlatform',
     demoUrl: '',
     technologies: ['c#', 'asp.net core', '.net'],
@@ -61,6 +74,10 @@ export const SEED_PROJECTS: ProjectInput[] = [
     title: 'nopCommerce',
     description:
       'This repository is just for learning purpose. This repo code is originally collected from nopCommerce default public src',
+    detailedDescription:
+      'This repository is for learning purposes; the code originates from the nopCommerce public source.\n\nnopCommerce is a mature open-source e-commerce platform, which makes it a useful thing to read rather than write: plugin architecture, theming, and a domain model that has survived real use. Kept as a reference while working with the same stack professionally.',
+    showShort: true,
+    showDetailed: true,
     repoUrl: 'https://github.com/saidul-islam-rajib/nopCommerce',
     demoUrl: '',
     technologies: ['c#', 'asp.net core', '.net'],
@@ -74,7 +91,11 @@ export const SEED_PROJECTS: ProjectInput[] = [
   },
   {
     title: 'Portfolio',
-    description: '',
+    description: 'Personal portfolio site built with TypeScript.',
+    detailedDescription:
+      'A personal portfolio built in TypeScript, covering the usual ground: who I am, what I have worked on, and how to get in touch.\n\nSeparate from this blog, which grew later into a full content system with its own admin.',
+    showShort: true,
+    showDetailed: true,
     repoUrl: 'https://github.com/saidul-islam-rajib/Portfolio',
     demoUrl: 'https://portfolio-two-mauve-26.vercel.app',
     technologies: ['typescript'],
@@ -88,7 +109,11 @@ export const SEED_PROJECTS: ProjectInput[] = [
   },
   {
     title: 'backend blog',
-    description: '',
+    description: 'Blog API in C#.',
+    detailedDescription:
+      'The backend half of a blog, written in C#.\n\nPaired with a separate frontend repository rather than rendering its own views.',
+    showShort: true,
+    showDetailed: true,
     repoUrl: 'https://github.com/saidul-islam-rajib/backend-blog',
     demoUrl: '',
     technologies: ['c#', 'asp.net core', '.net'],
@@ -102,7 +127,11 @@ export const SEED_PROJECTS: ProjectInput[] = [
   },
   {
     title: 'admin blog',
-    description: '',
+    description: 'Admin interface for a blog, in TypeScript.',
+    detailedDescription:
+      'The administration side of a blog: the screens used to write and manage content, written in TypeScript.\n\nSplit from the public site so the two could be developed and deployed independently.',
+    showShort: true,
+    showDetailed: true,
     repoUrl: 'https://github.com/saidul-islam-rajib/admin-blog',
     demoUrl: '',
     technologies: ['typescript'],
@@ -116,7 +145,11 @@ export const SEED_PROJECTS: ProjectInput[] = [
   },
   {
     title: 'frontend blog',
-    description: '',
+    description: 'Blog frontend in HTML and CSS.',
+    detailedDescription:
+      'The frontend half of a blog, consuming an API rather than rendering server-side.\n\nBuilt with HTML and CSS.',
+    showShort: true,
+    showDetailed: true,
     repoUrl: 'https://github.com/saidul-islam-rajib/frontend-blog',
     demoUrl: '',
     technologies: ['html', 'css'],
@@ -130,7 +163,11 @@ export const SEED_PROJECTS: ProjectInput[] = [
   },
   {
     title: 'Authentication',
-    description: 'Authenticated user will able to login/register',
+    description: 'Registration and login flow in ASP.NET Core with JWT.',
+    detailedDescription:
+      'An authenticated user will be able to log in and register.\n\nA focused look at the part of an application that is easy to get subtly wrong: password handling, token issue and validation, and protecting routes behind them. Built on ASP.NET Core with JWT.',
+    showShort: true,
+    showDetailed: true,
     repoUrl: 'https://github.com/saidul-islam-rajib/Authentication',
     demoUrl: '',
     technologies: ['c#', 'asp.net core', '.net', 'jwt'],
@@ -144,7 +181,11 @@ export const SEED_PROJECTS: ProjectInput[] = [
   },
   {
     title: 'Auth',
-    description: '',
+    description: 'Authentication service in TypeScript.',
+    detailedDescription:
+      'Authentication written in TypeScript, covering registration, login and session handling.\n\nA counterpart to the C# authentication work, on the other side of the stack.',
+    showShort: true,
+    showDetailed: true,
     repoUrl: 'https://github.com/saidul-islam-rajib/Auth',
     demoUrl: '',
     technologies: ['typescript', 'jwt'],
@@ -158,7 +199,11 @@ export const SEED_PROJECTS: ProjectInput[] = [
   },
   {
     title: 'PersonalBlogBackend',
-    description: '',
+    description: 'Blog backend in ASP.NET Core.',
+    detailedDescription:
+      'A blog backend written in C# on ASP.NET Core, covering posts and the API around them.\n\nAn earlier take on the same problem this project later solved in NestJS, which made the differences between the two ecosystems concrete rather than theoretical.',
+    showShort: true,
+    showDetailed: true,
     repoUrl: 'https://github.com/saidul-islam-rajib/PersonalBlogBackend',
     demoUrl: '',
     technologies: ['c#', 'asp.net core', '.net'],
@@ -172,7 +217,11 @@ export const SEED_PROJECTS: ProjectInput[] = [
   },
   {
     title: 'ECommerce',
-    description: '',
+    description: 'E-commerce backend in ASP.NET Core.',
+    detailedDescription:
+      'An e-commerce backend in C#: catalogue, cart, and the order flow between them.\n\nE-commerce is a useful domain to build in because the requirements are unforgiving: stock, pricing and payment state all have to agree.',
+    showShort: true,
+    showDetailed: true,
     repoUrl: 'https://github.com/saidul-islam-rajib/ECommerce',
     demoUrl: '',
     technologies: ['c#', 'asp.net core', '.net'],
@@ -186,7 +235,11 @@ export const SEED_PROJECTS: ProjectInput[] = [
   },
   {
     title: 'Portfolio Backend',
-    description: 'Personal blog',
+    description: 'API backend for a personal blog, in ASP.NET Core.',
+    detailedDescription:
+      'The API behind a personal blog: content endpoints and the data model underneath them, written in C#.\n\nOne half of a split frontend and backend, rather than a single application serving its own pages.',
+    showShort: true,
+    showDetailed: true,
     repoUrl: 'https://github.com/saidul-islam-rajib/Portfolio-Backend',
     demoUrl: '',
     technologies: ['c#', 'asp.net core', '.net'],
@@ -200,7 +253,11 @@ export const SEED_PROJECTS: ProjectInput[] = [
   },
   {
     title: 'Dinner Host',
-    description: 'just for learning purpose',
+    description: 'Dinner hosting service in C#, built for learning.',
+    detailedDescription:
+      'A dinner hosting service written in C#, created for learning purposes.\n\nHosts, guests and bookings: a domain with enough relationships to be interesting without being large.',
+    showShort: true,
+    showDetailed: true,
     repoUrl: 'https://github.com/saidul-islam-rajib/Dinner_Host',
     demoUrl: '',
     technologies: ['c#', 'asp.net core', '.net'],
@@ -214,7 +271,11 @@ export const SEED_PROJECTS: ProjectInput[] = [
   },
   {
     title: 'E Commerce',
-    description: 'Full stack e-commerce website',
+    description: 'Full-stack e-commerce site in JavaScript.',
+    detailedDescription:
+      'A full-stack e-commerce website built in JavaScript, covering both the storefront and the services behind it.\n\nWhere the C# version explored the backend, this one covers the whole path from product page to order.',
+    showShort: true,
+    showDetailed: true,
     repoUrl: 'https://github.com/saidul-islam-rajib/E-Commerce',
     demoUrl: '',
     technologies: ['javascript'],
@@ -230,6 +291,10 @@ export const SEED_PROJECTS: ProjectInput[] = [
     title: 'task manager',
     description:
       'A basic task-manager platform(created just for learning purpose)',
+    detailedDescription:
+      'A task management platform created for learning purposes, written in TypeScript.\n\nSmall enough to finish, which matters more than scope when the goal is understanding a stack rather than shipping a product.',
+    showShort: true,
+    showDetailed: true,
     repoUrl: 'https://github.com/saidul-islam-rajib/task-manager',
     demoUrl: '',
     technologies: ['typescript'],
@@ -243,7 +308,11 @@ export const SEED_PROJECTS: ProjectInput[] = [
   },
   {
     title: 'Dinner Hosting Platform',
-    description: '',
+    description: 'A dinner hosting platform in ASP.NET Core.',
+    detailedDescription:
+      'A platform for hosting dinners, written in C#.\n\nA larger take on the same domain as the earlier Dinner Host repository.',
+    showShort: true,
+    showDetailed: true,
     repoUrl: 'https://github.com/saidul-islam-rajib/Dinner_Hosting_Platform',
     demoUrl: '',
     technologies: ['c#', 'asp.net core', '.net'],
@@ -257,7 +326,11 @@ export const SEED_PROJECTS: ProjectInput[] = [
   },
   {
     title: 'CleanArchitecture',
-    description: 'just for learning purpose',
+    description: 'Clean Architecture layering in a C# application.',
+    detailedDescription:
+      'A C# application structured along Clean Architecture lines, created for learning purposes.\n\nThe value is in the constraints: dependencies point inward, the domain knows nothing about the database or the web, and infrastructure is replaceable. Worth building once to understand where the seams belong.',
+    showShort: true,
+    showDetailed: true,
     repoUrl: 'https://github.com/saidul-islam-rajib/CleanArchitecture',
     demoUrl: '',
     technologies: ['c#', 'asp.net core', '.net'],
@@ -271,7 +344,11 @@ export const SEED_PROJECTS: ProjectInput[] = [
   },
   {
     title: 'Aspnet MVC Crud',
-    description: '',
+    description: 'CRUD operations in ASP.NET MVC.',
+    detailedDescription:
+      'Create, read, update and delete against a relational store using ASP.NET MVC and C#.\n\nSmall on purpose: the point is the request pipeline, model binding and validation, not the feature set.',
+    showShort: true,
+    showDetailed: true,
     repoUrl: 'https://github.com/saidul-islam-rajib/Aspnet_MVC_Crud',
     demoUrl: '',
     technologies: ['c#', 'asp.net core', '.net'],
@@ -285,7 +362,11 @@ export const SEED_PROJECTS: ProjectInput[] = [
   },
   {
     title: 'AspnetMicroservices',
-    description: 'AspnetMicroservices project using .net web api, c#',
+    description: 'Microservices with ASP.NET Core Web API and C#.',
+    detailedDescription:
+      'A microservices project built with .NET Web API and C#.\n\nSplitting a system into services surfaces problems a single application never has: service boundaries, communication between them, and keeping data consistent across the split.',
+    showShort: true,
+    showDetailed: true,
     repoUrl: 'https://github.com/saidul-islam-rajib/AspnetMicroservices',
     demoUrl: '',
     technologies: ['c#', 'asp.net core', '.net', 'microservices', 'docker'],
@@ -299,7 +380,11 @@ export const SEED_PROJECTS: ProjectInput[] = [
   },
   {
     title: 'FullStackCrudOperation',
-    description: 'For this project; I have used angular and .net6',
+    description: 'Full-stack CRUD with Angular and .NET 6.',
+    detailedDescription:
+      'Angular on the front, .NET 6 on the back, covering the full path of a create, read, update and delete operation.\n\nThe interesting part is the boundary: how the API is shaped and how the client consumes it.',
+    showShort: true,
+    showDetailed: true,
     repoUrl: 'https://github.com/saidul-islam-rajib/FullStackCrudOperation',
     demoUrl: '',
     technologies: ['typescript'],
@@ -313,7 +398,11 @@ export const SEED_PROJECTS: ProjectInput[] = [
   },
   {
     title: 'Console Application',
-    description: 'This is a basic game for Black Jack Game using CPP',
+    description: 'Blackjack in C++, on the console.',
+    detailedDescription:
+      'A basic Blackjack game written in C++ and played on the console.\n\nNo framework and no library: card handling, game state and the rules of the dealer, written directly.',
+    showShort: true,
+    showDetailed: true,
     repoUrl: 'https://github.com/saidul-islam-rajib/Console_Application',
     demoUrl: '',
     technologies: ['c++'],
@@ -329,6 +418,10 @@ export const SEED_PROJECTS: ProjectInput[] = [
     title: 'Desktop application',
     description:
       'This is a basic notepad application, developed without any OOP concent.',
+    detailedDescription:
+      'A basic notepad application developed in Python without an ORM.\n\nFile handling and a desktop UI, with persistence written directly rather than delegated to a library.',
+    showShort: true,
+    showDetailed: true,
     repoUrl: 'https://github.com/saidul-islam-rajib/Desktop_application',
     demoUrl: '',
     technologies: ['python'],

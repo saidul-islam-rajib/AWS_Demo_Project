@@ -288,6 +288,28 @@ describe('ProjectsService', () => {
       rmSync(fresh, { recursive: true, force: true });
     });
 
+    it('gives every seeded project both descriptions, within the caps', () => {
+      const fresh = mkdtempSync(join(tmpdir(), 'projects-seed-'));
+      process.env.DATA_DIR = fresh;
+
+      const projects = new ProjectsService().findAll();
+
+      for (const project of projects) {
+        expect(project.description.length).toBeGreaterThan(0);
+        expect(project.detailedDescription.length).toBeGreaterThan(0);
+        expect(countWords(project.description)).toBeLessThanOrEqual(
+          SHORT_WORD_LIMIT,
+        );
+        expect(countWords(project.detailedDescription)).toBeLessThanOrEqual(
+          DETAILED_WORD_LIMIT,
+        );
+        expect(project.showShort).toBe(true);
+        expect(project.showDetailed).toBe(true);
+      }
+
+      rmSync(fresh, { recursive: true, force: true });
+    });
+
     it('spreads seeds across several years with real technologies', () => {
       const fresh = mkdtempSync(join(tmpdir(), 'projects-seed-'));
       process.env.DATA_DIR = fresh;

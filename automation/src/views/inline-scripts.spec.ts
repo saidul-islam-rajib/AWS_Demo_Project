@@ -135,6 +135,21 @@ describe('inline scripts', () => {
     }
   });
 
+  // A literal backslash-n between meta tags rendered as visible text at the
+  // top of every page, because inside a template expression '\n' is two
+  // characters rather than a newline.
+  it.each(pages)(
+    '%s has no literal escape sequence in its head',
+    (_name, render) => {
+      const html = render();
+      const head = html.slice(0, html.indexOf('</head>'));
+      const betweenTags = head.replace(/<style>[\s\S]*?<\/style>/g, '');
+
+      expect(betweenTags).not.toContain('\\n');
+      expect(betweenTags).not.toContain('\\t');
+    },
+  );
+
   it('parses the scripts it is meant to guard', () => {
     // Sanity check: the helper must actually be finding scripts.
     expect(inlineScripts(aboutAdminPage(EMPTY_ABOUT)).length).toBeGreaterThan(

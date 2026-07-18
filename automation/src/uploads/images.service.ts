@@ -7,6 +7,12 @@ import { uploadDir } from './uploads.service';
 /** Widths the gallery and cards ask for. Anything else is rejected. */
 export const ALLOWED_WIDTHS = [200, 400, 800, 1600];
 
+/**
+ * Bumped whenever the encoder changes, so already-cached variants are
+ * regenerated rather than served stale. v2 added EXIF auto-orientation.
+ */
+const CACHE_VERSION = 'v2';
+
 /** Formats worth resizing. SVG is vector and GIF may be animated. */
 const RESIZABLE = new Set(['.png', '.jpg', '.jpeg', '.webp']);
 
@@ -67,7 +73,7 @@ export class ImagesService {
 
     const target = join(
       this.cacheDir,
-      `${basename(name, extname(name))}-${width}w.webp`,
+      `${basename(name, extname(name))}-${width}w-${CACHE_VERSION}.webp`,
     );
 
     // Regenerate if the original has been replaced since the cache was written.
@@ -86,6 +92,10 @@ export class ImagesService {
       if (meta.width && meta.width <= width) return source;
 
       await image
+        // Auto-orient from EXIF and bake it in. Resizing drops the
+        // orientation tag, so without this a photo the camera recorded as
+        // "rotate me" renders in its raw sensor orientation.
+        .rotate()
         .resize({ width, withoutEnlargement: true })
         // 82 is visually indistinguishable at these sizes and roughly halves
         // the bytes compared with 90.

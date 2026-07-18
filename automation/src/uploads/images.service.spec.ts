@@ -83,6 +83,59 @@ describe('ImagesService', () => {
     expect(statSync(second).mtimeMs).toBe(stamp);
   });
 
+  it('applies EXIF orientation instead of serving the raw sensor image', async () => {
+    // Red on top, blue underneath, tagged as needing a 180 degree rotation —
+    // exactly what a phone writes when the photo was taken upside down.
+    const top = await sharp({
+      create: {
+        width: 400,
+        height: 200,
+        channels: 3,
+        background: { r: 200, g: 30, b: 30 },
+      },
+    })
+      .png()
+      .toBuffer();
+    const bottom = await sharp({
+      create: {
+        width: 400,
+        height: 200,
+        channels: 3,
+        background: { r: 30, g: 30, b: 200 },
+      },
+    })
+      .png()
+      .toBuffer();
+    const joined = await sharp({
+      create: {
+        width: 400,
+        height: 400,
+        channels: 3,
+        background: { r: 0, g: 0, b: 0 },
+      },
+    })
+      .composite([
+        { input: top, top: 0, left: 0 },
+        { input: bottom, top: 200, left: 0 },
+      ])
+      .jpeg()
+      .toBuffer();
+
+    writeFileSync(
+      join(uploadDir(), 'rotated.jpg'),
+      await sharp(joined).withMetadata({ orientation: 3 }).toBuffer(),
+    );
+
+    const variant = await service.variant('rotated.jpg', 200);
+    const pixels = await sharp(readFileSync(variant as string))
+      .raw()
+      .toBuffer();
+
+    // Rotating 180 degrees brings the blue half to the top. Without
+    // auto-orientation the resize drops the tag and this stays red.
+    expect(pixels[2]).toBeGreaterThan(pixels[0]);
+  });
+
   it('never upscales a small original', async () => {
     await writeImage('small.png', 120, 90);
 

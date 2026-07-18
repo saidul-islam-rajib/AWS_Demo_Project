@@ -121,7 +121,7 @@ ${
         `<meta property="og:image:alt" content="${esc(title)}" />`,
       ]
         .filter(Boolean)
-        .join('\\n')
+        .join('\n')
     : ''
 }
 ${
