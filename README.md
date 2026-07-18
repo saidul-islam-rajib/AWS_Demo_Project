@@ -66,15 +66,21 @@ container automatically.
 ## Pipeline
 
 ```
-git push → GitHub → Jenkins (Poll SCM) → docker build → stop/remove old container → docker run → live on :3000
+git push → GitHub → Jenkins (Poll SCM) → Build → Test → Deploy → Verify → live on :3000
 ```
 
 Stages in [`Jenkinsfile`](Jenkinsfile):
 
-1. **Checkout** — `checkout scm`
-2. **Build Docker Image** — builds from `automation/`, tagged with the build number and `latest`
-3. **Stop & Remove Previous Container** — tolerates a missing container
-4. **Docker Container Run** — starts the new container on port 3000
+| Stage | What it does |
+|---|---|
+| **Checkout** | `checkout scm` |
+| **Build** | Builds the image from `automation/`, tagged with the build number and `latest` |
+| **Test** | Runs the Jest suite inside the freshly built image — a failing test stops the deploy |
+| **Deploy** | Stops and removes the old container, starts the new one on port 3000 |
+| **Verify** | Polls `/health` for up to 40s; dumps container logs and fails the build if it never answers |
+
+Builds are pruned to the last 15, and dangling image layers are removed after every
+run to protect the small root volume.
 
 An email is sent on both success and failure via the `post` block.
 

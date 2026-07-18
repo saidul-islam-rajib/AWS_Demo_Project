@@ -1,22 +1,29 @@
 pipeline {
     agent any
 
+    options {
+        timestamps()
+        buildDiscarder(logRotator(numToKeepStr: '15'))
+    }
+
     environment {
         CONTAINER_NAME = 'nestjs-app'
-        IMAGE_NAME = 'nestjs-image'
-        EMAIL = 'saidul.rajib.bd@gmail.com'
-        PORT = '3000'
-        APP_DIR = 'automation'
+        IMAGE_NAME     = 'nestjs-image'
+        EMAIL          = 'saidul.rajib.bd@gmail.com'
+        PORT           = '3000'
+        APP_DIR        = 'automation'
+        PUBLIC_URL     = 'http://16.171.254.209:3000'
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Build') {
             steps {
                 dir("${APP_DIR}") {
                     sh 'docker build -t $IMAGE_NAME:$BUILD_NUMBER -t $IMAGE_NAME:latest .'
@@ -24,40 +31,72 @@ pipeline {
             }
         }
 
-        stage('Stop & Remove Previous Container') {
+        stage('Test') {
+            steps {
+                sh 'docker run --rm $IMAGE_NAME:$BUILD_NUMBER npm test'
+            }
+        }
+
+        stage('Deploy') {
             steps {
                 sh '''
                     docker stop $CONTAINER_NAME || true
                     docker rm $CONTAINER_NAME || true
-                '''
-            }
-        }
 
-        stage('Docker Container Run') {
-            steps {
-                sh '''
                     docker run -d \
                         --name $CONTAINER_NAME \
                         --restart unless-stopped \
                         -p ${PORT}:${PORT} \
-                        $IMAGE_NAME:latest
+                        $IMAGE_NAME:$BUILD_NUMBER
+                '''
+            }
+        }
+
+        stage('Verify') {
+            steps {
+                sh '''
+                    echo "Waiting for the app to answer on port $PORT..."
+                    for i in $(seq 1 20); do
+                        if curl -fsS http://localhost:${PORT}/health > /dev/null 2>&1; then
+                            echo "Health check passed after ${i} attempt(s)."
+                            curl -s http://localhost:${PORT}/health
+                            exit 0
+                        fi
+                        sleep 2
+                    done
+
+                    echo "Health check never passed. Container logs:"
+                    docker logs --tail 40 $CONTAINER_NAME || true
+                    exit 1
                 '''
             }
         }
     }
 
     post {
+        always {
+            // The root volume is small; drop dangling layers from previous builds.
+            sh 'docker image prune -f || true'
+        }
         success {
             emailext(
-                subject: "NestJS App Deployed Successfully on EC2! (build #${BUILD_NUMBER})",
-                body: "Your app is deployed! URL -> http://16.171.254.209:${PORT}/",
+                subject: "Deployed successfully — build #${BUILD_NUMBER}",
+                body: """The NestJS app is live on EC2.
+
+Blog:   ${PUBLIC_URL}/
+Login:  ${PUBLIC_URL}/login
+Health: ${PUBLIC_URL}/health
+
+Build:  ${BUILD_URL}""",
                 to: "${EMAIL}"
             )
         }
         failure {
             emailext(
-                subject: "NestJS App deploy FAILED (build #${BUILD_NUMBER})",
-                body: "Build failed. Console: ${BUILD_URL}console",
+                subject: "Deploy FAILED — build #${BUILD_NUMBER}",
+                body: """The pipeline failed. The previously deployed container may still be running.
+
+Console: ${BUILD_URL}console""",
                 to: "${EMAIL}"
             )
         }
