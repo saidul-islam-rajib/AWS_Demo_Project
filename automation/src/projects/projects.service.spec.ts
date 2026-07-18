@@ -15,7 +15,9 @@ import {
 describe('project.model', () => {
   describe('githubCover', () => {
     it('builds the preview URL for a GitHub repo', () => {
-      expect(githubCover('https://github.com/saidul-islam-rajib/Portfolio')).toBe(
+      expect(
+        githubCover('https://github.com/saidul-islam-rajib/Portfolio'),
+      ).toBe(
         'https://opengraph.githubassets.com/1/saidul-islam-rajib/Portfolio',
       );
     });

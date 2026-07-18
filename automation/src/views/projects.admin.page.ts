@@ -118,7 +118,7 @@ ${CSS}
   return layout({
     title: 'Projects — admin',
     body,
-    nav: adminNav(),
+    nav: adminNav('/admin/projects'),
     variant: 'admin',
     noindex: true,
   });
@@ -306,7 +306,7 @@ ${CSS}
   return layout({
     title: `${editing ? 'Edit' : 'New'} project — admin`,
     body,
-    nav: adminNav(),
+    nav: adminNav('/admin/projects'),
     variant: 'admin',
     noindex: true,
   });

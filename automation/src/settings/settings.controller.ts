@@ -24,6 +24,7 @@ interface SettingsForm {
   footerOwner?: string;
   footerOwnerUrl?: string;
   footerSuffix?: string;
+  showIntro?: string;
   linkLabel?: string | string[];
   linkUrl?: string | string[];
 }
@@ -43,6 +44,7 @@ export class SettingsController {
   save(@Body() body: SettingsForm, @Res() res: Response): void {
     this.settings.update({
       ...body,
+      showIntro: body.showIntro !== undefined,
       footerLinks: parseFooterLinks(body.linkLabel, body.linkUrl),
     });
 

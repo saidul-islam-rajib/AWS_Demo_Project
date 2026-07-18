@@ -52,7 +52,7 @@ export function layout({
   title,
   description = 'Engineering notes on backend development, DevOps and cloud infrastructure.',
   body,
-  nav = defaultNav(),
+  nav,
   variant = 'default',
   path = '/',
   image,
@@ -62,6 +62,7 @@ export function layout({
   noindex = false,
 }: LayoutOptions): string {
   const s = getSettings();
+  const navigation = nav ?? defaultNav(path);
   const base = (s.siteUrl || '').replace(/\/+$/, '');
   const absolute = (target: string): string =>
     /^https?:\/\//i.test(target)
@@ -181,8 +182,14 @@ ${head}
   }
   .avatar-img { object-fit: cover; padding: 0; }
   .nav { margin-left: auto; display: flex; align-items: center; gap: 1.1rem; font-size: 0.9rem; }
-  .nav a { color: var(--ink-3); }
+  .nav a { color: var(--ink-3); position: relative; padding: 0.15rem 0; }
   .nav a:hover { color: var(--ink); }
+  /* Only plain links get the active treatment; .btn is an action, not a location. */
+  .nav a.active:not(.btn) { color: var(--ink); font-weight: 600; }
+  .nav a.active:not(.btn)::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -3px;
+    height: 2px; background: var(--accent); border-radius: 2px;
+  }
   .btn {
     display: inline-flex; align-items: center; gap: 0.4rem;
     padding: 0.45rem 0.9rem; border-radius: 100px;
@@ -277,7 +284,7 @@ ${head}
   <header class="site-header">
     <div class="header-inner">
       <a class="wordmark" href="/">${avatarMark(s.avatarUrl, s.authorName)} ${esc(s.authorName)}</a>
-      <nav class="nav">${nav}</nav>
+      <nav class="nav">${navigation}</nav>
     </div>
   </header>
 
@@ -313,10 +320,36 @@ ${body}
 </html>`;
 }
 
-export function defaultNav(): string {
-  return `<a href="/">Home</a><a href="/projects">Projects</a><a href="/about">About</a><a href="/admin" class="btn btn-sm">Dashboard</a>`;
+/**
+ * Marks the current section. Longest matching prefix wins, so /projects/x
+ * highlights Projects rather than Home.
+ */
+function navLink(href: string, label: string, path: string): string {
+  const active =
+    href === '/' ? path === '/' : path === href || path.startsWith(`${href}/`);
+
+  return `<a href="${href}" class="${active ? 'active' : ''}"${active ? ' aria-current="page"' : ''}>${label}</a>`;
 }
 
-export function adminNav(): string {
-  return `<a href="/">View site</a><a href="/admin">Dashboard</a><a href="/admin/projects">Projects</a><a href="/admin/about">About</a><a href="/admin/settings">Settings</a><a href="/admin/posts/new" class="btn btn-sm">Write</a><a href="/logout">Sign out</a>`;
+export function defaultNav(path = '/'): string {
+  return [
+    navLink('/', 'Home', path),
+    navLink('/projects', 'Projects', path),
+    navLink('/about', 'About', path),
+    navLink('/tags', 'Tags', path),
+    '<a href="/admin" class="btn btn-sm">Dashboard</a>',
+  ].join('');
+}
+
+export function adminNav(path = '/admin'): string {
+  return [
+    '<a href="/">View site</a>',
+    // Exact match: /admin is a prefix of every other admin route.
+    `<a href="/admin" class="${path === '/admin' ? 'active' : ''}">Dashboard</a>`,
+    navLink('/admin/projects', 'Projects', path),
+    navLink('/admin/about', 'About', path),
+    navLink('/admin/settings', 'Settings', path),
+    '<a href="/admin/posts/new" class="btn btn-sm">Write</a>',
+    '<a href="/logout">Sign out</a>',
+  ].join('');
 }

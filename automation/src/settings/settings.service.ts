@@ -95,6 +95,8 @@ export class SettingsService {
       githubUser: (input.githubUser ?? currentValue.githubUser)
         .trim()
         .replace(/^@/, ''),
+      // An unchecked checkbox submits nothing, so absence means false.
+      showIntro: input.showIntro === true,
 
       footerOwner: (input.footerOwner ?? currentValue.footerOwner).trim(),
       footerOwnerUrl: safeUrl(

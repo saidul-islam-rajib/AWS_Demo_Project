@@ -7,7 +7,7 @@ import {
   termSlug,
 } from '../projects/project.model';
 import { getSettings } from '../settings/settings.store';
-import { defaultNav, esc, layout } from './layout';
+import { esc, layout } from './layout';
 
 const PROJECTS_CSS = `
 <style>
@@ -221,7 +221,6 @@ ${PROJECTS_CSS}
     title: `Projects — ${s.authorName}`,
     description: `Projects built by ${s.authorName}${s.authorRole ? `, ${s.authorRole}` : ''}.`,
     body,
-    nav: defaultNav(),
     path: '/projects',
     image: groups[0]?.projects[0]?.coverUrl,
   });
@@ -315,7 +314,6 @@ ${PROJECTS_CSS}
     description:
       project.description || `${project.title}, a project by ${s.authorName}.`,
     body,
-    nav: defaultNav(),
     path: `/projects/${project.slug}`,
     image: project.coverUrl,
     ogType: 'article',
@@ -355,7 +353,6 @@ ${PROJECTS_CSS}
     title: `${term} — ${label} — ${s.authorName}`,
     description: `Projects by ${s.authorName} involving ${term}.`,
     body,
-    nav: defaultNav(),
     path: `/${taxonomy}/${opts.slug}`,
     image: projects[0]?.coverUrl,
   });

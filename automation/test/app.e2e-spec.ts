@@ -135,6 +135,122 @@ describe('Blog (e2e)', () => {
         .expect('Location', '/login'));
   });
 
+  describe('publish scheduling', () => {
+    const future = () =>
+      new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 16);
+    const past = () => '2020-03-01T09:00';
+
+    it('hides a post scheduled for the future', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/posts/new')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          title: 'From The Future',
+          content: 'not yet',
+          status: 'published',
+          publishedAt: future(),
+        })
+        .expect(302);
+
+      await request(server).get('/post/from-the-future').expect(404);
+
+      await request(server)
+        .get('/')
+        .expect(200)
+        .expect((res) => expect(res.text).not.toContain('From The Future'));
+    });
+
+    it('shows a scheduled post in the dashboard with its own state', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/posts/new')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          title: 'From The Future',
+          content: 'not yet',
+          status: 'published',
+          publishedAt: future(),
+        })
+        .expect(302);
+
+      await request(server)
+        .get('/admin')
+        .set('Cookie', cookie)
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('From The Future');
+          expect(res.text).toContain('scheduled');
+        });
+    });
+
+    it('publishes a backdated post immediately and sorts it by that date', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/posts/new')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          title: 'Old News',
+          content: 'from the archive',
+          status: 'published',
+          publishedAt: past(),
+        })
+        .expect(302);
+
+      await request(server)
+        .get('/post/old-news')
+        .expect(200)
+        .expect((res) => expect(res.text).toContain('2020'));
+    });
+
+    it('defaults to now when no date is supplied', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/posts/new')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({ title: 'No Date', content: 'x', status: 'published' })
+        .expect(302);
+
+      await request(server).get('/post/no-date').expect(200);
+    });
+  });
+
+  describe('navigation', () => {
+    it('marks the current section, and never marks Write as current', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      const about = await request(server)
+        .get('/admin/about')
+        .set('Cookie', cookie)
+        .expect(200);
+
+      expect(about.text).toContain('href="/admin/about" class="active"');
+      expect(about.text).toContain(
+        '<a href="/admin/posts/new" class="btn btn-sm">Write</a>',
+      );
+
+      const home = await request(server).get('/').expect(200);
+      expect(home.text).toContain('href="/" class="active"');
+
+      const projects = await request(server).get('/projects').expect(200);
+      expect(projects.text).toContain('href="/projects" class="active"');
+      expect(projects.text).not.toContain('href="/" class="active"');
+    });
+  });
+
   describe('projects and SEO', () => {
     const createProject = async (cookie: string, extra = {}) =>
       request(app.getHttpServer())
@@ -243,7 +359,9 @@ describe('Blog (e2e)', () => {
         .get('/admin/projects')
         .set('Cookie', cookie)
         .expect(200);
-      const id = /\/admin\/projects\/([0-9a-f-]{36})\/edit/.exec(admin.text)?.[1];
+      const id = /\/admin\/projects\/([0-9a-f-]{36})\/edit/.exec(
+        admin.text,
+      )?.[1];
       expect(id).toBeDefined();
 
       await request(server)
@@ -291,12 +409,38 @@ describe('Blog (e2e)', () => {
   });
 
   describe('about page', () => {
-    it('is public and prompts when empty', () =>
+    it('never shows admin prompts to visitors', () =>
       request(app.getHttpServer())
         .get('/about')
         .expect(200)
         .expect((res) => {
-          expect(res.text).toContain('has not been filled in yet');
+          expect(res.text).not.toContain('Add your story');
+          expect(res.text).not.toContain('starter content');
+          expect(res.text).not.toContain('/admin/about');
+        }));
+
+    it('nudges the admin to add what only they can write', async () => {
+      const cookie = await signIn();
+
+      await request(app.getHttpServer())
+        .get('/about')
+        .set('Cookie', cookie)
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('starter content');
+          expect(res.text).toContain('/admin/about');
+        });
+    });
+
+    it('seeds skills and learning items without inventing a biography', () =>
+      request(app.getHttpServer())
+        .get('/about')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('Topics covered');
+          expect(res.text).toContain('Learning curve');
+          expect(res.text).toContain('Docker');
+          expect(res.text).not.toContain('Journey');
         }));
 
     it('requires a session to edit', () =>
@@ -476,6 +620,7 @@ describe('Blog (e2e)', () => {
           authorRole: 'Senior Engineer',
           siteTitle: 'My Engineering Journal',
           siteTagline: 'Notes from the trenches',
+          showIntro: 'true',
           footerOwner: 'Team Sober',
           footerOwnerUrl: 'https://linkedin.com/in/example',
           footerSuffix: 'All rights reserved.',

@@ -1,4 +1,10 @@
-import { Post, formatDate, readingMinutes } from '../posts/post.model';
+import {
+  Post,
+  formatDate,
+  isScheduled,
+  readingMinutes,
+  toLocalInput,
+} from '../posts/post.model';
 import { adminNav, esc, layout } from './layout';
 
 const ADMIN_CSS = `
@@ -36,6 +42,7 @@ const ADMIN_CSS = `
   }
   .pill.pub { color: var(--good); }
   .pill.draft { color: var(--warn); }
+  .pill.sched { color: var(--accent); }
   .actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
   .toolbar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
   .editor-grid { display: grid; grid-template-columns: 1fr 280px; gap: 1.75rem; align-items: start; }
@@ -479,10 +486,10 @@ export function postRows(posts: Post[]): string {
           <span class="t">${esc(p.title)}</span>
           <span class="s">${esc(p.subtitle || '—')} · ${readingMinutes(p.content)} min</span>
         </td>
-        <td><span class="pill ${p.status === 'published' ? 'pub' : 'draft'}">${p.status}</span></td>
+        <td><span class="pill ${isScheduled(p) ? 'sched' : p.status === 'published' ? 'pub' : 'draft'}">${isScheduled(p) ? 'scheduled' : p.status}</span></td>
         <td><div class="tag-row">${p.tags.map((t) => `<span class="tag">${esc(t)}</span>`).join('') || '<span class="s">—</span>'}</div></td>
         <td>${p.views}</td>
-        <td class="s">${esc(formatDate(p.updatedAt))}</td>
+        <td class="s">${esc(formatDate(p.publishedAt))}</td>
         <td>
           <div class="actions">
             ${p.status === 'published' ? `<a class="btn btn-ghost btn-sm" href="/post/${esc(p.slug)}">View</a>` : ''}
@@ -504,6 +511,7 @@ export function dashboardPage(opts: {
     total: number;
     published: number;
     drafts: number;
+    scheduled: number;
     tags: number;
     views: number;
     words: number;
@@ -539,6 +547,7 @@ ${ADMIN_CSS}
   <div class="kpi-row">
     <div class="kpi"><div class="l">Published</div><div class="v">${stats.published}</div><div class="m">live on the blog</div></div>
     <div class="kpi"><div class="l">Drafts</div><div class="v">${stats.drafts}</div><div class="m">not visible publicly</div></div>
+    <div class="kpi"><div class="l">Scheduled</div><div class="v">${stats.scheduled}</div><div class="m">go live later</div></div>
     <div class="kpi"><div class="l">Tags</div><div class="v">${stats.tags}</div><div class="m">in use</div></div>
     <div class="kpi"><div class="l">Views</div><div class="v">${stats.views}</div><div class="m">all time</div></div>
     <div class="kpi"><div class="l">Words</div><div class="v">${stats.words.toLocaleString()}</div><div class="m">${stats.readingMinutes} min of reading</div></div>
@@ -581,7 +590,7 @@ ${INFINITE_SCROLL_JS}`;
   return layout({
     title: 'Dashboard — Saidul Islam Rajib',
     body,
-    nav: adminNav(),
+    nav: adminNav('/admin'),
     variant: 'admin',
   });
 }
@@ -704,6 +713,16 @@ ${ADMIN_CSS}
             </select>
             <p class="hint">Drafts are hidden from the public blog.</p>
           </div>
+
+          <div class="field">
+            <label for="publishedAt">Publish date and time</label>
+            <input type="datetime-local" id="publishedAt" name="publishedAt"
+                   value="${toLocalInput(post?.publishedAt ?? new Date().toISOString())}" />
+            <p class="hint" id="schedule-hint">
+              Backdate it, or set a future time to schedule it. A published post
+              stays hidden until this moment arrives.
+            </p>
+          </div>
           <button class="btn" type="submit" style="width:100%;justify-content:center">
             ${editing ? 'Save changes' : 'Create post'}
           </button>
@@ -726,12 +745,39 @@ ${ADMIN_CSS}
     </div>
   </form>
 ${EDITOR_JS}
-${CHIP_JS}`;
+${CHIP_JS}
+<script>
+(function () {
+  var field = document.getElementById('publishedAt');
+  var hint = document.getElementById('schedule-hint');
+  var status = document.getElementById('status');
+  if (!field || !hint) return;
+
+  var original = hint.textContent;
+
+  function update() {
+    var chosen = new Date(field.value);
+    if (isNaN(chosen.getTime())) { hint.textContent = original; return; }
+
+    if (chosen.getTime() > Date.now()) {
+      hint.textContent = status && status.value === 'published'
+        ? 'Scheduled — this goes live on ' + chosen.toLocaleString() + '.'
+        : 'Future date set. Switch status to Published to schedule it.';
+    } else {
+      hint.textContent = original;
+    }
+  }
+
+  field.addEventListener('change', update);
+  if (status) status.addEventListener('change', update);
+  update();
+})();
+</script>`;
 
   return layout({
     title: `${editing ? 'Edit' : 'New'} post — Saidul Islam Rajib`,
     body,
-    nav: adminNav(),
+    nav: adminNav('/admin/posts'),
     variant: 'admin',
   });
 }

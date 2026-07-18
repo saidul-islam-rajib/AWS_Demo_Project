@@ -44,15 +44,71 @@ export interface AboutContent {
 }
 
 /**
- * Deliberately empty. The page is built from what the author adds in admin,
- * not from placeholder content pretending to be theirs.
+ * Starter content for the technical sections only.
+ *
+ * The skill groups are derived from the languages actually present in the
+ * author's public repositories, and the learning items are the technologies
+ * this project already uses. Intro, journey, photos and socials stay blank:
+ * inventing a biography or employment history would be putting words in the
+ * author's mouth, and none of it is knowable from the code.
+ *
+ * Distinct from the blog's starter posts, which cover pipeline lessons —
+ * nothing is repeated between the two.
+ */
+export const SEED_ABOUT: Pick<AboutContent, 'skillGroups' | 'learning'> = {
+  skillGroups: [
+    { name: 'Backend', items: ['C#', 'ASP.NET Core', 'NestJS', 'Node.js'] },
+    {
+      name: 'Languages',
+      items: ['TypeScript', 'JavaScript', 'C#', 'Python', 'C++'],
+    },
+    { name: 'Frontend', items: ['Angular', 'React', 'HTML', 'CSS'] },
+    { name: 'Data', items: ['SQL Server', 'MongoDB', 'Entity Framework'] },
+    { name: 'DevOps', items: ['Docker', 'Jenkins', 'AWS EC2', 'Git'] },
+    {
+      name: 'Practices',
+      items: ['Clean Architecture', 'Microservices', 'REST APIs', 'CI/CD'],
+    },
+  ],
+  learning: [
+    {
+      title: 'Kubernetes',
+      note: 'The next step after running containers by hand on a single box.',
+      status: 'planned',
+    },
+    {
+      title: 'Infrastructure as Code',
+      note: 'Terraform, so the EC2 setup is reproducible rather than hand-built.',
+      status: 'planned',
+    },
+    {
+      title: 'Jenkins pipelines',
+      note: 'Declarative pipelines, build stages and automated deployment.',
+      status: 'done',
+    },
+    {
+      title: 'Docker',
+      note: 'Image layering, volumes for persistence, and keeping images small.',
+      status: 'done',
+    },
+    {
+      title: 'System design',
+      note: 'Working through scalability, caching and data modelling trade-offs.',
+      status: 'learning',
+    },
+  ],
+};
+
+/**
+ * Blank by default. Sections the author must speak for themselves — intro,
+ * journey, photos, socials — are never pre-filled.
  */
 export const EMPTY_ABOUT: AboutContent = {
   headline: '',
   intro: '',
   milestones: [],
-  skillGroups: [],
-  learning: [],
+  skillGroups: SEED_ABOUT.skillGroups,
+  learning: SEED_ABOUT.learning,
   gallery: [],
   socials: [],
 };
@@ -193,11 +249,11 @@ export function parseSocials(form: {
 
 /** True when there is nothing to show yet, so the page can prompt instead. */
 export function isAboutEmpty(about: AboutContent): boolean {
+  // Seeded skills and learning items do not count as the author having
+  // written anything, so the prompt still appears until they do.
   return (
     !about.intro.trim() &&
     about.milestones.length === 0 &&
-    about.skillGroups.length === 0 &&
-    about.learning.length === 0 &&
     about.gallery.length === 0
   );
 }

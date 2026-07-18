@@ -11,7 +11,9 @@ import { randomUUID } from 'crypto';
 import {
   Post,
   PostInput,
+  isScheduled,
   normaliseTags,
+  parsePublishedAt,
   slugify,
   readingMinutes,
 } from './post.model';
@@ -41,7 +43,12 @@ export class PostsService {
       }
 
       if (existsSync(this.file)) {
-        this.posts = JSON.parse(readFileSync(this.file, 'utf8')) as Post[];
+        const stored = JSON.parse(readFileSync(this.file, 'utf8')) as Post[];
+        // Posts written before scheduling existed have no publishedAt.
+        this.posts = stored.map((p) => ({
+          ...p,
+          publishedAt: p.publishedAt ?? p.createdAt,
+        }));
         this.logger.log(
           `Loaded ${this.posts.length} post(s) from ${this.file}`,
         );
@@ -85,12 +92,22 @@ export class PostsService {
 
   findAll(): Post[] {
     return [...this.posts].sort(
-      (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
+      (a, b) =>
+        Date.parse(b.publishedAt ?? b.createdAt) -
+        Date.parse(a.publishedAt ?? a.createdAt),
     );
   }
 
+  /** Public feed: published, and not scheduled for a future time. */
   findPublished(): Post[] {
-    return this.findAll().filter((p) => p.status === 'published');
+    return this.findAll().filter(
+      (p) => p.status === 'published' && !isScheduled(p),
+    );
+  }
+
+  /** Published but not yet live. */
+  findScheduled(): Post[] {
+    return this.findAll().filter(isScheduled);
   }
 
   /**
@@ -159,7 +176,8 @@ export class PostsService {
   }
 
   stats() {
-    const published = this.posts.filter((p) => p.status === 'published');
+    const published = this.findPublished();
+    const scheduled = this.findScheduled();
     const drafts = this.posts.filter((p) => p.status === 'draft');
     const words = this.posts.reduce(
       (sum, p) => sum + p.content.trim().split(/\s+/).filter(Boolean).length,
@@ -170,6 +188,7 @@ export class PostsService {
       total: this.posts.length,
       published: published.length,
       drafts: drafts.length,
+      scheduled: scheduled.length,
       tags: this.tagCounts().length,
       views: this.posts.reduce((sum, p) => sum + p.views, 0),
       words,
@@ -202,6 +221,7 @@ export class PostsService {
       highlight: input.highlight?.trim() ?? '',
       tags: normaliseTags(input.tags),
       status: input.status === 'published' ? 'published' : 'draft',
+      publishedAt: parsePublishedAt(input.publishedAt, now),
       createdAt: now,
       updatedAt: now,
       views: 0,
@@ -227,6 +247,10 @@ export class PostsService {
     post.highlight = input.highlight?.trim() ?? '';
     post.tags = normaliseTags(input.tags);
     post.status = input.status === 'published' ? 'published' : 'draft';
+    post.publishedAt = parsePublishedAt(
+      input.publishedAt,
+      post.publishedAt ?? post.createdAt,
+    );
     post.updatedAt = new Date().toISOString();
 
     this.persist();
@@ -279,6 +303,7 @@ function seedPosts(): Post[] {
       content,
       tags,
       status: 'published',
+      publishedAt: created,
       createdAt: created,
       updatedAt: created,
       views: 0,

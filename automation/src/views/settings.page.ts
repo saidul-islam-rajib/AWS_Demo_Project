@@ -131,10 +131,22 @@ export function settingsPage(s: SiteSettings, saved = false): string {
             <p class="hint">Enables importing your public repositories as projects.</p>
           </div>
 
-          <div class="field" style="margin-bottom:0">
+          <div class="field">
             <label for="siteTagline">Tagline</label>
             <textarea id="siteTagline" name="siteTagline" rows="2">${esc(s.siteTagline)}</textarea>
             <p class="hint">The sentence under the heading on the home page.</p>
+          </div>
+
+          <div class="field" style="margin-bottom:0">
+            <label style="display:flex;align-items:center;gap:.5rem;font-weight:500">
+              <input type="checkbox" name="showIntro" value="true"
+                     style="width:auto" ${s.showIntro ? 'checked' : ''} />
+              Show the intro block on the home page
+            </label>
+            <p class="hint">
+              Turn this off to open straight into the posts. The heading and
+              tagline still appear on tag and search pages.
+            </p>
           </div>
         </details>
 
@@ -278,7 +290,7 @@ export function settingsPage(s: SiteSettings, saved = false): string {
   return layout({
     title: 'Settings — ' + s.authorName,
     body,
-    nav: adminNav(),
+    nav: adminNav('/admin/settings'),
     variant: 'admin',
   });
 }

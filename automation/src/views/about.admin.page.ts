@@ -363,7 +363,7 @@ ${ADMIN_ABOUT_CSS}
   return layout({
     title: 'About page — admin',
     body,
-    nav: adminNav(),
+    nav: adminNav('/admin/about'),
     variant: 'admin',
   });
 }

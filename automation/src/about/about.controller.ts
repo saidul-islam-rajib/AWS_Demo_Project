@@ -5,10 +5,12 @@ import {
   Header,
   Post,
   Query,
+  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
+import { AuthService } from '../auth/auth.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { AboutService } from './about.service';
 import {
@@ -42,14 +44,23 @@ interface AboutForm {
 
 @Controller()
 export class AboutController {
-  constructor(private readonly about: AboutService) {}
+  constructor(
+    private readonly about: AboutService,
+    private readonly auth: AuthService,
+  ) {}
 
   /** Public page. */
   @Get('about')
   @Header('Content-Type', 'text/html')
-  page(): string {
+  page(@Req() req: Request): string {
     const content = this.about.get();
-    return aboutPage(content, renderMarkdown(content.intro));
+    const token = req.cookies?.[AuthService.COOKIE] as string | undefined;
+
+    return aboutPage(
+      content,
+      renderMarkdown(content.intro),
+      this.auth.verifyToken(token),
+    );
   }
 
   @Get('admin/about')

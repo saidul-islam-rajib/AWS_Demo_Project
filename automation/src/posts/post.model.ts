@@ -15,6 +15,11 @@ export interface Post {
   highlight: string;
   tags: string[];
   status: PostStatus;
+  /**
+   * When the post goes live. Distinct from createdAt so a post can be
+   * backdated, or scheduled to appear at a future time.
+   */
+  publishedAt: string;
   createdAt: string;
   updatedAt: string;
   views: number;
@@ -27,6 +32,37 @@ export interface PostInput {
   highlight?: string;
   tags?: string | string[];
   status?: PostStatus;
+  publishedAt?: string;
+}
+
+/** A published post whose publish time has not arrived yet. */
+export function isScheduled(post: Post): boolean {
+  return (
+    post.status === 'published' && Date.parse(post.publishedAt) > Date.now()
+  );
+}
+
+/**
+ * Accepts the datetime-local format the editor submits, falling back to now
+ * when the field is blank or unparseable.
+ */
+export function parsePublishedAt(value?: string, fallback?: string): string {
+  const raw = (value ?? '').trim();
+  if (!raw) return fallback ?? new Date().toISOString();
+
+  const parsed = Date.parse(raw);
+  return Number.isFinite(parsed)
+    ? new Date(parsed).toISOString()
+    : (fallback ?? new Date().toISOString());
+}
+
+/** ISO instant -> the value a datetime-local input expects. */
+export function toLocalInput(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 /** URL-safe slug. Falls back to a timestamp when a title has no usable characters. */

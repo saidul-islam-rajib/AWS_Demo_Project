@@ -18,6 +18,8 @@ export interface SiteSettings {
   siteUrl: string;
   /** GitHub username, used to import projects. */
   githubUser: string;
+  /** Show the heading and tagline block at the top of the home page. */
+  showIntro: boolean;
 
   /** Footer */
   footerOwner: string;
@@ -37,6 +39,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
     'Backend development, DevOps and cloud infrastructure — written up as I work through them.',
   siteUrl: 'http://16.171.254.209:3000',
   githubUser: '',
+  showIntro: true,
 
   footerOwner: 'Team Sober',
   footerOwnerUrl: 'https://portfolio-rajib.vercel.app/',

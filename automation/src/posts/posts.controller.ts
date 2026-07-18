@@ -20,7 +20,7 @@ export class PostsController {
 
     return {
       ...this.posts.stats(),
-      latestDate: published[0]?.createdAt,
+      latestDate: published[0]?.publishedAt,
       topTag: tags[0]?.tag,
     };
   }

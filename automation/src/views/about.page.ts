@@ -4,7 +4,7 @@ import {
   isAboutEmpty,
 } from '../about/about.model';
 import { getSettings } from '../settings/settings.store';
-import { avatarMark, defaultNav, esc, layout } from './layout';
+import { avatarMark, esc, layout } from './layout';
 
 const ABOUT_CSS = `
 <style>
@@ -181,7 +181,11 @@ const GALLERY_JS = `
 })();
 </script>`;
 
-export function aboutPage(about: AboutContent, introHtml: string): string {
+export function aboutPage(
+  about: AboutContent,
+  introHtml: string,
+  isAdmin = false,
+): string {
   const s = getSettings();
 
   const sections: string[] = [];
@@ -290,12 +294,26 @@ ${ABOUT_CSS}
   </header>
 
   ${
-    isAboutEmpty(about)
-      ? `<div class="empty">
+    sections.length === 0
+      ? isAdmin
+        ? `<div class="empty">
       <p>This page has not been filled in yet.</p>
       <p style="margin-top:1.25rem"><a class="btn" href="/admin/about">Add your story</a></p>
     </div>`
-      : sections.join('')
+        : `<div class="empty">
+      <p>More about ${esc(s.authorName)} is on the way.</p>
+      <p style="margin-top:1.25rem"><a class="btn btn-ghost" href="/">Read the blog</a> <a class="btn btn-ghost" href="/projects">See the projects</a></p>
+    </div>`
+      : `${
+          // Seeded sections alone are not the author speaking, so nudge them
+          // to add the parts only they can write. Admin only.
+          isAdmin && isAboutEmpty(about)
+            ? `<div class="flash" style="margin-bottom:2rem">
+        Skills and learning items are starter content.
+        <a href="/admin/about" style="color:var(--accent)">Add your intro and journey →</a>
+      </div>`
+            : ''
+        }${sections.join('')}`
   }
 ${GALLERY_JS}`;
 
@@ -303,6 +321,6 @@ ${GALLERY_JS}`;
     title: `About — ${s.authorName}`,
     description: `About ${s.authorName}${s.authorRole ? `, ${s.authorRole}` : ''}.`,
     body,
-    nav: defaultNav(),
+    path: '/about',
   });
 }

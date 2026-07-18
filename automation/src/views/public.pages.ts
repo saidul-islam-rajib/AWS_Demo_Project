@@ -7,7 +7,7 @@ import {
   relativeDate,
   wordCount,
 } from '../posts/post.model';
-import { avatarMark, defaultNav, esc, layout } from './layout';
+import { avatarMark, esc, layout } from './layout';
 import { getSettings } from '../settings/settings.store';
 
 const FEED_CSS = `
@@ -26,11 +26,7 @@ const FEED_CSS = `
     font-family: var(--serif); font-size: clamp(2.1rem, 5.5vw, 3.1rem);
     line-height: 1.08; margin-bottom: 0.9rem; letter-spacing: -0.03em;
   }
-  /* ~62 characters per line: long bios were running the full column width. */
-  .hero p {
-    font-size: 1.06rem; line-height: 1.62;
-    color: var(--ink-2); max-width: 34em;
-  }
+  .hero p { font-size: 1.06rem; line-height: 1.62; color: var(--ink-2); }
   .searchbar { display: flex; gap: 0.5rem; margin: 1.9rem 0 0; max-width: 420px; }
   .searchbar input { border-radius: 100px; padding-left: 1rem; }
   .searchbar .btn { flex-shrink: 0; }
@@ -168,7 +164,7 @@ function card(post: Post): string {
   <article class="card">
     <a href="/post/${esc(post.slug)}">
       <div class="card-meta">
-        <span>${esc(formatDate(post.createdAt))}</span><span>·</span>
+        <span>${esc(formatDate(post.publishedAt))}</span><span>·</span>
         <span>${mins} min read</span>
         ${post.views ? `<span>·</span><span>${post.views} views</span>` : ''}
         ${post.status === 'draft' ? '<span class="draft-pill">Draft</span>' : ''}
@@ -211,11 +207,15 @@ export function homePage(opts: {
       ? `${posts.length} post${posts.length === 1 ? '' : 's'} found.`
       : esc(getSettings().siteTagline);
 
+  // The intro block is hideable, but tag and search headings must always
+  // render or the page loses its context entirely.
+  const showIntro = getSettings().showIntro || Boolean(activeTag || query);
+
   const body = `
 ${FEED_CSS}
-  <section class="hero">
+  ${showIntro ? `<section class="hero">` : `<section class="hero" style="padding-top:1rem;border-bottom:0;margin-bottom:1rem">`}
     ${
-      activeTag || query
+      activeTag || query || !showIntro
         ? ''
         : `<div class="hero-byline">
       ${avatarMark(getSettings().avatarUrl, getSettings().authorName)}
@@ -225,8 +225,8 @@ ${FEED_CSS}
       </div>
     </div>`
     }
-    <h1>${heading}</h1>
-    <p>${blurb}</p>
+    ${showIntro ? `<h1>${heading}</h1>` : ''}
+    ${showIntro ? `<p>${blurb}</p>` : ''}
     <form class="searchbar" action="/search" method="get">
       <input type="search" name="q" placeholder="Search posts…" value="${esc(query)}" aria-label="Search posts" />
       <button class="btn" type="submit">Search</button>
@@ -284,7 +284,6 @@ ${FEED_CSS}
       ? `Posts tagged ${activeTag} — ${getSettings().authorName}`
       : `${getSettings().authorName} — ${getSettings().siteTitle}`,
     body,
-    nav: defaultNav(),
   });
 }
 
@@ -428,7 +427,7 @@ export function postPage(
         ${avatarMark(getSettings().avatarUrl, getSettings().authorName)}
         <span>
           <span class="who">${esc(getSettings().authorName)}</span><br />
-          ${esc(formatDate(post.createdAt))} · ${mins} min read${post.views ? ` · ${post.views} views` : ''}
+          ${esc(formatDate(post.publishedAt))} · ${mins} min read${post.views ? ` · ${post.views} views` : ''}
         </span>
       </div>
     </header>
@@ -447,9 +446,9 @@ export function postPage(
         <div class="post-stat"><div class="v">${words.toLocaleString()}</div><div class="l">Words</div></div>
         <div class="post-stat"><div class="v">${post.tags.length}</div><div class="l">Topic${post.tags.length === 1 ? '' : 's'}</div></div>
         <div class="post-stat"><div class="v">${post.views}</div><div class="l">Views</div></div>
-        <div class="post-stat"><div class="v" style="font-size:.92rem">${esc(relativeDate(post.createdAt))}</div><div class="l">Published</div></div>
+        <div class="post-stat"><div class="v" style="font-size:.92rem">${esc(relativeDate(post.publishedAt))}</div><div class="l">Published</div></div>
         ${
-          post.updatedAt !== post.createdAt
+          post.updatedAt !== post.publishedAt
             ? `<div class="post-stat"><div class="v" style="font-size:.92rem">${esc(relativeDate(post.updatedAt))}</div><div class="l">Updated</div></div>`
             : ''
         }
@@ -465,7 +464,7 @@ export function postPage(
         .map(
           (r) => `<a href="/post/${esc(r.slug)}">
           <strong>${esc(r.title)}</strong>
-          <span>${esc(formatDate(r.createdAt))} · ${readingMinutes(r.content)} min read</span>
+          <span>${esc(formatDate(r.publishedAt))} · ${readingMinutes(r.content)} min read</span>
         </a>`,
         )
         .join('')}
@@ -478,17 +477,16 @@ export function postPage(
     description: post.subtitle || excerpt(post.content, 150),
     body: body + LIGHTBOX_JS,
     variant: 'article',
-    nav: defaultNav(),
     path: `/post/${post.slug}`,
     image: firstImage(post.content),
     ogType: 'article',
-    publishedAt: post.createdAt,
+    publishedAt: post.publishedAt,
     head: `<script type="application/ld+json">${JSON.stringify({
       '@context': 'https://schema.org',
       '@type': 'BlogPosting',
       headline: post.title,
       description: post.subtitle || excerpt(post.content, 150),
-      datePublished: post.createdAt,
+      datePublished: post.publishedAt,
       dateModified: post.updatedAt,
       keywords: post.tags.join(', '),
       author: { '@type': 'Person', name: getSettings().authorName },
@@ -571,7 +569,6 @@ export function tagsPage(tags: { tag: string; count: number }[]): string {
   return layout({
     title: `Tags — ${getSettings().authorName}`,
     body,
-    nav: defaultNav(),
   });
 }
 
@@ -583,6 +580,5 @@ export function notFoundPage(): string {
       <p>That post does not exist, or it is still a draft.</p>
       <p style="margin-top:1.25rem"><a class="btn" href="/">Back to the blog</a></p>
     </div>`,
-    nav: defaultNav(),
   });
 }
