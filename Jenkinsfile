@@ -13,6 +13,10 @@ pipeline {
         PORT           = '3000'
         APP_DIR        = 'automation'
         PUBLIC_URL     = 'http://16.171.254.209:3000'
+        // Named volume holding posts.json, so content survives redeploys.
+        DATA_VOLUME    = 'blog_data'
+        // Secrets live on the host, never in this repository.
+        ENV_FILE       = '/opt/blog/.env'
     }
 
     stages {
@@ -43,10 +47,25 @@ pipeline {
                     docker stop $CONTAINER_NAME || true
                     docker rm $CONTAINER_NAME || true
 
+                    # Named volume keeps posts.json across redeploys.
+                    docker volume create $DATA_VOLUME > /dev/null
+
+                    # ADMIN_PASSWORD lives on the host, not in git. Without it the
+                    # blog still serves, but the admin area cannot be signed into.
+                    if [ -f "$ENV_FILE" ]; then
+                        ENV_ARG="--env-file $ENV_FILE"
+                        echo "Loading secrets from $ENV_FILE"
+                    else
+                        ENV_ARG=""
+                        echo "WARNING: $ENV_FILE not found — admin sign-in will be disabled."
+                    fi
+
                     docker run -d \
                         --name $CONTAINER_NAME \
                         --restart unless-stopped \
                         -p ${PORT}:${PORT} \
+                        -v $DATA_VOLUME:/app/data \
+                        $ENV_ARG \
                         $IMAGE_NAME:$BUILD_NUMBER
                 '''
             }
