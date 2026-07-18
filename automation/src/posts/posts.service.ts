@@ -243,6 +243,181 @@ function seedPosts(): Post[] {
 
   return [
     make(
+      'The sliding window, four patterns deep',
+      'Turning O(n·k) into O(n) by not throwing away work you already did',
+      `When windows overlap, do not rebuild them — update them.
+The inner while loop is still O(n): left only ever moves forward.
+Contiguous means window; subsequence does not.`,
+      ['algorithms', 'cpp', 'interview'],
+      `Most array problems have an obvious brute-force answer: check every window, take the best one. It works, and it is O(n·k).
+
+Consecutive windows overlap almost completely. Only one element leaves and one enters. So instead of recomputing, update.
+
+## The fixed window
+
+\`\`\`cpp
+int windowSum = 0;
+for (int i = 0; i < k; i++) windowSum += nums[i];
+
+int best = windowSum;
+for (int right = k; right < (int)nums.size(); right++) {
+    windowSum += nums[right];       // one enters
+    windowSum -= nums[right - k];   // one leaves
+    best = max(best, windowSum);
+}
+\`\`\`
+
+The \`right - k\` index is where this goes wrong most often. When \`right\` is the newest element, the oldest sits exactly \`k\` positions behind it.
+
+## The variable window
+
+When the size is not given — *shortest subarray summing to at least target* — both edges move. \`right\` always advances; \`left\` advances only while the window still satisfies the condition.
+
+\`\`\`cpp
+int left = 0, windowSum = 0, best = INT_MAX;
+
+for (int right = 0; right < (int)nums.size(); right++) {
+    windowSum += nums[right];
+
+    while (windowSum >= target) {
+        best = min(best, right - left + 1);
+        windowSum -= nums[left];
+        left++;
+    }
+}
+\`\`\`
+
+That inner \`while\` looks like it makes this O(n²). It does not — \`left\` only moves forward, at most n times across the whole run.
+
+## When it does not apply
+
+The shrink-while-valid trick assumes positive values. With negatives, adding an element can *decrease* the sum, so a failing window might succeed after growing. That needs prefix sums and a deque instead.`,
+      12,
+    ),
+    make(
+      'Why your Docker build takes four minutes every time',
+      'Layer caching is ordering-sensitive, and most Dockerfiles get the order wrong',
+      `COPY your lockfile before your source, not with it.
+Every instruction after a changed layer is rebuilt.
+A one-character source edit should never reinstall dependencies.`,
+      ['docker', 'devops', 'performance'],
+      `Docker caches each instruction as a layer. When one changes, that layer and **every layer after it** is rebuilt. So the order of your Dockerfile decides your build time.
+
+## The common mistake
+
+\`\`\`dockerfile
+COPY . .
+RUN npm install
+RUN npm run build
+\`\`\`
+
+\`COPY . .\` includes your source. Change one character in one file and the layer hash changes, so \`npm install\` reruns — reinstalling every dependency to compile a typo fix.
+
+## The fix
+
+\`\`\`dockerfile
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+RUN npm run build
+\`\`\`
+
+Now \`npm install\` only reruns when \`package.json\` or the lockfile actually changes. Source edits invalidate only the last two layers.
+
+## What I measured
+
+In this project's pipeline, the Build stage ran 30s on a source-only change and 9s when layers were fully cached. The first build after a dependency change is the expensive one, and that is correct — it is the only time the work is genuinely needed.
+
+## Also worth doing
+
+Add a \`.dockerignore\`. Without it, \`COPY . .\` ships your local \`node_modules\` into the image, which is both slow and wrong — those are your host's binaries, not the container's.`,
+      10,
+    ),
+    make(
+      'The N+1 query problem, and why your ORM hides it',
+      'One query for the list, then one more per row, forever',
+      `Loop bodies that touch the database are the smell.
+Log your SQL in development — the count is the tell.
+Fix it by fetching related rows in one query, not by caching the symptom.`,
+      ['databases', 'backend', 'performance'],
+      `You fetch 50 posts. Then, for each one, you read its author. That is 1 + 50 = 51 queries where 2 would do.
+
+\`\`\`ts
+const posts = await postRepo.find();          // 1 query
+
+for (const post of posts) {
+  post.author = await userRepo.findOne(post.authorId);  // 50 more
+}
+\`\`\`
+
+It looks harmless because each individual query is fast. The problem is the round trips. At 5ms each, 50 queries is 250ms of pure latency — and it grows linearly with your data.
+
+## Why ORMs make it easy to miss
+
+Lazy loading means \`post.author\` looks like a property access. There is no visible \`await\`, no obvious query. The code reads like it is working with objects in memory. It is not.
+
+## Finding it
+
+Turn on SQL logging in development and watch the count for a single page load. If loading 50 rows fires 51 statements, you have it. The number scaling with your row count is the confirmation.
+
+## Fixing it
+
+Fetch the related rows in one go — a join, or a second query batched by id:
+
+\`\`\`ts
+const posts = await postRepo.find({ relations: ['author'] });
+\`\`\`
+
+Two queries regardless of row count.
+
+## The trap
+
+The tempting fix is caching the author lookup. That hides the symptom in development, where your dataset is small and warm, and leaves it fully intact in production where it is not.`,
+      9,
+    ),
+    make(
+      'Idempotency keys, or how to make retries safe',
+      'The network failed after the charge but before the response — now what',
+      `A timeout tells you nothing about whether the work happened.
+Idempotency is a property of the endpoint, not of the client.
+Store the key with the result, not just the key.`,
+      ['api-design', 'backend', 'distributed-systems'],
+      `A client calls \`POST /payments\`. The charge succeeds. The response times out on the way back.
+
+The client has no idea whether it worked. If it retries, you might charge twice. If it does not, the user might not be charged at all. Neither is acceptable.
+
+## The shape of the fix
+
+The client generates a unique key per *intent* — not per attempt — and sends it:
+
+\`\`\`
+POST /payments
+Idempotency-Key: 7f3e9c21-...
+\`\`\`
+
+The server, on receiving a request:
+
+1. Look up the key. If it exists **with a stored response**, return that response and do nothing else.
+2. If it does not exist, insert it inside the same transaction as the work.
+3. Store the response body against the key when you finish.
+
+## The part people miss
+
+Storing only the key is not enough. If you record "this key was seen" but not what you returned, a retry gets a different answer than the original call — often a 409 for something that actually succeeded. The client still cannot tell what happened.
+
+Store the response. Replay it verbatim.
+
+## Which methods need it
+
+\`GET\`, \`PUT\` and \`DELETE\` are already idempotent by definition. \`POST\` is not, which is exactly why it needs the key.
+
+## Expiry
+
+Keys cannot live forever. Twenty-four hours is typical — long enough to cover any sane retry window, short enough that the table does not grow without bound.`,
+      8,
+    ),
+    make(
       'The commit that pushed nothing',
       'How a nested git repository silently published an empty project',
       'A green push is not proof your code shipped.',

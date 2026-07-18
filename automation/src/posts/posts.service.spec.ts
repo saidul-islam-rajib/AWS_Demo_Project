@@ -69,9 +69,33 @@ describe('PostsService', () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it('seeds starter posts on a fresh data directory', () => {
-    expect(service.findAll().length).toBeGreaterThan(0);
-    expect(service.findPublished().length).toBeGreaterThan(0);
+  it('seeds 10 published starter posts on a fresh data directory', () => {
+    expect(service.findAll()).toHaveLength(10);
+    expect(service.findPublished()).toHaveLength(10);
+  });
+
+  it('gives every seeded post a unique slug', () => {
+    const slugs = service.findAll().map((p) => p.slug);
+
+    expect(new Set(slugs).size).toBe(slugs.length);
+  });
+
+  it('seeds a spread of topics, not just CI/CD', () => {
+    const tags = service.tagCounts().map((t) => t.tag);
+
+    expect(tags).toEqual(
+      expect.arrayContaining(['algorithms', 'databases', 'api-design', 'docker']),
+    );
+    expect(tags.length).toBeGreaterThanOrEqual(10);
+  });
+
+  it('seeds both single and multi-line highlights', () => {
+    const counts = service
+      .findAll()
+      .map((p) => highlightList(p.highlight).length);
+
+    expect(counts.some((n) => n === 1)).toBe(true);
+    expect(counts.some((n) => n > 1)).toBe(true);
   });
 
   it('creates a post as a draft by default and hides it from the public feed', () => {
