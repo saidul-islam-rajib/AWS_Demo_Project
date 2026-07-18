@@ -166,6 +166,13 @@ const ABOUT_CSS = `
     /* Tinted while the bytes are in flight, so the grid never jumps. */
     background: var(--surface-2);
   }
+  /*
+   * The display rule above outranks the hidden attribute, which is only
+   * display none in the user agent sheet. Without this, every image in a
+   * record renders stacked instead of one at a time.
+   */
+  .gallery img[hidden],
+  .shot-nav[hidden] { display: none; }
 
   .shot-nav {
     position: absolute; top: 50%; transform: translateY(-50%);
@@ -280,12 +287,24 @@ const GALLERY_JS = `
     return figure.querySelectorAll('.shot-track img');
   }
 
+  function reveal(img) {
+    if (!img.dataset.src) return;
+    img.src = img.dataset.src;
+    if (img.dataset.srcset) img.srcset = img.dataset.srcset;
+    delete img.dataset.src;
+    delete img.dataset.srcset;
+  }
+
   function showAt(figure, index) {
     var imgs = shotOf(figure);
     if (!imgs.length) return;
 
     var next = (index + imgs.length) % imgs.length;
     imgs.forEach(function (img, i) { img.hidden = i !== next; });
+    reveal(imgs[next]);
+
+    // Warm the neighbour so the next tap is instant.
+    reveal(imgs[(next + 1) % imgs.length]);
 
     var at = figure.querySelector('.shot-count .at');
     if (at) at.textContent = String(next + 1);
@@ -491,16 +510,24 @@ export function aboutPage(
         <div class="shot-frame">
           <div class="shot-track">
             ${item.urls
-              .map(
-                (url, i) =>
-                  `<img
+              .map((url, i) =>
+                i === 0
+                  ? `<img
                     src="${esc(sized(url, 400))}"
                     srcset="${esc(sized(url, 400))} 400w, ${esc(sized(url, 800))} 800w"
                     sizes="(max-width: 600px) 45vw, 220px"
                     width="400" height="300"
                     alt="${esc(item.caption || 'Photo')}"
-                    loading="lazy" decoding="async"
-                    ${i === 0 ? '' : 'hidden'} />`,
+                    loading="lazy" decoding="async" />`
+                  : // Held back until the reader actually pages to it, so a
+                    // record with six images still costs one request.
+                    `<img
+                    data-src="${esc(sized(url, 400))}"
+                    data-srcset="${esc(sized(url, 400))} 400w, ${esc(sized(url, 800))} 800w"
+                    sizes="(max-width: 600px) 45vw, 220px"
+                    width="400" height="300"
+                    alt="${esc(item.caption || 'Photo')}"
+                    loading="lazy" decoding="async" hidden />`,
               )
               .join('')}
           </div>

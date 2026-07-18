@@ -862,6 +862,41 @@ describe('Blog (e2e)', () => {
         });
     });
 
+    it('shows only the first image of a record, and defers the rest', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/about')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          galleryUrls: [
+            ['/uploads/a.png', '/uploads/b.png', '/uploads/c.png'].join('\n'),
+          ],
+          galleryCaption: ['Three images'],
+        })
+        .expect(302);
+
+      await request(server)
+        .get('/about')
+        .expect(200)
+        .expect((res) => {
+          const figure = /<figure class="shot"[\s\S]*?<\/figure>/.exec(
+            res.text,
+          )?.[0] as string;
+
+          // Exactly one image is fetched; the others wait for a tap.
+          expect((figure.match(/ src="/g) ?? []).length).toBe(1);
+          expect((figure.match(/data-src="/g) ?? []).length).toBe(2);
+          expect((figure.match(/hidden/g) ?? []).length).toBe(2);
+
+          // The attribute alone is not enough: an author display rule
+          // outranks it, which stacked every image in the record.
+          expect(res.text).toContain('.gallery img[hidden]');
+        });
+    });
+
     it('renders a multi-image record with slider controls', async () => {
       const cookie = await signIn();
       const server = app.getHttpServer();
