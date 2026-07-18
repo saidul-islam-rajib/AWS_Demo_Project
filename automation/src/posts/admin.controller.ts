@@ -16,12 +16,7 @@ import { PostsService } from './posts.service';
 import type { PostInput } from './post.model';
 import { AuthService } from '../auth/auth.service';
 import { AuthGuard } from '../auth/auth.guard';
-import {
-  dashboardPage,
-  editorPage,
-  loginPage,
-  postRows,
-} from '../views/admin.pages';
+import { dashboardPage, editorPage, loginPage } from '../views/admin.pages';
 
 /** Rows per dashboard page. */
 const PAGE_SIZE = 10;
@@ -74,6 +69,8 @@ export class AdminController {
   @UseGuards(AuthGuard)
   @Header('Content-Type', 'text/html')
   dashboard(
+    @Query('q') q = '',
+    @Query('page') pageParam?: string,
     @Query('ok') ok?: string,
     @Query('imported') imported?: string,
     @Query('skipped') skipped?: string,
@@ -98,14 +95,27 @@ export class AdminController {
       flash = { kind: 'ok', text: messages[ok] };
     }
 
-    const first = this.posts.page(0, PAGE_SIZE);
+    const matched = this.posts.searchAll(q);
+    const pageCount = Math.max(1, Math.ceil(matched.length / PAGE_SIZE));
+
+    // Clamp rather than 404: a stale bookmark should still show something.
+    const parsed = Number.parseInt(pageParam ?? '1', 10);
+    const page = Math.min(
+      Math.max(Number.isFinite(parsed) ? parsed : 1, 1),
+      pageCount,
+    );
+
+    const start = (page - 1) * PAGE_SIZE;
 
     return dashboardPage({
-      posts: first.posts,
-      hasMore: first.hasMore,
+      posts: matched.slice(start, start + PAGE_SIZE),
       stats: this.posts.stats(),
       tags: this.posts.tagCounts(),
       flash,
+      query: q,
+      page,
+      pageCount,
+      total: matched.length,
     });
   }
 
@@ -151,27 +161,6 @@ export class AdminController {
   importStarters(@Res() res: Response): void {
     const { added, skipped } = this.posts.importStarters();
     res.redirect(`/admin?imported=${added}&skipped=${skipped}`);
-  }
-
-  /** One page of dashboard rows, for the infinite scroll. */
-  @Get('admin/posts/page')
-  @UseGuards(AuthGuard)
-  postsPage(@Query('offset') offset?: string): {
-    rows: string;
-    count: number;
-    hasMore: boolean;
-    total: number;
-  } {
-    const parsed = Number.parseInt(offset ?? '0', 10);
-    const start = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-    const result = this.posts.page(start, PAGE_SIZE);
-
-    return {
-      rows: postRows(result.posts),
-      count: result.posts.length,
-      hasMore: result.hasMore,
-      total: result.total,
-    };
   }
 
   // ---------- delete ----------

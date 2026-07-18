@@ -146,6 +146,7 @@ export class ProjectsController {
   @UseGuards(AuthGuard)
   @Header('Content-Type', 'text/html')
   admin(
+    @Query('q') q = '',
     @Query('page') pageParam?: string,
     @Query('ok') ok?: string,
     @Query('added') added?: string,
@@ -174,7 +175,7 @@ export class ProjectsController {
       flash = { kind: 'ok', text: messages[ok] };
     }
 
-    const all = this.projects.findAll();
+    const all = this.projects.search(q);
     const pageCount = Math.max(1, Math.ceil(all.length / ADMIN_PAGE_SIZE));
 
     // Clamp rather than 404: a stale bookmark should still show something.
@@ -193,6 +194,7 @@ export class ProjectsController {
       page,
       pageCount,
       total: all.length,
+      query: q,
     });
   }
 

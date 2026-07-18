@@ -105,6 +105,22 @@ export class PostsService {
     );
   }
 
+  /**
+   * Admin search across every post, drafts and scheduled included, so the
+   * dashboard can find things the public feed deliberately hides.
+   */
+  searchAll(query: string): Post[] {
+    const q = query.trim().toLowerCase();
+    if (!q) return this.findAll();
+
+    return this.findAll().filter((p) =>
+      [p.title, p.subtitle, p.content, p.tags.join(' '), p.status]
+        .join(' ')
+        .toLowerCase()
+        .includes(q),
+    );
+  }
+
   /** Published but not yet live. */
   findScheduled(): Post[] {
     return this.findAll().filter(isScheduled);

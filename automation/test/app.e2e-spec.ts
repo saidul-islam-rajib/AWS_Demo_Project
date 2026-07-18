@@ -17,13 +17,6 @@ interface HealthBody {
   posts: number;
 }
 
-interface PageBody {
-  rows: string;
-  count: number;
-  hasMore: boolean;
-  total: number;
-}
-
 interface SearchBody {
   results: { title: string; url: string; kind: string; meta: string }[];
 }
@@ -97,6 +90,15 @@ describe('Blog (e2e)', () => {
           expect(res.text).toContain('Technologies');
           expect(res.text).toContain('/tech/');
           expect(res.text).toContain('Project topics');
+        }));
+
+    it('links the Topics covered stat to the explore page', () =>
+      request(app.getHttpServer())
+        .get('/')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('class="stat stat-link" href="/tags"');
+          expect(res.text).toContain('Topics covered');
         }));
 
     it('links tags to their own pages from the explore page', () =>
@@ -852,14 +854,8 @@ describe('Blog (e2e)', () => {
         .expect((res) => expect(res.text).toContain('href="/about"')));
   });
 
-  describe('dashboard paging', () => {
-    it('requires a session', () =>
-      request(app.getHttpServer())
-        .get('/admin/posts/page')
-        .expect(302)
-        .expect('Location', '/login'));
-
-    it('renders only the first page plus a sentinel', async () => {
+  describe('admin lists: search and pagination', () => {
+    it('paginates posts and reports the page count', async () => {
       const cookie = await signIn();
 
       await request(app.getHttpServer())
@@ -867,50 +863,91 @@ describe('Blog (e2e)', () => {
         .set('Cookie', cookie)
         .expect(200)
         .expect((res) => {
+          expect(res.text).toContain('class="admin-search"');
+          // 10 seeded posts at 10 per page is a single page, so no pager.
           expect(res.text).toContain('id="post-rows"');
-          expect(res.text).toContain('id="scroll-sentinel"');
-          expect(res.text).toContain('data-has-more="0"');
-          expect(res.text).toContain('Back to site');
         });
     });
 
-    it('serves a page of rows as JSON', async () => {
+    it('searches posts across title, tags and status', async () => {
       const cookie = await signIn();
+      const server = app.getHttpServer();
 
-      const res = await request(app.getHttpServer())
-        .get('/admin/posts/page?offset=0')
+      await request(server)
+        .get('/admin?q=docker')
         .set('Cookie', cookie)
-        .expect(200);
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('result');
+          expect(res.text).toContain('Clear');
+        });
 
-      const body = res.body as PageBody;
-      expect(body.count).toBe(10);
-      expect(body.total).toBe(10);
-      expect(body.hasMore).toBe(false);
-      expect(body.rows).toContain('<tr>');
+      await request(server)
+        .get('/admin?q=zzzznothing')
+        .set('Cookie', cookie)
+        .expect(200)
+        .expect((res) => expect(res.text).toContain('Nothing matches'));
     });
 
-    it('returns an empty page past the end', async () => {
+    it('finds drafts, which the public feed hides', async () => {
       const cookie = await signIn();
+      const server = app.getHttpServer();
 
-      const res = await request(app.getHttpServer())
-        .get('/admin/posts/page?offset=999')
+      await request(server)
+        .post('/admin/posts/new')
         .set('Cookie', cookie)
-        .expect(200);
+        .type('form')
+        .send({ title: 'Zebra Draft', content: 'x', status: 'draft' })
+        .expect(302);
 
-      const body = res.body as PageBody;
-      expect(body.count).toBe(0);
-      expect(body.hasMore).toBe(false);
+      await request(server)
+        .get('/admin?q=zebra')
+        .set('Cookie', cookie)
+        .expect(200)
+        .expect((res) => expect(res.text).toContain('Zebra Draft'));
     });
 
-    it('treats a junk offset as zero rather than erroring', async () => {
+    it('paginates projects at ten per page', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .get('/admin/projects')
+        .set('Cookie', cookie)
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('class="pager"');
+          expect(res.text).toMatch(/Page 1 of \d+/);
+        });
+
+      await request(server)
+        .get('/admin/projects?page=2')
+        .set('Cookie', cookie)
+        .expect(200)
+        .expect((res) => expect(res.text).toMatch(/Page 2 of \d+/));
+    });
+
+    it('clamps an out-of-range page instead of erroring', async () => {
       const cookie = await signIn();
 
-      const res = await request(app.getHttpServer())
-        .get('/admin/posts/page?offset=abc')
+      await request(app.getHttpServer())
+        .get('/admin/projects?page=999')
         .set('Cookie', cookie)
-        .expect(200);
+        .expect(200)
+        .expect((res) => expect(res.text).toContain('class="pager"'));
+    });
 
-      expect((res.body as PageBody).count).toBe(10);
+    it('searches projects and keeps the term across pages', async () => {
+      const cookie = await signIn();
+
+      await request(app.getHttpServer())
+        .get('/admin/projects?q=typescript')
+        .set('Cookie', cookie)
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('result');
+          expect(res.text).toContain('value="typescript"');
+        });
     });
   });
 

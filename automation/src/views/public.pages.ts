@@ -27,7 +27,7 @@ const FEED_CSS = `
     line-height: 1.08; margin-bottom: 0.9rem; letter-spacing: -0.03em;
   }
   .hero p { font-size: 1.06rem; line-height: 1.62; color: var(--ink-2); }
-  .search-wrap { position: relative; max-width: 520px; margin: 1.9rem 0 0; }
+  .search-wrap { position: relative; width: 100%; margin: 1.9rem 0 0; }
   .searchbar { display: flex; gap: 0.5rem; }
   .search-field { position: relative; flex: 1; }
   .search-field svg {
@@ -82,7 +82,6 @@ const FEED_CSS = `
     .hero { padding: 1.5rem 0 1.75rem; margin-bottom: 1.75rem; }
     .hero h1 { font-size: 1.75rem; }
     .hero p { font-size: 0.98rem; }
-    .search-wrap { max-width: none; }
     .searchbar { flex-direction: column; }
     .searchbar .btn { width: 100%; justify-content: center; }
     .card h2 { font-size: 1.22rem; }
@@ -171,6 +170,9 @@ const FEED_CSS = `
   .stat.wide { grid-column: 1 / -1; }
   .stat.wide .v { font-size: 1rem; }
   .stat .v a { color: var(--accent); }
+  a.stat-link { display: block; transition: border-color .15s; }
+  a.stat-link:hover { border-color: var(--accent); }
+  a.stat-link:hover .v, a.stat-link:hover .l { color: var(--accent); }
 </style>`;
 
 /**
@@ -435,7 +437,10 @@ ${FEED_CSS}
         <h3>At a glance</h3>
         <div class="stat-row">
           <div class="stat"><div class="v">${stats.published}</div><div class="l">Posts published</div></div>
-          <div class="stat"><div class="v">${stats.tags}</div><div class="l">Topics covered</div></div>
+          <a class="stat stat-link" href="/tags">
+            <div class="v">${stats.tags}</div>
+            <div class="l">Topics covered →</div>
+          </a>
           ${
             stats.latestDate
               ? `<div class="stat wide"><div class="v">${esc(relativeDate(stats.latestDate))}</div><div class="l">Last published</div></div>`

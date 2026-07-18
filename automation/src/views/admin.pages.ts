@@ -121,91 +121,34 @@ const ADMIN_CSS = `
 
 ${CHIP_CSS}
 
+  .admin-search { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .admin-search input { flex: 1; min-width: 200px; border-radius: 100px; padding-left: 1rem; }
+  .search-note { font-size: 0.85rem; color: var(--ink-3); margin-bottom: 0.85rem; }
+
+  .pager {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap;
+  }
+  .pager .count { font-size: 0.82rem; color: var(--ink-3); }
+  .pager-links { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+  .pager-links a, .pager-links span {
+    min-width: 34px; text-align: center;
+    padding: 0.35rem 0.6rem; border-radius: 8px;
+    border: 1px solid var(--border); font-size: 0.84rem; color: var(--ink-2);
+  }
+  .pager-links a:hover { border-color: var(--accent); color: var(--accent); }
+  .pager-links .current {
+    background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+    font-weight: 700;
+  }
+  .pager-links .disabled { opacity: 0.4; }
+
   .back-link {
     display: inline-block; font-size: 0.83rem; color: var(--ink-3);
     margin-bottom: 0.35rem;
   }
   .back-link:hover { color: var(--accent); }
-  .scroll-status {
-    text-align: center; padding: 1.25rem 1rem;
-    font-size: 0.83rem; color: var(--ink-3);
-  }
-  .spinner {
-    display: inline-block; width: 14px; height: 14px; margin-right: 0.5rem;
-    border: 2px solid var(--border); border-top-color: var(--accent);
-    border-radius: 50%; animation: spin 0.7s linear infinite;
-    vertical-align: -2px;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
 </style>`;
-
-/**
- * Infinite scroll for the dashboard table.
- *
- * Uses IntersectionObserver on a sentinel below the table, with a manual
- * button as the fallback when the API is unavailable. `loading` guards
- * against the observer firing repeatedly while a request is in flight.
- */
-const INFINITE_SCROLL_JS = `
-<script>
-(function () {
-  var sentinel = document.getElementById('scroll-sentinel');
-  var tbody = document.getElementById('post-rows');
-  var status = document.getElementById('scroll-status');
-  if (!sentinel || !tbody) return;
-
-  var loading = false;
-  var hasMore = sentinel.getAttribute('data-has-more') === '1';
-  var loaded = parseInt(sentinel.getAttribute('data-loaded') || '0', 10);
-
-  function setStatus(html) { status.innerHTML = html; }
-
-  function load() {
-    if (loading || !hasMore) return;
-    loading = true;
-    setStatus('<span class="spinner"></span>Loading more…');
-
-    fetch('/admin/posts/page?offset=' + loaded, { credentials: 'same-origin' })
-      .then(function (r) {
-        if (!r.ok) throw new Error('Request failed (' + r.status + ')');
-        return r.json();
-      })
-      .then(function (data) {
-        if (data.rows) tbody.insertAdjacentHTML('beforeend', data.rows);
-        loaded += data.count;
-        hasMore = data.hasMore;
-        loading = false;
-
-        if (hasMore) {
-          setStatus('Scroll for more…');
-        } else {
-          setStatus('That is everything — ' + loaded + ' posts.');
-          if (observer) observer.disconnect();
-        }
-      })
-      .catch(function (err) {
-        loading = false;
-        setStatus('Could not load more. <button type="button" class="btn btn-ghost btn-sm" id="retry">Retry</button>');
-        var retry = document.getElementById('retry');
-        if (retry) retry.addEventListener('click', load);
-      });
-  }
-
-  var observer = null;
-
-  if ('IntersectionObserver' in window) {
-    // rootMargin starts the fetch before the sentinel is actually visible.
-    observer = new IntersectionObserver(function (entries) {
-      if (entries[0].isIntersecting) load();
-    }, { rootMargin: '300px' });
-    observer.observe(sentinel);
-  } else if (hasMore) {
-    setStatus('<button type="button" class="btn btn-ghost btn-sm" id="load-more">Load more</button>');
-    document.getElementById('load-more').addEventListener('click', load);
-  }
-})();
-</script>`;
 
 /** Editor behaviour: formatting toolbar, image upload, server-rendered preview. */
 const EDITOR_JS = `
@@ -397,9 +340,36 @@ export function dashboardPage(opts: {
   };
   tags: { tag: string; count: number }[];
   flash?: { kind: 'ok' | 'err'; text: string };
-  hasMore?: boolean;
+  query?: string;
+  page?: number;
+  pageCount?: number;
+  total?: number;
 }): string {
-  const { posts, stats, tags, flash, hasMore = false } = opts;
+  const {
+    posts,
+    stats,
+    tags,
+    flash,
+    query = '',
+    page = 1,
+    pageCount = 1,
+    total = posts.length,
+  } = opts;
+
+  const href = (n: number): string =>
+    `/admin?page=${n}${query ? `&q=${encodeURIComponent(query)}` : ''}`;
+
+  const windowStart = Math.max(1, Math.min(page - 2, pageCount - 4));
+  const windowEnd = Math.min(pageCount, Math.max(page + 2, 5));
+  const numbers: string[] = [];
+
+  for (let n = windowStart; n <= windowEnd; n++) {
+    numbers.push(
+      n === page
+        ? `<span class="current" aria-current="page">${n}</span>`
+        : `<a href="${href(n)}">${n}</a>`,
+    );
+  }
 
   const body = `
 ${ADMIN_CSS}
@@ -446,6 +416,20 @@ ${ADMIN_CSS}
   </div>
 
   <div class="section-label">All posts</div>
+
+  <form class="admin-search" action="/admin" method="get" role="search">
+    <input type="search" name="q" value="${esc(query)}"
+           placeholder="Search titles, tags, content or status…" aria-label="Search posts" />
+    <button class="btn" type="submit">Search</button>
+    ${query ? '<a class="btn btn-ghost" href="/admin">Clear</a>' : ''}
+  </form>
+
+  ${
+    query
+      ? `<p class="search-note">${total} result${total === 1 ? '' : 's'} for “${esc(query)}”</p>`
+      : ''
+  }
+
   ${
     posts.length
       ? `<div class="table-wrap"><table>
@@ -456,14 +440,27 @@ ${ADMIN_CSS}
       ${postRows(posts)}
     </tbody>
   </table></div>
-  <div id="scroll-sentinel" data-has-more="${hasMore ? '1' : '0'}" data-loaded="${posts.length}"></div>
-  <div id="scroll-status" class="scroll-status">${hasMore ? 'Scroll for more…' : 'That is everything.'}</div>`
+  ${
+    pageCount > 1
+      ? `<div class="pager">
+    <span class="count">Page ${page} of ${pageCount} · ${total} post${total === 1 ? '' : 's'}</span>
+    <div class="pager-links">
+      ${page > 1 ? `<a href="${href(page - 1)}">← Prev</a>` : '<span class="disabled">← Prev</span>'}
+      ${windowStart > 1 ? `<a href="${href(1)}">1</a><span class="disabled">…</span>` : ''}
+      ${numbers.join('')}
+      ${windowEnd < pageCount ? `<span class="disabled">…</span><a href="${href(pageCount)}">${pageCount}</a>` : ''}
+      ${page < pageCount ? `<a href="${href(page + 1)}">Next →</a>` : '<span class="disabled">Next →</span>'}
+    </div>
+  </div>`
+      : ''
+  }`
       : `<div class="empty">
-      <p>No posts yet.</p>
-      <p style="margin-top:1.25rem"><a class="btn" href="/admin/posts/new">Write your first post</a></p>
+      <p>${query ? `Nothing matches “${esc(query)}”.` : 'No posts yet.'}</p>
+      <p style="margin-top:1.25rem">
+        ${query ? '<a class="btn btn-ghost" href="/admin">Clear search</a>' : '<a class="btn" href="/admin/posts/new">Write your first post</a>'}
+      </p>
     </div>`
-  }
-${INFINITE_SCROLL_JS}`;
+  }`;
 
   return layout({
     title: 'Dashboard — Saidul Islam Rajib',

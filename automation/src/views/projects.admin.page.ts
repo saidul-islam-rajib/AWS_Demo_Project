@@ -31,6 +31,10 @@ const CSS = `
   .col-actions { width: 1%; white-space: nowrap; }
   .actions { display: flex; gap: 0.35rem; flex-wrap: nowrap; }
 
+  .admin-search { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .admin-search input { flex: 1; min-width: 200px; border-radius: 100px; padding-left: 1rem; }
+  .search-note { font-size: 0.85rem; color: var(--ink-3); margin-bottom: 0.85rem; }
+
   .pager {
     display: flex; align-items: center; justify-content: space-between;
     gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap;
@@ -103,6 +107,7 @@ export function projectsAdminPage(opts: {
   projects: Project[];
   githubUser: string;
   flash?: { kind: 'ok' | 'err'; text: string };
+  query?: string;
   page?: number;
   pageCount?: number;
   total?: number;
@@ -111,13 +116,14 @@ export function projectsAdminPage(opts: {
     projects,
     githubUser,
     flash,
+    query = '',
     page = 1,
     pageCount = 1,
     total = projects.length,
   } = opts;
 
   const pageLink = (n: number, label = String(n), extra = ''): string =>
-    `<a href="/admin/projects?page=${n}" class="${extra}">${label}</a>`;
+    `<a href="/admin/projects?page=${n}${query ? `&q=${encodeURIComponent(query)}` : ''}" class="${extra}">${label}</a>`;
 
   // A window around the current page keeps the control short at any size.
   const windowStart = Math.max(1, Math.min(page - 2, pageCount - 4));
@@ -155,6 +161,19 @@ ${CSS}
       <a class="btn" href="/admin/projects/new">＋ New project</a>
     </div>
   </div>
+
+  <form class="admin-search" action="/admin/projects" method="get" role="search">
+    <input type="search" name="q" value="${esc(query)}"
+           placeholder="Search titles, descriptions, technologies or tags…" aria-label="Search projects" />
+    <button class="btn" type="submit">Search</button>
+    ${query ? '<a class="btn btn-ghost" href="/admin/projects">Clear</a>' : ''}
+  </form>
+
+  ${
+    query
+      ? `<p class="search-note">${total} result${total === 1 ? '' : 's'} for “${esc(query)}”</p>`
+      : ''
+  }
 
   ${
     projects.length
@@ -204,11 +223,13 @@ ${CSS}
       : ''
   }`
       : `<div class="empty">
-      <p>No projects yet.</p>
+      <p>${query ? `Nothing matches “${esc(query)}”.` : 'No projects yet.'}</p>
       <p style="margin-top:1.25rem">
         ${githubUser ? 'Import them from GitHub, or add one by hand.' : 'Set your GitHub username in Settings to import them automatically.'}
       </p>
-      <p style="margin-top:1rem"><a class="btn" href="/admin/projects/new">Add a project</a></p>
+      <p style="margin-top:1rem">
+        ${query ? '<a class="btn btn-ghost" href="/admin/projects">Clear search</a>' : '<a class="btn" href="/admin/projects/new">Add a project</a>'}
+      </p>
     </div>`
   }`;
 

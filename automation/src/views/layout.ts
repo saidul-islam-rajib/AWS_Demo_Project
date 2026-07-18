@@ -217,6 +217,13 @@ ${head}
   }
 
   @media (max-width: 860px) {
+    /*
+     * backdrop-filter makes the header a containing block for fixed-position
+     * descendants, which pinned the drawer to the header's height and clipped
+     * every link. Dropping it restores the viewport as the containing block.
+     */
+    .site-header { backdrop-filter: none; background: var(--bg); }
+
     /* Burger sits first, so it lands on the left of the header. */
     .nav-burger { display: flex; order: -1; }
     .wordmark { font-size: 0.98rem; }
