@@ -9,7 +9,12 @@ import {
 import { tmpdir } from 'os';
 import { join } from 'path';
 import sharp from 'sharp';
-import { ALLOWED_WIDTHS, ImagesService } from './images.service';
+import {
+  ALLOWED_WIDTHS,
+  CARD_HEIGHT,
+  CARD_WIDTH,
+  ImagesService,
+} from './images.service';
 import { uploadDir } from './uploads.service';
 
 describe('ImagesService', () => {
@@ -183,5 +188,62 @@ describe('ImagesService', () => {
 
   it('offers the widths the views actually request', () => {
     expect(ALLOWED_WIDTHS).toEqual(expect.arrayContaining([400, 800, 1600]));
+  });
+
+  describe('social card', () => {
+    it('turns a portrait photo into a landscape card', async () => {
+      // The real avatar that prompted this was 492x612 while the page
+      // claimed it was 1200x630.
+      await writeImage('me.png', 492, 612);
+
+      const card = (await service.socialCard('me.png')) as string;
+      const meta = await sharp(readFileSync(card)).metadata();
+
+      expect(meta.width).toBe(CARD_WIDTH);
+      expect(meta.height).toBe(CARD_HEIGHT);
+    });
+
+    it('writes a jpeg, which is what every crawler reads', async () => {
+      await writeImage('me.png', 492, 612);
+
+      const card = (await service.socialCard('me.png')) as string;
+      const meta = await sharp(readFileSync(card)).metadata();
+
+      // webp previews are unevenly supported and can silently show nothing.
+      expect(meta.format).toBe('jpeg');
+    });
+
+    it('scales a photo larger than the card down into it', async () => {
+      await writeImage('huge.png', 4000, 3000);
+
+      const card = (await service.socialCard('huge.png')) as string;
+      const meta = await sharp(readFileSync(card)).metadata();
+
+      expect(meta.width).toBe(CARD_WIDTH);
+      expect(meta.height).toBe(CARD_HEIGHT);
+    });
+
+    it('caches, so a crawler refetch does not rebuild it', async () => {
+      await writeImage('me.png', 492, 612);
+
+      const first = (await service.socialCard('me.png')) as string;
+      const stamp = statSync(first).mtimeMs;
+
+      expect(await service.socialCard('me.png')).toBe(first);
+      expect(statSync(first).mtimeMs).toBe(stamp);
+    });
+
+    it('refuses a path outside the upload directory', async () => {
+      expect(await service.socialCard('../../etc/passwd')).toBeNull();
+      expect(await service.socialCard('missing.png')).toBeNull();
+    });
+
+    it('leaves a format it cannot rebuild alone', async () => {
+      writeFileSync(join(uploadDir(), 'logo.svg'), '<svg></svg>');
+
+      expect(await service.socialCard('logo.svg')).toBe(
+        join(uploadDir(), 'logo.svg'),
+      );
+    });
   });
 });

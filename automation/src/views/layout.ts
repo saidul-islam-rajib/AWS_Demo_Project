@@ -36,6 +36,9 @@ interface LayoutOptions {
 
 import { initials } from '../settings/settings.model';
 import { getSettings } from '../settings/settings.store';
+// Imported rather than restated so the tags cannot drift from the size the
+// card is actually built at.
+import { CARD_HEIGHT, CARD_WIDTH } from '../uploads/images.service';
 
 /**
  * Uploaded avatar when one is set, initials otherwise.
@@ -177,14 +180,32 @@ export function layout({
   // Fall back to the avatar so a shared link is never imageless. Crawlers
   // will not follow a relative path, so this must be absolute.
   const preview = image ?? (s.avatarUrl || '');
-  const previewUrl = preview ? absolute(preview) : '';
-  const previewType = /\.png(\?|$)/i.test(previewUrl)
-    ? 'image/png'
-    : /\.(jpe?g)(\?|$)/i.test(previewUrl)
-      ? 'image/jpeg'
-      : /\.webp(\?|$)/i.test(previewUrl)
-        ? 'image/webp'
-        : '';
+
+  /*
+   * An uploaded photo is whatever shape the camera made it, which is rarely
+   * the shape a share card wants, so it is served through the endpoint that
+   * rebuilds it at card proportions. Anything else — a project's GitHub
+   * preview, say — is already generated at the right size and is linked as
+   * it stands.
+   */
+  const cardName =
+    preview.startsWith('/uploads/') && !/\.(svg|gif)(\?|$)/i.test(preview)
+      ? preview.slice('/uploads/'.length)
+      : '';
+
+  const previewUrl = preview
+    ? absolute(cardName ? `/img/og/${cardName}` : preview)
+    : '';
+
+  const previewType = cardName
+    ? 'image/jpeg'
+    : /\.png(\?|$)/i.test(previewUrl)
+      ? 'image/png'
+      : /\.(jpe?g)(\?|$)/i.test(previewUrl)
+        ? 'image/jpeg'
+        : /\.webp(\?|$)/i.test(previewUrl)
+          ? 'image/webp'
+          : '';
 
   // The site description doubles as the default preview text, so a bio set
   // in Settings is what people see when a link is shared.
@@ -211,10 +232,19 @@ ${
   previewUrl
     ? [
         `<meta property="og:image" content="${esc(previewUrl)}" />`,
-        // Facebook and LinkedIn size the card from these; without
-        // them the preview is often dropped or rendered small.
-        `<meta property="og:image:width" content="1200" />`,
-        `<meta property="og:image:height" content="630" />`,
+        /*
+         * Facebook and LinkedIn lay the card out from these before the image
+         * itself has been fetched, so they are only worth sending when they
+         * are true. They are stated for a card we generate, whose size we
+         * therefore know, and left off an image we merely link to — a wrong
+         * size renders worse than an absent one.
+         */
+        ...(cardName
+          ? [
+              `<meta property="og:image:width" content="${CARD_WIDTH}" />`,
+              `<meta property="og:image:height" content="${CARD_HEIGHT}" />`,
+            ]
+          : []),
         previewType
           ? `<meta property="og:image:type" content="${previewType}" />`
           : '',

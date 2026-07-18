@@ -7,7 +7,21 @@ import express, { urlencoded } from 'express';
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import sharp from 'sharp';
 import { AppModule } from './../src/app.module';
+
+/** A real portrait photo, the shape a phone camera produces. */
+const portraitJpeg = (): Promise<Buffer> =>
+  sharp({
+    create: {
+      width: 492,
+      height: 612,
+      channels: 3,
+      background: { r: 90, g: 120, b: 180 },
+    },
+  })
+    .jpeg()
+    .toBuffer();
 
 const PASSWORD = 'test-password';
 
@@ -1242,10 +1256,12 @@ describe('Blog (e2e)', () => {
         .get('/')
         .expect(200)
         .expect((res) => {
+          // The upload is shared through the endpoint that rebuilds it at
+          // card proportions, not linked at whatever shape it happens to be.
           expect(res.text).toContain(
-            '<meta property="og:image" content="https://example.com/uploads/me.png" />',
+            '<meta property="og:image" content="https://example.com/img/og/me.png" />',
           );
-          // Crawlers size the card from these.
+          // Crawlers size the card from these, so they have to be true.
           expect(res.text).toContain(
             'property="og:image:width" content="1200"',
           );
@@ -1253,7 +1269,7 @@ describe('Blog (e2e)', () => {
             'property="og:image:height" content="630"',
           );
           expect(res.text).toContain(
-            'property="og:image:type" content="image/png"',
+            'property="og:image:type" content="image/jpeg"',
           );
           // https, so the secure variant must be present too.
           expect(res.text).toContain('property="og:image:secure_url"');
@@ -1261,6 +1277,45 @@ describe('Blog (e2e)', () => {
             'name="twitter:card" content="summary_large_image"',
           );
         });
+    });
+
+    it('states no size for an image it did not build', async () => {
+      const cookie = await signIn();
+      await setBrand(cookie);
+
+      // A project's GitHub preview is already card-shaped and is linked as
+      // it stands, so its size is not ours to claim.
+      await request(app.getHttpServer())
+        .get('/projects/aws-demo-project')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('opengraph.githubassets.com');
+          expect(res.text).not.toContain('property="og:image:width"');
+          expect(res.text).not.toContain('property="og:image:height"');
+        });
+    });
+
+    it('serves the generated card at the size it advertises', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      const upload = await request(server)
+        .post('/admin/uploads')
+        .set('Cookie', cookie)
+        .attach('file', await portraitJpeg(), 'me.jpg')
+        .expect(201);
+
+      const name = (upload.body as UploadBody).url.replace('/uploads/', '');
+
+      const card = await request(server)
+        .get(`/img/og/${name}`)
+        .expect(200)
+        .expect('Content-Type', /image\/jpeg/);
+
+      const meta = await sharp(card.body as Buffer).metadata();
+
+      expect(meta.width).toBe(1200);
+      expect(meta.height).toBe(630);
     });
 
     it('uses the bio as the preview and search description', async () => {

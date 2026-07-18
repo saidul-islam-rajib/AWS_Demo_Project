@@ -13,6 +13,15 @@ export const ALLOWED_WIDTHS = [200, 400, 800, 1600];
  */
 const CACHE_VERSION = 'v2';
 
+/**
+ * The size Facebook and LinkedIn both want for a large card. Anything
+ * narrower than 1200 is shown by LinkedIn as a small square thumbnail
+ * instead, which is the difference between a banner and a postage stamp.
+ */
+export const CARD_WIDTH = 1200;
+export const CARD_HEIGHT = 630;
+const CARD_VERSION = 'v1';
+
 /** Formats worth resizing. SVG is vector and GIF may be animated. */
 const RESIZABLE = new Set(['.png', '.jpg', '.jpeg', '.webp']);
 
@@ -105,6 +114,70 @@ export class ImagesService {
       return target;
     } catch (err) {
       this.logger.error(`Could not resize ${name}: ${String(err)}`);
+      return source;
+    }
+  }
+
+  /**
+   * Builds the 1200x630 image shared links preview with.
+   *
+   * A photo is almost never that shape — a portrait one certainly is not —
+   * and cropping to fit would cut someone's head off. Instead the picture is
+   * fitted whole into the frame, and the space either side is filled with a
+   * blurred, darkened copy of itself. That fills the card without inventing
+   * anything or discarding any of the subject.
+   *
+   * No text is drawn: rendering type needs fonts, and a slim Alpine image has
+   * none, so it would silently come out blank. The title and description
+   * travel as their own meta tags, which is where the crawlers read them from
+   * anyway.
+   */
+  async socialCard(name: string): Promise<string | null> {
+    const source = this.originalPath(name);
+    if (!source) return null;
+
+    // SVG and GIF are passed through as-is elsewhere; keep that here too.
+    if (!this.canResize(name)) return source;
+
+    const target = join(
+      this.cacheDir,
+      `${basename(name, extname(name))}-og-${CARD_VERSION}.jpg`,
+    );
+
+    if (
+      existsSync(target) &&
+      statSync(target).mtimeMs >= statSync(source).mtimeMs
+    ) {
+      return target;
+    }
+
+    try {
+      const backdrop = await sharp(source)
+        .rotate()
+        .resize({ width: CARD_WIDTH, height: CARD_HEIGHT, fit: 'cover' })
+        .blur(26)
+        // Darkened so the photo on top stays the thing you look at.
+        .modulate({ brightness: 0.55 })
+        // JPEG has no alpha, and a transparent PNG would otherwise composite
+        // onto undefined colour.
+        .flatten({ background: '#12151b' })
+        .toBuffer();
+
+      const photo = await sharp(source)
+        .rotate()
+        .resize({ width: CARD_WIDTH, height: CARD_HEIGHT, fit: 'inside' })
+        .toBuffer();
+
+      await sharp(backdrop)
+        .composite([{ input: photo, gravity: 'centre' }])
+        .jpeg({ quality: 88, progressive: true })
+        .toFile(target);
+
+      return target;
+    } catch (err) {
+      // A link with a wrongly-shaped preview still works; one that 500s does
+      // not. Fall back to the original rather than failing the page.
+      this.logger.error(`Could not build a card for ${name}: ${String(err)}`);
       return source;
     }
   }

@@ -13,6 +13,26 @@ import { ALLOWED_WIDTHS, ImagesService } from './images.service';
 export class ImagesController {
   constructor(private readonly images: ImagesService) {}
 
+  /**
+   * The preview a shared link shows. Declared before the single-segment
+   * route below purely for readability — the two cannot collide, since a
+   * card URL always has the extra "og" segment.
+   */
+  @Get('og/:name')
+  async card(@Param('name') name: string, @Res() res: Response): Promise<void> {
+    const path = await this.images.socialCard(name);
+
+    if (!path) {
+      res.status(404).send('Not found');
+      return;
+    }
+
+    // Crawlers refetch on their own schedule and ignore this, but a reader
+    // who opens the image directly should not pay for it twice.
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.sendFile(path);
+  }
+
   @Get(':name')
   async serve(
     @Param('name') name: string,
