@@ -16,11 +16,14 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/ (GET)', () => {
+  it('/ (GET) serves the login page', () => {
     return request(app.getHttpServer())
       .get('/')
       .expect(200)
-      .expect('Hello World!');
+      .expect('Content-Type', /text\/html/)
+      .expect((res) => {
+        expect(res.text).toContain('Sign in');
+      });
   });
 
   afterEach(async () => {

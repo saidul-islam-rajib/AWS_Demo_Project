@@ -15,8 +15,11 @@ describe('AppController', () => {
   });
 
   describe('root', () => {
-    it('should return the greeting', () => {
-      expect(appController.getHello()).toBe('Hello from Jenkins CI/CD! Deploy #1');
+    it('should return the login page HTML', () => {
+      const html = appController.getLoginPage();
+      expect(html).toContain('<!doctype html>');
+      expect(html).toContain('Sign in');
+      expect(html).toContain('Deploy #2');
     });
   });
 });
