@@ -89,6 +89,26 @@ export function highlightList(highlight?: string): string[] {
     .filter((line) => line.length > 0);
 }
 
+/** "today", "3 days ago", "2 months ago" — friendlier than a date for recency. */
+export function relativeDate(iso: string): string {
+  const days = Math.floor((Date.now() - Date.parse(iso)) / 86400000);
+
+  if (!Number.isFinite(days)) return '—';
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 30) return `${days} days ago`;
+
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} month${months === 1 ? '' : 's'} ago`;
+
+  const years = Math.floor(days / 365);
+  return `${years} year${years === 1 ? '' : 's'} ago`;
+}
+
+export function wordCount(content: string): number {
+  return content.trim().split(/\s+/).filter(Boolean).length;
+}
+
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', {
     month: 'short',

@@ -7,7 +7,9 @@ import {
   highlightList,
   normaliseTags,
   readingMinutes,
+  relativeDate,
   slugify,
+  wordCount,
 } from './post.model';
 
 describe('post.model', () => {
@@ -204,6 +206,25 @@ describe('PostsService', () => {
     expect(service.tagCounts().find((t) => t.tag === 'terraform')?.count).toBe(
       1,
     );
+  });
+
+  describe('relativeDate and wordCount', () => {
+    it('describes recency in words', () => {
+      const days = (n: number) =>
+        new Date(Date.now() - n * 86400000).toISOString();
+
+      expect(relativeDate(days(0))).toBe('today');
+      expect(relativeDate(days(1))).toBe('yesterday');
+      expect(relativeDate(days(5))).toBe('5 days ago');
+      expect(relativeDate(days(60))).toBe('2 months ago');
+      expect(relativeDate(days(400))).toBe('1 year ago');
+    });
+
+    it('counts words, ignoring extra whitespace', () => {
+      expect(wordCount('one two three')).toBe(3);
+      expect(wordCount('  spaced   out  ')).toBe(2);
+      expect(wordCount('')).toBe(0);
+    });
   });
 
   describe('page', () => {

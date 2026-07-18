@@ -13,13 +13,25 @@ import {
 export class PostsController {
   constructor(private readonly posts: PostsService) {}
 
+  /** Site-level figures for the feed sidebar — recency and breadth, not volume. */
+  private feedStats() {
+    const published = this.posts.findPublished();
+    const tags = this.posts.tagCounts();
+
+    return {
+      ...this.posts.stats(),
+      latestDate: published[0]?.createdAt,
+      topTag: tags[0]?.tag,
+    };
+  }
+
   @Get()
   @Header('Content-Type', 'text/html')
   home(): string {
     return homePage({
       posts: this.posts.findPublished(),
       tags: this.posts.tagCounts(),
-      stats: this.posts.stats(),
+      stats: this.feedStats(),
     });
   }
 
@@ -29,7 +41,7 @@ export class PostsController {
     return homePage({
       posts: this.posts.search(q),
       tags: this.posts.tagCounts(),
-      stats: this.posts.stats(),
+      stats: this.feedStats(),
       query: q,
     });
   }
@@ -46,7 +58,7 @@ export class PostsController {
     return homePage({
       posts: this.posts.byTag(tag),
       tags: this.posts.tagCounts(),
-      stats: this.posts.stats(),
+      stats: this.feedStats(),
       activeTag: tag,
     });
   }

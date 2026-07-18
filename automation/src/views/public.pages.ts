@@ -4,6 +4,8 @@ import {
   formatDate,
   highlightList,
   readingMinutes,
+  relativeDate,
+  wordCount,
 } from '../posts/post.model';
 import { avatarMark, defaultNav, esc, layout } from './layout';
 import { getSettings } from '../settings/settings.store';
@@ -11,15 +13,27 @@ import { getSettings } from '../settings/settings.store';
 const FEED_CSS = `
 <style>
   .hero {
-    padding: 1rem 0 2.5rem; margin-bottom: 2.5rem;
+    padding: 2.25rem 0 2.5rem; margin-bottom: 2.5rem;
     border-bottom: 1px solid var(--border);
   }
-  .hero h1 {
-    font-family: var(--serif); font-size: clamp(2rem, 5vw, 3rem);
-    line-height: 1.12; margin-bottom: 0.85rem;
+  .hero-byline {
+    display: flex; align-items: center; gap: 0.6rem;
+    margin-bottom: 1.1rem;
   }
-  .hero p { font-size: 1.05rem; color: var(--ink-3); max-width: 620px; }
-  .searchbar { display: flex; gap: 0.5rem; margin: 1.75rem 0 0; max-width: 460px; }
+  .hero-byline .who { font-size: 0.88rem; font-weight: 600; color: var(--ink); }
+  .hero-byline .role { font-size: 0.82rem; color: var(--ink-3); }
+  .hero h1 {
+    font-family: var(--serif); font-size: clamp(2.1rem, 5.5vw, 3.1rem);
+    line-height: 1.08; margin-bottom: 0.9rem; letter-spacing: -0.03em;
+  }
+  /* ~62 characters per line: long bios were running the full column width. */
+  .hero p {
+    font-size: 1.06rem; line-height: 1.62;
+    color: var(--ink-2); max-width: 34em;
+  }
+  .searchbar { display: flex; gap: 0.5rem; margin: 1.9rem 0 0; max-width: 420px; }
+  .searchbar input { border-radius: 100px; padding-left: 1rem; }
+  .searchbar .btn { flex-shrink: 0; }
 
   .feed-layout { display: grid; grid-template-columns: 1fr 260px; gap: 3rem; align-items: start; }
   @media (max-width: 900px) {
@@ -105,8 +119,11 @@ const FEED_CSS = `
     background: var(--surface-2); border: 1px solid var(--border);
     border-radius: 10px; padding: 0.75rem 0.85rem;
   }
-  .stat .v { font-size: 1.3rem; font-weight: 700; color: var(--ink); line-height: 1.1; }
+  .stat .v { font-size: 1.3rem; font-weight: 700; color: var(--ink); line-height: 1.15; }
   .stat .l { font-size: 0.72rem; color: var(--ink-3); margin-top: 0.15rem; }
+  .stat.wide { grid-column: 1 / -1; }
+  .stat.wide .v { font-size: 1rem; }
+  .stat .v a { color: var(--accent); }
 </style>`;
 
 /**
@@ -175,6 +192,8 @@ export function homePage(opts: {
     tags: number;
     words: number;
     readingMinutes: number;
+    latestDate?: string;
+    topTag?: string;
   };
   query?: string;
   activeTag?: string;
@@ -195,6 +214,17 @@ export function homePage(opts: {
   const body = `
 ${FEED_CSS}
   <section class="hero">
+    ${
+      activeTag || query
+        ? ''
+        : `<div class="hero-byline">
+      ${avatarMark(getSettings().avatarUrl, getSettings().authorName)}
+      <div>
+        <div class="who">${esc(getSettings().authorName)}</div>
+        <div class="role">${esc(getSettings().authorRole)}</div>
+      </div>
+    </div>`
+    }
     <h1>${heading}</h1>
     <p>${blurb}</p>
     <form class="searchbar" action="/search" method="get">
@@ -216,10 +246,18 @@ ${FEED_CSS}
       <div class="rail">
         <h3>At a glance</h3>
         <div class="stat-row">
-          <div class="stat"><div class="v">${stats.published}</div><div class="l">Posts</div></div>
-          <div class="stat"><div class="v">${stats.tags}</div><div class="l">Tags</div></div>
-          <div class="stat"><div class="v">${stats.readingMinutes}</div><div class="l">Min of reading</div></div>
-          <div class="stat"><div class="v">${stats.words.toLocaleString()}</div><div class="l">Words</div></div>
+          <div class="stat"><div class="v">${stats.published}</div><div class="l">Posts published</div></div>
+          <div class="stat"><div class="v">${stats.tags}</div><div class="l">Topics covered</div></div>
+          ${
+            stats.latestDate
+              ? `<div class="stat wide"><div class="v">${esc(relativeDate(stats.latestDate))}</div><div class="l">Last published</div></div>`
+              : ''
+          }
+          ${
+            stats.topTag
+              ? `<div class="stat wide"><div class="v"><a href="/tag/${esc(stats.topTag)}">${esc(stats.topTag)}</a></div><div class="l">Most written about</div></div>`
+              : ''
+          }
         </div>
       </div>
 
@@ -256,6 +294,7 @@ export function postPage(
   renderedHtml: string,
 ): string {
   const mins = readingMinutes(post.content);
+  const words = wordCount(post.content);
 
   const body = `
 <style>
@@ -355,6 +394,17 @@ export function postPage(
   .prose th { color: var(--ink); font-weight: 600; }
   .prose hr { border: 0; border-top: 1px solid var(--border); margin: 2.5rem 0; }
   .article-foot { margin-top: 3rem; padding-top: 1.75rem; border-top: 1px solid var(--border); }
+  .post-stats {
+    display: grid; gap: 0.6rem; margin-top: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    font-family: var(--sans);
+  }
+  .post-stat {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 0.7rem 0.8rem;
+  }
+  .post-stat .v { font-size: 1.15rem; font-weight: 700; color: var(--ink); line-height: 1.15; }
+  .post-stat .l { font-size: 0.72rem; color: var(--ink-3); margin-top: 0.15rem; }
   .related { margin-top: 2.5rem; }
   .related a { display: block; padding: 0.85rem 0; border-bottom: 1px solid var(--border); }
   .related a:hover strong { color: var(--accent); }
@@ -384,6 +434,19 @@ export function postPage(
     <footer class="article-foot">
       <div class="tag-row">
         ${post.tags.map((t) => `<a class="tag" href="/tag/${esc(t)}">${esc(t)}</a>`).join('')}
+      </div>
+
+      <div class="post-stats">
+        <div class="post-stat"><div class="v">${mins}</div><div class="l">Min read</div></div>
+        <div class="post-stat"><div class="v">${words.toLocaleString()}</div><div class="l">Words</div></div>
+        <div class="post-stat"><div class="v">${post.tags.length}</div><div class="l">Topic${post.tags.length === 1 ? '' : 's'}</div></div>
+        <div class="post-stat"><div class="v">${post.views}</div><div class="l">Views</div></div>
+        <div class="post-stat"><div class="v" style="font-size:.92rem">${esc(relativeDate(post.createdAt))}</div><div class="l">Published</div></div>
+        ${
+          post.updatedAt !== post.createdAt
+            ? `<div class="post-stat"><div class="v" style="font-size:.92rem">${esc(relativeDate(post.updatedAt))}</div><div class="l">Updated</div></div>`
+            : ''
+        }
       </div>
     </footer>
   </article>
