@@ -14,12 +14,28 @@ describe('AppController', () => {
     appController = app.get<AppController>(AppController);
   });
 
-  describe('root', () => {
-    it('should return the login page HTML', () => {
+  describe('blog dashboard', () => {
+    it('serves the blog page', () => {
+      const html = appController.getBlogPage();
+      expect(html).toContain('<!doctype html>');
+      expect(html).toContain('Saidul Islam Rajib');
+      expect(html).toContain('Engineering blog');
+    });
+  });
+
+  describe('login page', () => {
+    it('serves the login page', () => {
       const html = appController.getLoginPage();
       expect(html).toContain('<!doctype html>');
-      expect(html).toContain('Sign in');
-      expect(html).toContain('Deploy #2');
+      expect(html).toContain('Welcome back');
+    });
+  });
+
+  describe('health', () => {
+    it('reports ok with an uptime', () => {
+      const health = appController.getHealth();
+      expect(health.status).toBe('ok');
+      expect(typeof health.uptime).toBe('number');
     });
   });
 });

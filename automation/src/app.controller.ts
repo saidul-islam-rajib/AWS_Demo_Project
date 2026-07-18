@@ -7,7 +7,18 @@ export class AppController {
 
   @Get()
   @Header('Content-Type', 'text/html')
+  getBlogPage(): string {
+    return this.appService.getBlogPage();
+  }
+
+  @Get('login')
+  @Header('Content-Type', 'text/html')
   getLoginPage(): string {
     return this.appService.getLoginPage();
+  }
+
+  @Get('health')
+  getHealth(): { status: string; uptime: number } {
+    return { status: 'ok', uptime: Math.floor(process.uptime()) };
   }
 }

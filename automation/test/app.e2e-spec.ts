@@ -16,13 +16,32 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/ (GET) serves the login page', () => {
+  it('/ (GET) serves the blog dashboard', () => {
     return request(app.getHttpServer())
       .get('/')
       .expect(200)
       .expect('Content-Type', /text\/html/)
       .expect((res) => {
-        expect(res.text).toContain('Sign in');
+        expect(res.text).toContain('Engineering blog');
+      });
+  });
+
+  it('/login (GET) serves the login page', () => {
+    return request(app.getHttpServer())
+      .get('/login')
+      .expect(200)
+      .expect('Content-Type', /text\/html/)
+      .expect((res) => {
+        expect(res.text).toContain('Welcome back');
+      });
+  });
+
+  it('/health (GET) reports ok', () => {
+    return request(app.getHttpServer())
+      .get('/health')
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.status).toBe('ok');
       });
   });
 
