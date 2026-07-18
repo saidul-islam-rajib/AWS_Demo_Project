@@ -7,7 +7,7 @@ import {
   writeFileSync,
 } from 'fs';
 import { join } from 'path';
-import { AboutContent, EMPTY_ABOUT } from './about.model';
+import { AboutContent, EMPTY_ABOUT, normaliseMilestone } from './about.model';
 
 /** Stored beside posts.json and settings.json on the data volume. */
 @Injectable()
@@ -31,8 +31,13 @@ export class AboutService {
       ) as Partial<AboutContent>;
 
       // Merge over the empty shape so a file written by an older version
-      // never leaves a newly added section undefined.
-      return { ...EMPTY_ABOUT, ...stored };
+      // never leaves a newly added section undefined, then repair individual
+      // milestones, which the top-level merge cannot reach.
+      const merged = { ...EMPTY_ABOUT, ...stored };
+      return {
+        ...merged,
+        milestones: (merged.milestones ?? []).map(normaliseMilestone),
+      };
     } catch (err) {
       this.logger.error(`Could not read about content: ${String(err)}`);
       return { ...EMPTY_ABOUT };

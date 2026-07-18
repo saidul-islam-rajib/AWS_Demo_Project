@@ -41,12 +41,16 @@ export function formatMonth(value: string): string {
 
 /** The label shown on the timeline, built from the dates when none was typed. */
 export function milestonePeriod(m: Milestone): string {
-  if (m.period.trim()) return m.period.trim();
-  if (!m.startDate.trim()) return '';
+  // Fields are read defensively: entries saved before dates existed have
+  // neither startDate nor endDate.
+  const period = (m.period ?? '').trim();
+  const start = (m.startDate ?? '').trim();
+  const end = (m.endDate ?? '').trim();
 
-  const start = formatMonth(m.startDate);
-  const end = m.endDate.trim() ? formatMonth(m.endDate) : 'Present';
-  return `${start} — ${end}`;
+  if (period) return period;
+  if (!start) return '';
+
+  return `${formatMonth(start)} — ${end ? formatMonth(end) : 'Present'}`;
 }
 
 /**
@@ -57,9 +61,11 @@ export function milestonePeriod(m: Milestone): string {
  * sensibly rather than dropping to the bottom.
  */
 function milestoneKey(m: Milestone): string {
-  if (m.startDate.trim()) return m.startDate.trim();
+  // Read defensively: entries saved before dates existed have no startDate.
+  const start = (m.startDate ?? '').trim();
+  if (start) return start;
 
-  const year = /\b(19|20)\d{2}\b/.exec(m.period);
+  const year = /\b(19|20)\d{2}\b/.exec(m.period ?? '');
   return year ? year[0] : '';
 }
 
@@ -319,6 +325,23 @@ export function parseSocials(form: {
   }
 
   return rows.slice(0, 10);
+}
+
+/**
+ * Fills in fields that a stored milestone may predate.
+ *
+ * Adding startDate and endDate to the model did not migrate about.json, so
+ * entries written before that change arrive without them.
+ */
+export function normaliseMilestone(m: Partial<Milestone>): Milestone {
+  return {
+    period: m.period ?? '',
+    title: m.title ?? '',
+    org: m.org ?? '',
+    description: m.description ?? '',
+    startDate: m.startDate ?? '',
+    endDate: m.endDate ?? '',
+  };
 }
 
 /** True when there is nothing to show yet, so the page can prompt instead. */

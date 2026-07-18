@@ -7,6 +7,7 @@ import {
   formatMonth,
   isAboutEmpty,
   milestonePeriod,
+  normaliseMilestone,
   sortMilestones,
   parseGallery,
   parseLearning,
@@ -124,6 +125,56 @@ describe('about.model parsers', () => {
       const sorted = sortMilestones([make(''), make('2020-05')]);
 
       expect(sorted[0].startDate).toBe('2020-05');
+    });
+  });
+
+  describe('milestones saved before dates existed', () => {
+    // about.json written before startDate/endDate were added has neither.
+    const legacy = (period: string, title: string) =>
+      ({ period, title, org: '', description: '' }) as never;
+
+    it('sorts them without throwing', () => {
+      expect(() =>
+        sortMilestones([
+          legacy('OCT 2022 to Jan 2023', 'Intern'),
+          legacy('Jan 2023 to November 2025', 'Junior'),
+          legacy('Nov 2025 to Present', 'Senior'),
+        ]),
+      ).not.toThrow();
+    });
+
+    it('still orders them by the year in the period text', () => {
+      const sorted = sortMilestones([
+        legacy('OCT 2022 to Jan 2023', 'Intern'),
+        legacy('Nov 2025 to Present', 'Senior'),
+        legacy('Jan 2023 to November 2025', 'Junior'),
+      ]);
+
+      expect(sorted.map((m) => m.title)).toEqual([
+        'Senior',
+        'Junior',
+        'Intern',
+      ]);
+    });
+
+    it('builds a period label without throwing', () => {
+      expect(milestonePeriod(legacy('OCT 2022 to Jan 2023', 'Intern'))).toBe(
+        'OCT 2022 to Jan 2023',
+      );
+      expect(milestonePeriod({} as never)).toBe('');
+    });
+
+    it('repairs them on read so the rest of the app sees full objects', () => {
+      const repaired = normaliseMilestone({ title: 'Intern' });
+
+      expect(repaired).toEqual({
+        period: '',
+        title: 'Intern',
+        org: '',
+        description: '',
+        startDate: '',
+        endDate: '',
+      });
     });
   });
 

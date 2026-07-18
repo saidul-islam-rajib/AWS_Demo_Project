@@ -4,7 +4,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import cookieParser from 'cookie-parser';
 import express, { urlencoded } from 'express';
-import { mkdtempSync, rmSync } from 'fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { AppModule } from './../src/app.module';
@@ -687,6 +687,55 @@ describe('Blog (e2e)', () => {
           expect(res.text).toContain('<strong>a lot</strong>');
           expect(res.text).toContain('<mark>Kubernetes</mark>');
           expect(res.text).toContain('<li>Built APIs</li>');
+        });
+    });
+
+    it('serves the page when milestones predate the date fields', async () => {
+      // Simulates about.json written before startDate/endDate existed, which
+      // is what is on the server right now.
+      writeFileSync(
+        join(dir, 'about.json'),
+        JSON.stringify({
+          headline: '',
+          intro: 'hello',
+          milestones: [
+            {
+              period: 'OCT 2022 to Jan 2023',
+              title: 'Intern',
+              org: 'ASA',
+              description: 'a',
+            },
+            {
+              period: 'Jan 2023 to Nov 2025',
+              title: 'Junior',
+              org: 'ASA',
+              description: 'b',
+            },
+            {
+              period: 'Nov 2025 to Present',
+              title: 'Senior',
+              org: 'BS23',
+              description: 'c',
+            },
+          ],
+          skillGroups: [],
+          learning: [],
+          gallery: [],
+          socials: [],
+        }),
+        'utf8',
+      );
+
+      await request(app.getHttpServer())
+        .get('/about')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain('Intern');
+          expect(res.text).toContain('Senior');
+          // ordered by the year in the legacy period text
+          expect(res.text.indexOf('Senior')).toBeLessThan(
+            res.text.indexOf('Intern'),
+          );
         });
     });
 
