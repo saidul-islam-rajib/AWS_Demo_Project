@@ -594,6 +594,81 @@ describe('Blog (e2e)', () => {
           expect(res.text).toContain('Sitemap:');
         }));
 
+    it('serves an RSS feed of published posts', async () => {
+      const cookie = await signIn();
+
+      await request(app.getHttpServer())
+        .post('/admin/posts/new')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          title: 'Feed Me',
+          content: 'Body text.',
+          status: 'published',
+          tags: 'rss',
+        })
+        .expect(302);
+
+      await request(app.getHttpServer())
+        .get('/feed.xml')
+        .expect(200)
+        .expect('Content-Type', /application\/rss\+xml/)
+        .expect((res) => {
+          expect(res.text).toContain('<rss version="2.0"');
+          expect(res.text).toContain('<title>Feed Me</title>');
+          expect(res.text).toContain('/post/feed-me');
+          expect(res.text).toContain('<category>rss</category>');
+          expect(res.text).toMatch(
+            /<pubDate>[A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4}/,
+          );
+        });
+    });
+
+    it('keeps drafts and scheduled posts out of the feed', async () => {
+      const cookie = await signIn();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post('/admin/posts/new')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({ title: 'Secret Draft', content: 'x', status: 'draft' })
+        .expect(302);
+
+      await request(server)
+        .post('/admin/posts/new')
+        .set('Cookie', cookie)
+        .type('form')
+        .send({
+          title: 'Not Yet Out',
+          content: 'x',
+          status: 'published',
+          publishedAt: new Date(Date.now() + 7 * 86400000)
+            .toISOString()
+            .slice(0, 16),
+        })
+        .expect(302);
+
+      await request(server)
+        .get('/feed.xml')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).not.toContain('Secret Draft');
+          expect(res.text).not.toContain('Not Yet Out');
+        });
+    });
+
+    it('advertises the feed for autodiscovery', () =>
+      request(app.getHttpServer())
+        .get('/')
+        .expect(200)
+        .expect((res) => {
+          expect(res.text).toContain(
+            'rel="alternate" type="application/rss+xml"',
+          );
+          expect(res.text).toContain('/feed.xml');
+        }));
+
     it('keeps admin pages out of search results', async () => {
       const cookie = await signIn();
 

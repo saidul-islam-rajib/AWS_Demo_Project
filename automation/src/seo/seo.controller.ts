@@ -3,15 +3,8 @@ import { PostsService } from '../posts/posts.service';
 import { ProjectsService } from '../projects/projects.service';
 import { SettingsService } from '../settings/settings.service';
 import { termSlug } from '../projects/project.model';
-
-function xml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
+import { renderMarkdown } from '../posts/markdown';
+import { buildFeed, xmlEscape as xml } from './feed.model';
 
 @Controller()
 export class SeoController {
@@ -75,6 +68,22 @@ export class SeoController {
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls}
 </urlset>`;
+  }
+
+  @Get('feed.xml')
+  @Header('Content-Type', 'application/rss+xml; charset=utf-8')
+  feed(): string {
+    const settings = this.settings.get();
+
+    return buildFeed({
+      base: settings.siteUrl,
+      title: settings.siteTitle,
+      description:
+        settings.shareIntro || settings.siteTagline || settings.authorBio,
+      authorName: settings.authorName,
+      posts: this.posts.findPublished(),
+      renderHtml: renderMarkdown,
+    });
   }
 
   @Get('robots.txt')

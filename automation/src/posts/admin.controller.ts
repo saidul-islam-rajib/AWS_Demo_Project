@@ -85,14 +85,19 @@ export class AdminController {
     res.cookie(AuthService.COOKIE, this.auth.issueToken(), {
       httpOnly: true,
       sameSite: 'lax',
+      secure: req.secure,
       maxAge: this.auth.cookieMaxAge,
     });
     res.redirect('/admin');
   }
 
   @Get('logout')
-  logout(@Res() res: Response): void {
-    res.clearCookie(AuthService.COOKIE);
+  logout(@Req() req: Request, @Res() res: Response): void {
+    res.clearCookie(AuthService.COOKIE, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: req.secure,
+    });
     res.redirect('/');
   }
 

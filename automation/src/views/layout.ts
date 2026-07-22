@@ -165,6 +165,7 @@ export function layout({
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(summary)}" />
 <link rel="canonical" href="${esc(canonical)}" />
+<link rel="alternate" type="application/rss+xml" title="${esc(s.siteTitle)}" href="${esc(absolute('/feed.xml'))}" />
 ${noindex ? '<meta name="robots" content="noindex, nofollow" />' : '<meta name="robots" content="index, follow" />'}
 
 <!-- Open Graph: Facebook, LinkedIn, WhatsApp, Slack -->
