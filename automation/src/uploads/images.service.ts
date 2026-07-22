@@ -4,36 +4,20 @@ import { join, extname, basename } from 'path';
 import sharp from 'sharp';
 import { uploadDir } from './uploads.service';
 
-/** Widths the gallery and cards ask for. Anything else is rejected. */
 export const ALLOWED_WIDTHS = [200, 400, 800, 1600];
 
-/**
- * Bumped whenever the encoder changes, so already-cached variants are
- * regenerated rather than served stale. v2 added EXIF auto-orientation.
- */
 const CACHE_VERSION = 'v2';
 
-/**
- * The size Facebook and LinkedIn both want for a large card. Anything
- * narrower than 1200 is shown by LinkedIn as a small square thumbnail
- * instead, which is the difference between a banner and a postage stamp.
- */
 export const CARD_WIDTH = 1200;
 export const CARD_HEIGHT = 630;
 const CARD_VERSION = 'v1';
 
-/** Formats worth resizing. SVG is vector and GIF may be animated. */
 const RESIZABLE = new Set(['.png', '.jpg', '.jpeg', '.webp']);
 
 @Injectable()
 export class ImagesService {
   private readonly logger = new Logger(ImagesService.name);
 
-  /**
-   * Outside uploads/ so the cache is never listed as a user upload or served
-   * by the static handler. Not a dot-directory either: express refuses to
-   * send files from one, which is a silent 404.
-   */
   private get cacheDir(): string {
     const base = process.env.DATA_DIR ?? join(process.cwd(), 'data');
     const dir = join(base, 'cache', 'images');
@@ -45,7 +29,6 @@ export class ImagesService {
     return RESIZABLE.has(extname(name).toLowerCase());
   }
 
-  /** Rejects anything that is not a plain filename. */
   private safeName(name: string): string | null {
     if (
       !name ||
@@ -66,14 +49,6 @@ export class ImagesService {
     return existsSync(path) ? path : null;
   }
 
-  /**
-   * Returns a cached resize, generating it on first request.
-   *
-   * Done on demand rather than at upload time so images that predate this
-   * benefit without a migration, and so adding a width later costs nothing.
-   * Falls back to the original if anything goes wrong — a slow image beats a
-   * broken one.
-   */
   async variant(name: string, width: number): Promise<string | null> {
     const source = this.originalPath(name);
     if (!source) return null;
@@ -85,7 +60,6 @@ export class ImagesService {
       `${basename(name, extname(name))}-${width}w-${CACHE_VERSION}.webp`,
     );
 
-    // Regenerate if the original has been replaced since the cache was written.
     if (
       existsSync(target) &&
       statSync(target).mtimeMs >= statSync(source).mtimeMs
@@ -97,7 +71,6 @@ export class ImagesService {
       const image = sharp(source);
       const meta = await image.metadata();
 
-      // Never upscale: a 300px original asked for at 800 stays 300.
       if (meta.width && meta.width <= width) return source;
 
       await image
@@ -118,25 +91,10 @@ export class ImagesService {
     }
   }
 
-  /**
-   * Builds the 1200x630 image shared links preview with.
-   *
-   * A photo is almost never that shape — a portrait one certainly is not —
-   * and cropping to fit would cut someone's head off. Instead the picture is
-   * fitted whole into the frame, and the space either side is filled with a
-   * blurred, darkened copy of itself. That fills the card without inventing
-   * anything or discarding any of the subject.
-   *
-   * No text is drawn: rendering type needs fonts, and a slim Alpine image has
-   * none, so it would silently come out blank. The title and description
-   * travel as their own meta tags, which is where the crawlers read them from
-   * anyway.
-   */
   async socialCard(name: string): Promise<string | null> {
     const source = this.originalPath(name);
     if (!source) return null;
 
-    // SVG and GIF are passed through as-is elsewhere; keep that here too.
     if (!this.canResize(name)) return source;
 
     const target = join(
@@ -175,8 +133,6 @@ export class ImagesService {
 
       return target;
     } catch (err) {
-      // A link with a wrongly-shaped preview still works; one that 500s does
-      // not. Fall back to the original rather than failing the page.
       this.logger.error(`Could not build a card for ${name}: ${String(err)}`);
       return source;
     }

@@ -102,10 +102,7 @@ export class ProjectsService {
     return slug;
   }
 
-  // ---------- reads ----------
-
   findAll(): Project[] {
-    // Newest year first; featured floats to the top within a year.
     return [...this.projects].sort((a, b) => {
       if (a.year !== b.year)
         return (b.year || '0').localeCompare(a.year || '0');
@@ -126,7 +123,6 @@ export class ProjectsService {
     return project;
   }
 
-  /** Projects grouped by year, newest year first. */
   byYear(projects = this.findAll()): { year: string; projects: Project[] }[] {
     const groups = new Map<string, Project[]>();
 
@@ -146,7 +142,6 @@ export class ProjectsService {
       });
   }
 
-  /** Every term used in a taxonomy, with counts, most used first. */
   terms(taxonomy: Taxonomy): { term: string; slug: string; count: number }[] {
     const field = TAXONOMY_FIELD[taxonomy];
     const counts = new Map<string, number>();
@@ -162,7 +157,6 @@ export class ProjectsService {
       .sort((a, b) => b.count - a.count || a.term.localeCompare(b.term));
   }
 
-  /** Matched by slug, so "ASP.NET Core" is reachable at /tech/asp-net-core. */
   byTerm(taxonomy: Taxonomy, slug: string): Project[] {
     const field = TAXONOMY_FIELD[taxonomy];
     const target = slug.toLowerCase();
@@ -172,7 +166,6 @@ export class ProjectsService {
     );
   }
 
-  /** Resolve a slug back to the term as the author typed it. */
   termLabel(taxonomy: Taxonomy, slug: string): string {
     const match = this.terms(taxonomy).find(
       (t) => t.slug === slug.toLowerCase(),
@@ -214,9 +207,6 @@ export class ProjectsService {
     };
   }
 
-  // ---------- writes ----------
-
-  /** Builds and appends a project without writing to disk. */
   private addFromInput(input: ProjectInput): Project {
     const now = new Date().toISOString();
     const fields = sanitiseInput(input);
@@ -243,7 +233,6 @@ export class ProjectsService {
     const existing = this.findById(id);
     const fields = sanitiseInput(input);
 
-    // Only re-slug on a title change, so shared links survive edits.
     if (fields.title !== existing.title) {
       existing.slug = this.uniqueSlug(fields.title, existing.id);
     }
@@ -261,10 +250,6 @@ export class ProjectsService {
     this.persist();
   }
 
-  /**
-   * Pulls public repositories from GitHub and adds any not already present,
-   * matched on repo URL so re-running never duplicates or overwrites edits.
-   */
   async importFromGithub(
     user: string,
   ): Promise<{ added: number; skipped: number; error?: string }> {

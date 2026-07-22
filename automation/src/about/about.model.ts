@@ -1,19 +1,11 @@
 import { safeUrl } from '../settings/settings.model';
 
-/** A point on the journey timeline — a job, a course, a project, a move. */
 export interface Milestone {
-  /**
-   * Legacy free-text label. No longer editable — kept so entries written
-   * before the date fields existed still render and sort.
-   */
   period: string;
   title: string;
   org: string;
-  /** Markdown. */
   description: string;
-  /** Optional, YYYY-MM. Drives ordering. */
   startDate: string;
-  /** Optional, YYYY-MM. Blank means it is still running. */
   endDate: string;
 }
 
@@ -32,7 +24,6 @@ const MONTHS = [
   'Dec',
 ];
 
-/** "2022-10" -> "Oct 2022". Returns the input unchanged if unparseable. */
 export function formatMonth(value: string): string {
   const match = /^(\d{4})-(\d{2})/.exec(value.trim());
   if (!match) return value.trim();
@@ -42,12 +33,10 @@ export function formatMonth(value: string): string {
   return `${MONTHS[month - 1]} ${match[1]}`;
 }
 
-/** The label shown on the timeline, built from the dates when none was typed. */
 export function milestonePeriod(m: Milestone): string {
   const start = (m.startDate ?? '').trim();
   const end = (m.endDate ?? '').trim();
 
-  // Dates win. The stored label only surfaces for entries that predate them.
   if (start) {
     return `${formatMonth(start)} — ${end ? formatMonth(end) : 'Present'}`;
   }
@@ -56,21 +45,10 @@ export function milestonePeriod(m: Milestone): string {
   return (m.period ?? '').trim();
 }
 
-/** No end date with a start date set means the role is current. */
 export function isOngoing(m: Milestone): boolean {
   return Boolean((m.startDate ?? '').trim()) && !(m.endDate ?? '').trim();
 }
 
-/**
- * Sort keys for a milestone, newest first.
- *
- * End date is primary, so the thing that finished most recently comes first;
- * an ongoing role has no end date and outranks everything finished. Start
- * date breaks ties between roles that ended in the same month.
- *
- * Entries predating the date fields fall back to any year in their free-text
- * period, so they still order sensibly instead of dropping to the bottom.
- */
 const ONGOING = '9999-12';
 
 function milestoneKeys(m: Milestone): [string, string] {
@@ -85,7 +63,6 @@ function milestoneKeys(m: Milestone): [string, string] {
   return year ? [year[0], year[0]] : ['', ''];
 }
 
-/** Newest first. Undated entries keep their author-defined order, at the end. */
 export function sortMilestones(milestones: Milestone[]): Milestone[] {
   return [...milestones].sort((a, b) => {
     const [endA, startA] = milestoneKeys(a);
@@ -100,7 +77,6 @@ export function sortMilestones(milestones: Milestone[]): Milestone[] {
   });
 }
 
-/** A named group of skills, e.g. "Backend" -> ["NestJS", "PostgreSQL"]. */
 export interface SkillGroup {
   name: string;
   items: string[];
@@ -114,16 +90,13 @@ export interface LearningItem {
   status: LearningStatus;
 }
 
-/** One gallery record: a caption with one or more images. */
 export interface GalleryItem {
   urls: string[];
   caption: string;
 }
 
-/** Captions longer than this are cut short, with the rest behind "See more". */
 export const CAPTION_PREVIEW_LIMIT = 100;
 
-/** Cuts on a word boundary so the preview never ends mid-word. */
 export function captionPreview(
   caption: string,
   limit = CAPTION_PREVIEW_LIMIT,
@@ -143,10 +116,6 @@ export function isCaptionLong(
   return caption.trim().length > limit;
 }
 
-/**
- * Records used to hold a single `url`. Anything written before this became a
- * list arrives in that shape, so it is folded into `urls` on read.
- */
 export function normaliseGalleryItem(
   item: Partial<GalleryItem> & { url?: string },
 ): GalleryItem {
@@ -166,7 +135,6 @@ export interface SocialLink {
 
 export interface AboutContent {
   headline: string;
-  /** Markdown. */
   intro: string;
   milestones: Milestone[];
   skillGroups: SkillGroup[];
@@ -175,18 +143,6 @@ export interface AboutContent {
   socials: SocialLink[];
 }
 
-/**
- * Starter content for the technical sections only.
- *
- * The skill groups are derived from the languages actually present in the
- * author's public repositories, and the learning items are the technologies
- * this project already uses. Intro, journey, photos and socials stay blank:
- * inventing a biography or employment history would be putting words in the
- * author's mouth, and none of it is knowable from the code.
- *
- * Distinct from the blog's starter posts, which cover pipeline lessons —
- * nothing is repeated between the two.
- */
 export const SEED_ABOUT: Pick<AboutContent, 'skillGroups' | 'learning'> = {
   skillGroups: [
     { name: 'Backend', items: ['C#', 'ASP.NET Core', 'NestJS', 'Node.js'] },
@@ -231,10 +187,6 @@ export const SEED_ABOUT: Pick<AboutContent, 'skillGroups' | 'learning'> = {
   ],
 };
 
-/**
- * Blank by default. Sections the author must speak for themselves — intro,
- * journey, photos, socials — are never pre-filled.
- */
 export const EMPTY_ABOUT: AboutContent = {
   headline: '',
   intro: '',
@@ -257,13 +209,11 @@ export const STATUS_LABELS: Record<LearningStatus, string> = {
   done: 'Done',
 };
 
-/** Form fields arrive as a single string when one row is present, an array otherwise. */
 function toArray(value?: string | string[]): string[] {
   if (value === undefined) return [];
   return Array.isArray(value) ? value : [value];
 }
 
-/** Zip parallel form arrays into rows, dropping any with no meaningful content. */
 export function parseMilestones(form: {
   milestoneTitle?: string | string[];
   milestoneOrg?: string | string[];
@@ -284,7 +234,6 @@ export function parseMilestones(form: {
     if (!title) continue;
 
     rows.push({
-      // Not editable any more; dates drive the label.
       period: '',
       title,
       org: (orgs[i] ?? '').trim(),
@@ -349,8 +298,6 @@ export function parseGallery(form: {
   galleryUrls?: string | string[];
   galleryCaption?: string | string[];
 }): GalleryItem[] {
-  // Each record submits its images as one newline-separated field, which
-  // keeps the parallel arrays aligned however many images a record holds.
   const groups = toArray(form.galleryUrls);
   const captions = toArray(form.galleryCaption);
 
@@ -391,12 +338,6 @@ export function parseSocials(form: {
   return rows.slice(0, 10);
 }
 
-/**
- * Fills in fields that a stored milestone may predate.
- *
- * Adding startDate and endDate to the model did not migrate about.json, so
- * entries written before that change arrive without them.
- */
 export function normaliseMilestone(m: Partial<Milestone>): Milestone {
   return {
     period: m.period ?? '',
@@ -408,10 +349,7 @@ export function normaliseMilestone(m: Partial<Milestone>): Milestone {
   };
 }
 
-/** True when there is nothing to show yet, so the page can prompt instead. */
 export function isAboutEmpty(about: AboutContent): boolean {
-  // Seeded skills and learning items do not count as the author having
-  // written anything, so the prompt still appears until they do.
   return (
     !about.intro.trim() &&
     about.milestones.length === 0 &&

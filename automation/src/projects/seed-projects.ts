@@ -1,17 +1,5 @@
 import { ProjectInput } from './project.model';
 
-/**
- * Starter projects, generated from the author's public GitHub repositories.
- *
- * Real repository names, descriptions, languages and dates — nothing invented.
- * Technologies, topics and keywords are derived from each repository's
- * language and name. Covers are omitted so they fall back to GitHub's
- * generated social preview.
- *
- * Seeded only when projects.json does not exist. Use "Import from GitHub" in
- * admin to pull fresh data, which matches on repository URL and never
- * duplicates these.
- */
 export const SEED_PROJECTS: ProjectInput[] = [
   {
     title: 'AWS Demo Project',

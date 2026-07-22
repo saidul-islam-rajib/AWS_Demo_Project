@@ -19,19 +19,8 @@ import { AuthGuard } from '../auth/auth.guard';
 import { LoginThrottleService } from '../auth/login-throttle.service';
 import { dashboardPage, editorPage, loginPage } from '../views/admin.pages';
 
-/** Rows per dashboard page. */
 const PAGE_SIZE = 10;
 
-/**
- * Which client a sign-in attempt is counted against.
- *
- * Deliberately the socket address and not X-Forwarded-For: that header is
- * client-supplied, so trusting it here would let an attacker reset their own
- * limit by changing one string per request. Express fills req.ip from the
- * header only when `trust proxy` is enabled, which it is not — so putting a
- * reverse proxy in front of this app means enabling that setting, otherwise
- * every visitor arrives as the proxy and shares one bucket.
- */
 function clientKey(req: Request): string {
   return req.ip ?? req.socket?.remoteAddress ?? 'unknown';
 }
@@ -43,8 +32,6 @@ export class AdminController {
     private readonly auth: AuthService,
     private readonly throttle: LoginThrottleService,
   ) {}
-
-  // ---------- auth ----------
 
   @Get('login')
   @Header('Content-Type', 'text/html')
@@ -82,8 +69,6 @@ export class AdminController {
   ): void {
     const client = clientKey(req);
 
-    // Checked before the password is even looked at, so a locked address
-    // gains nothing by continuing to guess.
     if (this.throttle.blocked(client)) {
       res.redirect('/login?locked=1');
       return;
@@ -110,8 +95,6 @@ export class AdminController {
     res.clearCookie(AuthService.COOKIE);
     res.redirect('/');
   }
-
-  // ---------- dashboard ----------
 
   @Get('admin')
   @UseGuards(AuthGuard)
@@ -146,7 +129,6 @@ export class AdminController {
     const matched = this.posts.searchAll(q);
     const pageCount = Math.max(1, Math.ceil(matched.length / PAGE_SIZE));
 
-    // Clamp rather than 404: a stale bookmark should still show something.
     const parsed = Number.parseInt(pageParam ?? '1', 10);
     const page = Math.min(
       Math.max(Number.isFinite(parsed) ? parsed : 1, 1),
@@ -167,8 +149,6 @@ export class AdminController {
     });
   }
 
-  // ---------- create ----------
-
   @Get('admin/posts/new')
   @UseGuards(AuthGuard)
   @Header('Content-Type', 'text/html')
@@ -182,8 +162,6 @@ export class AdminController {
     this.posts.create(body);
     res.redirect('/admin?ok=created');
   }
-
-  // ---------- update ----------
 
   @Get('admin/posts/:id/edit')
   @UseGuards(AuthGuard)
@@ -203,15 +181,12 @@ export class AdminController {
     res.redirect('/admin?ok=updated');
   }
 
-  /** Adds starter posts that are missing, without touching existing ones. */
   @HttpPost('admin/import-starters')
   @UseGuards(AuthGuard)
   importStarters(@Res() res: Response): void {
     const { added, skipped } = this.posts.importStarters();
     res.redirect(`/admin?imported=${added}&skipped=${skipped}`);
   }
-
-  // ---------- delete ----------
 
   @HttpPost('admin/posts/:id/delete')
   @UseGuards(AuthGuard)
@@ -220,7 +195,6 @@ export class AdminController {
     res.redirect('/admin?ok=deleted');
   }
 
-  /** Renders Markdown for the editor's preview pane. */
   @HttpPost('admin/preview')
   @UseGuards(AuthGuard)
   @Header('Content-Type', 'text/html')
@@ -228,7 +202,6 @@ export class AdminController {
     return renderMarkdown(content ?? '');
   }
 
-  /** Session probe used by the e2e tests and for quick manual checks. */
   @Get('admin/session')
   session(@Req() req: Request): { authenticated: boolean } {
     const token = req.cookies?.[AuthService.COOKIE] as string | undefined;

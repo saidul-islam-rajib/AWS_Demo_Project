@@ -4,31 +4,18 @@ export interface FooterLink {
 }
 
 export interface SiteSettings {
-  /** Profile */
   authorName: string;
   authorRole: string;
   authorBio: string;
-  /** Path to an uploaded image, or empty to fall back to initials. */
   avatarUrl: string;
 
-  /** Site */
   siteTitle: string;
   siteTagline: string;
-  /** Absolute base URL. Open Graph requires absolute image and page URLs. */
   siteUrl: string;
-  /**
-   * The line shown under the title when a link is shared. A post or project
-   * describes itself, so this only fills in for pages that have nothing more
-   * specific to say — the home page, tags, the About page. Empty falls back
-   * to the bio, then the tagline.
-   */
   shareIntro: string;
-  /** GitHub username, used to import projects. */
   githubUser: string;
-  /** Show the heading and tagline block at the top of the home page. */
   showIntro: boolean;
 
-  /** Footer */
   footerOwner: string;
   footerOwnerUrl: string;
   footerSuffix: string;
@@ -58,7 +45,6 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   ],
 };
 
-/** Initials for the avatar fallback, e.g. "Saidul Islam Rajib" -> "SR". */
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '?';
@@ -66,10 +52,6 @@ export function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-/**
- * Only http(s) and site-relative links are allowed, so a settings value can
- * never introduce a javascript: URL into every rendered page.
- */
 export function safeUrl(url: string): string {
   const trimmed = (url ?? '').trim();
   if (!trimmed) return '';
@@ -78,7 +60,6 @@ export function safeUrl(url: string): string {
   return '';
 }
 
-/** Footer links arrive as parallel arrays from the form. */
 export function parseFooterLinks(
   labels?: string | string[],
   urls?: string | string[],

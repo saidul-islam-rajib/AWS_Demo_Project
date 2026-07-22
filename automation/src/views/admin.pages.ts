@@ -175,7 +175,6 @@ ${CHIP_CSS}
   .back-link:hover { color: var(--accent); }
 </style>`;
 
-/** Editor behaviour: formatting toolbar, image upload, server-rendered preview. */
 const EDITOR_JS = `
 <script>
 (function () {
@@ -320,10 +319,6 @@ const EDITOR_JS = `
 })();
 </script>`;
 
-/**
- * Table rows only. The dashboard renders the first page with these, and the
- * infinite-scroll endpoint returns the same markup for the client to append.
- */
 export function postRows(posts: Post[]): string {
   return posts
     .map(
@@ -495,13 +490,6 @@ ${ADMIN_CSS}
   });
 }
 
-/**
- * The "More like this" picker.
- *
- * Checkboxes rather than a multi-select: a multi-select needs ctrl-click to
- * add a second item and silently drops the lot on a plain click, which is a
- * cruel way to lose a choice you made three edits ago.
- */
 function relatedPicker(post: Post | undefined, all: Post[]): string {
   const chosen = new Set(post?.relatedIds ?? []);
   const options = all.filter((p) => p.id !== post?.id);

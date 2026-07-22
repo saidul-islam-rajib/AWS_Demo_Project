@@ -1,6 +1,5 @@
 import { marked } from 'marked';
 
-/** Local rather than imported from the views, to keep posts free of them. */
 function attr(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -11,14 +10,6 @@ function attr(value: string): string {
 
 const renderer = new marked.Renderer();
 
-/**
- * Article images carry the loading skeleton and are deferred.
- *
- * Building the tag here rather than post-processing the rendered HTML means
- * the attributes are added once, at the only place images are created, and
- * no regex has to be trusted against arbitrary markup. Escaping is ours to
- * do now that marked is no longer writing the tag.
- */
 renderer.image = (href: string | null, title: string | null, text: string) =>
   [
     `<img class="skel" src="${attr(href ?? '')}"`,
@@ -31,26 +22,8 @@ renderer.image = (href: string | null, title: string | null, text: string) =>
 
 marked.setOptions({ gfm: true, breaks: false, renderer });
 
-/**
- * Column blocks.
- *
- *   :::columns
- *   ![Diagram](/uploads/a.png)
- *   |||
- *   Text beside it, **markdown still works**.
- *   :::
- *
- * Cells are separated by `|||`. Each cell is rendered as markdown in its own
- * right, which plain HTML in a markdown document would not allow.
- */
 const COLUMN_BLOCK = /^:::columns[ \t]*\n([\s\S]*?)^:::[ \t]*$/gm;
 
-/**
- * `==text==` becomes a highlight. Not part of GitHub Flavored Markdown, but
- * widely recognised and the natural way to express "mark this".
- *
- * Applied before parsing so marked still escapes the text inside.
- */
 const HIGHLIGHT = /==([^=\n]+)==/g;
 
 export function renderMarkdown(source: string): string {
@@ -63,7 +36,6 @@ export function renderMarkdown(source: string): string {
         .split(/^\|\|\|[ \t]*$/m)
         .map((cell) => marked.parse(cell.trim()));
 
-      // Single-cell blocks would be a pointless grid; render the content plainly.
       if (cells.length < 2) return cells.join('');
 
       const inner = cells

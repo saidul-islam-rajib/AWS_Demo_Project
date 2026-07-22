@@ -18,8 +18,6 @@ import { LoginThrottleService } from './auth/login-throttle.service';
 
 @Module({
   imports: [],
-  // Controllers with fixed paths are listed before PostsController, whose
-  // parameterised routes would otherwise swallow them.
   controllers: [
     SettingsController,
     AboutController,

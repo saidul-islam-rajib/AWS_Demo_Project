@@ -10,7 +10,6 @@ import { join } from 'path';
 import sharp from 'sharp';
 import { AppModule } from './../src/app.module';
 
-/** A real portrait photo, the shape a phone camera produces. */
 const portraitJpeg = (): Promise<Buffer> =>
   sharp({
     create: {
@@ -58,7 +57,6 @@ describe('Blog (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.use(cookieParser());
     app.use(urlencoded({ extended: true }));
-    // Mirrors main.ts so uploaded images are served in tests too.
     app.use('/uploads', express.static(join(dir, 'uploads')));
     await app.init();
   });
@@ -96,11 +94,8 @@ describe('Blog (e2e)', () => {
         .expect(200)
         .expect((res) => {
           expect(res.text).toContain('Explore');
-          // the weighted cloud
           expect(res.text).toContain('class="cloud"');
-          // recurring themes with their latest posts
           expect(res.text).toContain('Most written about');
-          // cross-links into the project taxonomies
           expect(res.text).toContain('Technologies');
           expect(res.text).toContain('/tech/');
           expect(res.text).toContain('Project topics');
@@ -189,15 +184,12 @@ describe('Blog (e2e)', () => {
         await guess().expect(302).expect('Location', '/login?error=1');
       }
 
-      // The fifth is the one that locks it.
       await guess().expect(302).expect('Location', '/login?locked=1');
     });
 
     it('refuses the correct password while locked', async () => {
       for (let i = 0; i < 5; i++) await guess();
 
-      // Checked before the password is looked at, so guessing gains nothing
-      // even if the attacker happens to get it right.
       await guess(PASSWORD).expect(302).expect('Location', '/login?locked=1');
     });
 
@@ -216,7 +208,6 @@ describe('Blog (e2e)', () => {
     it('does not count a successful sign-in against the limit', async () => {
       for (let i = 0; i < 4; i++) await guess();
 
-      // Succeeding clears the record, so the next four typos are fresh.
       await request(app.getHttpServer())
         .post('/login')
         .type('form')
@@ -390,7 +381,6 @@ describe('Blog (e2e)', () => {
         .set('Cookie', cookie)
         .expect(200);
 
-      // The <nav> must not contain any button-styled links.
       const navOf = (html: string) =>
         /<nav class="nav"[^>]*>([\s\S]*?)<\/nav>/.exec(html)?.[1] ?? '';
 
@@ -403,18 +393,15 @@ describe('Blog (e2e)', () => {
     it('ships an off-canvas drawer that works without JavaScript', async () => {
       const res = await request(app.getHttpServer()).get('/').expect(200);
 
-      // Checkbox-driven, so the drawer opens with scripting off.
       expect(res.text).toContain('id="nav-toggle"');
       expect(res.text).toContain('class="nav-burger"');
       expect(res.text).toContain('.nav-toggle:checked ~ .nav');
 
-      // Drawer furniture: title bar, close control and dimming overlay.
       expect(res.text).toContain('class="nav-head"');
       expect(res.text).toContain('class="nav-close"');
       expect(res.text).toContain('class="nav-overlay"');
       expect(res.text).toContain('.nav-toggle:checked ~ .nav-overlay');
 
-      // Slides in from the left rather than expanding inline.
       expect(res.text).toContain('transform: translateX(-100%)');
       expect(res.text).toContain('@media (max-width: 860px)');
     });
@@ -440,7 +427,6 @@ describe('Blog (e2e)', () => {
         .expect(200);
 
       expect(about.text).toContain('href="/admin/about" class="active"');
-      // Write links to the editor but is never the highlighted section.
       expect(about.text).toContain('<a href="/admin/posts/new" class="">Write');
 
       const home = await request(server).get('/').expect(200);
@@ -710,14 +696,11 @@ describe('Blog (e2e)', () => {
     it('justifies every prose block, on all screen sizes', async () => {
       const res = await request(app.getHttpServer()).get('/about').expect(200);
 
-      // One rule covers intro, journey bodies, learning notes and captions.
       expect(res.text).toMatch(
         /\.about-intro,[\s\S]{0,200}\.milestone-body,[\s\S]{0,200}text-align: justify/,
       );
       expect(res.text).toContain('.gallery figcaption,');
-      // Hyphenation must accompany justification or narrow screens get rivers.
       expect(res.text).toContain('hyphens: auto');
-      // No small-screen opt-out.
       expect(res.text).not.toContain('.about-intro { text-align: left; }');
     });
 
@@ -786,15 +769,12 @@ describe('Blog (e2e)', () => {
           const junior = res.text.indexOf('Junior Engineer');
           const intern = res.text.indexOf('Intern Engineer');
 
-          // newest first
           expect(senior).toBeLessThan(junior);
           expect(junior).toBeLessThan(intern);
 
-          // labels built from the dates
           expect(res.text).toContain('Nov 2025 — Present');
           expect(res.text).toContain('Oct 2022 — Jan 2023');
 
-          // markdown in the descriptions
           expect(res.text).toContain('<strong>a lot</strong>');
           expect(res.text).toContain('<mark>Kubernetes</mark>');
           expect(res.text).toContain('<li>Built APIs</li>');
@@ -802,8 +782,6 @@ describe('Blog (e2e)', () => {
     });
 
     it('serves the page when milestones predate the date fields', async () => {
-      // Simulates about.json written before startDate/endDate existed, which
-      // is what is on the server right now.
       writeFileSync(
         join(dir, 'about.json'),
         JSON.stringify({
@@ -843,7 +821,6 @@ describe('Blog (e2e)', () => {
         .expect((res) => {
           expect(res.text).toContain('Intern');
           expect(res.text).toContain('Senior');
-          // ordered by the year in the legacy period text
           expect(res.text.indexOf('Senior')).toBeLessThan(
             res.text.indexOf('Intern'),
           );
@@ -914,13 +891,11 @@ describe('Blog (e2e)', () => {
             res.text,
           )?.[0] as string;
 
-          // The grid asks for a sized copy, never /uploads directly.
           expect(figure).toContain('/img/photo.png?w=400');
           expect(figure).toContain('srcset=');
           expect(figure).toContain('/img/photo.png?w=800');
           expect(figure).not.toContain('src="/uploads/');
 
-          // Dimensions and lazy loading keep the grid from shifting.
           expect(figure).toContain('width="400"');
           expect(figure).toContain('loading="lazy"');
           expect(figure).toContain('decoding="async"');
@@ -951,13 +926,10 @@ describe('Blog (e2e)', () => {
             res.text,
           )?.[0] as string;
 
-          // Exactly one image is fetched; the others wait for a tap.
           expect((figure.match(/ src="/g) ?? []).length).toBe(1);
           expect((figure.match(/data-src="/g) ?? []).length).toBe(2);
           expect((figure.match(/hidden/g) ?? []).length).toBe(2);
 
-          // The attribute alone is not enough: an author display rule
-          // outranks it, which stacked every image in the record.
           expect(res.text).toContain('.gallery img[hidden]');
         });
     });
@@ -986,7 +958,6 @@ describe('Blog (e2e)', () => {
           expect(res.text).toContain('/uploads/c.png');
           expect(res.text).toContain('class="shot-nav next"');
           expect(res.text).toContain('class="shot-dots"');
-          // The counter is split so only the current index updates.
           expect(res.text).toMatch(/<span class="at">1<\/span>\/3/);
         });
     });
@@ -1010,7 +981,6 @@ describe('Blog (e2e)', () => {
         .expect(200)
         .expect((res) => {
           expect(res.text).toContain('/uploads/only.png');
-          // Assert inside the figure: the modal keeps its own nav buttons.
           const figure = /<figure class="shot"[\s\S]*?<\/figure>/.exec(
             res.text,
           )?.[0] as string;
@@ -1041,8 +1011,6 @@ describe('Blog (e2e)', () => {
         .expect(200)
         .expect((res) => {
           expect(res.text).toContain('class="see-more"');
-          // The full text is only in the JSON the modal reads, never in the
-          // visible caption.
           const visible =
             /<span class="cap-text">([^<]*)</.exec(res.text)?.[1] ?? '';
           expect(visible.length).toBeLessThan(longCaption.length);
@@ -1067,7 +1035,6 @@ describe('Blog (e2e)', () => {
         .expect(200)
         .expect((res) => {
           expect(res.text).toContain('Short.');
-          // The button, not the words — a script comment mentions them too.
           expect(res.text).not.toContain('class="see-more"');
         });
     });
@@ -1130,12 +1097,10 @@ describe('Blog (e2e)', () => {
         .get('/')
         .expect(200)
         .expect((res) => {
-          // A 30px circle must not download the original.
           expect(res.text).toContain('src="/img/me.png?w=200"');
           expect(res.text).not.toContain(
             'class="mark avatar-img" src="/uploads/',
           );
-          // Above the fold on every page, so never lazy.
           expect(res.text).toContain('fetchpriority="high"');
           expect(res.text).not.toMatch(
             /class="mark avatar-img"[^>]*loading="lazy"/,
@@ -1167,7 +1132,6 @@ describe('Blog (e2e)', () => {
 
           expect(figure).toContain('loading="lazy"');
           expect(figure).toContain('decoding="async"');
-          // Dimensions stop the grid reflowing as images arrive.
           expect(figure).toContain('width="400"');
           expect(figure).toContain('height="300"');
         });
@@ -1175,7 +1139,6 @@ describe('Blog (e2e)', () => {
   });
 
   describe('related posts', () => {
-    /** Creates a post and returns its id, read back from the dashboard. */
     const write = async (
       cookie: string,
       title: string,
@@ -1222,9 +1185,6 @@ describe('Blog (e2e)', () => {
       const cookie = await signIn();
       const server = app.getHttpServer();
 
-      // Ignored Post shares the host's tag, so the automatic guess would
-      // rank it first. Picking the two untagged ones instead is the only
-      // way this passes — otherwise it proves nothing.
       await write(cookie, 'Ignored Post', { tags: 'kubernetes' });
       const first = await write(cookie, 'Chosen One');
       const second = await write(cookie, 'Chosen Two');
@@ -1242,7 +1202,6 @@ describe('Blog (e2e)', () => {
           )?.[0] as string;
 
           expect(section).not.toContain('Ignored Post');
-          // Listed in the order the author's picks were stored.
           expect(section.indexOf('Chosen Two')).toBeLessThan(
             section.indexOf('Chosen One'),
           );
@@ -1261,8 +1220,6 @@ describe('Blog (e2e)', () => {
         .set('Cookie', cookie)
         .expect(200)
         .expect((res) => {
-          // Whitespace between the attributes is not the point; the checked
-          // state travelling with the right id is.
           const box = new RegExp(
             `name="relatedIds" value="${target}"\\s*checked`,
           );
@@ -1297,8 +1254,6 @@ describe('Blog (e2e)', () => {
         .send({ title: 'Now A Draft', content: 'Body.', status: 'draft' })
         .expect(302);
 
-      // The stored id still points at it, so this has to be resolved against
-      // what is actually published rather than trusted.
       await request(server)
         .get('/post/host-post')
         .expect(200)
@@ -1342,16 +1297,12 @@ describe('Blog (e2e)', () => {
         .get('/about')
         .expect(200)
         .expect((res) => {
-          // The panel must not scroll: doing so dragged the photo out of
-          // view as you read the words describing it.
           expect(res.text).toMatch(
             /\.shot-modal-inner \{[^}]*overflow: hidden/,
           );
           expect(res.text).toMatch(
             /\.shot-modal-caption \{[^}]*overflow-y: auto/,
           );
-          // Without min-height: 0 a flex item refuses to shrink below its
-          // content, and the overflow lands back on the panel.
           expect(res.text).toMatch(/\.shot-modal-caption \{[^}]*min-height: 0/);
         });
     });
@@ -1378,7 +1329,6 @@ describe('Blog (e2e)', () => {
           )?.[0] as string;
 
           expect(figure).toContain('class="skel"');
-          // The block that makes the class mean something.
           expect(res.text).toContain('@keyframes skel-sweep');
           expect(res.text).toContain('classList.add(state)');
         });
@@ -1403,8 +1353,6 @@ describe('Blog (e2e)', () => {
         .expect(200)
         .expect((res) => {
           expect(res.text).toContain('id="shot-modal-img" class="skel"');
-          // Without this the second photo inherits the first one's finished
-          // state and its wait looks like a frozen picture.
           expect(res.text).toContain("modalImg.classList.remove('is-loaded')");
         });
     });
@@ -1431,8 +1379,6 @@ describe('Blog (e2e)', () => {
         .expect(200)
         .expect((res) => {
           expect(res.text).toContain('class="proj-detail-cover skel"');
-          // It sizes itself from the image, so it needs a reserved area or
-          // there is nothing for the shimmer to fill.
           expect(res.text).toContain(
             '.proj-detail-cover.skel:not(.is-loaded) { aspect-ratio: 2 / 1; }',
           );
@@ -1490,12 +1436,9 @@ describe('Blog (e2e)', () => {
         .get('/')
         .expect(200)
         .expect((res) => {
-          // The upload is shared through the endpoint that rebuilds it at
-          // card proportions, not linked at whatever shape it happens to be.
           expect(res.text).toContain(
             '<meta property="og:image" content="https://example.com/img/og/me.png" />',
           );
-          // Crawlers size the card from these, so they have to be true.
           expect(res.text).toContain(
             'property="og:image:width" content="1200"',
           );
@@ -1505,7 +1448,6 @@ describe('Blog (e2e)', () => {
           expect(res.text).toContain(
             'property="og:image:type" content="image/jpeg"',
           );
-          // https, so the secure variant must be present too.
           expect(res.text).toContain('property="og:image:secure_url"');
           expect(res.text).toContain(
             'name="twitter:card" content="summary_large_image"',
@@ -1517,8 +1459,6 @@ describe('Blog (e2e)', () => {
       const cookie = await signIn();
       await setBrand(cookie);
 
-      // A project's GitHub preview is already card-shaped and is linked as
-      // it stands, so its size is not ours to claim.
       await request(app.getHttpServer())
         .get('/projects/aws-demo-project')
         .expect(200)
@@ -1605,7 +1545,6 @@ describe('Blog (e2e)', () => {
         })
         .expect(302);
 
-      // The post is the thing being shared, so it describes itself.
       await request(server)
         .get('/post/own-summary')
         .expect(200)
@@ -1658,7 +1597,6 @@ describe('Blog (e2e)', () => {
           ].map((m) => m[1]);
 
           expect(images.length).toBeGreaterThan(0);
-          // A relative path is never followed by a crawler.
           images.forEach((url) => expect(url).toMatch(/^https?:\/\//));
         });
     });
@@ -1687,7 +1625,6 @@ describe('Blog (e2e)', () => {
         .expect(200)
         .expect((res) => {
           expect(res.text).toContain('class="admin-search"');
-          // 10 seeded posts at 10 per page is a single page, so no pager.
           expect(res.text).toContain('id="post-rows"');
         });
     });
@@ -1827,7 +1764,6 @@ describe('Blog (e2e)', () => {
           expect(res.text).toContain('Notes from the trenches');
           expect(res.text).toContain('https://linkedin.com/in/example');
           expect(res.text).toContain('https://github.com/example');
-          // initials derive from the configured name
           expect(res.text).toContain('>RA<');
         });
     });
@@ -1872,7 +1808,6 @@ describe('Blog (e2e)', () => {
         .send({ title: 'Mine Only', content: 'x', status: 'published' })
         .expect(302);
 
-      // seeded store is already full, so nothing should be added
       await request(server)
         .post('/admin/import-starters')
         .set('Cookie', cookie)
@@ -1907,7 +1842,6 @@ describe('Blog (e2e)', () => {
       expect(body.url).toMatch(/^\/uploads\/\d+-[0-9a-f]{12}\.png$/);
       expect(body.markdown).toContain('![diagram](/uploads/');
 
-      // and it is then served back
       await request(app.getHttpServer()).get(body.url).expect(200);
     });
 
@@ -1943,7 +1877,6 @@ describe('Blog (e2e)', () => {
       const cookie = await signIn();
       const server = app.getHttpServer();
 
-      // create, published straight away
       await request(server)
         .post('/admin/posts/new')
         .set('Cookie', cookie)
@@ -1959,24 +1892,20 @@ describe('Blog (e2e)', () => {
         .expect(302)
         .expect('Location', '/admin?ok=created');
 
-      // visible publicly, markdown rendered
       await request(server)
         .get('/post/lifecycle-post')
         .expect(200)
         .expect((res) => {
           expect(res.text).toContain('Lifecycle Post');
-          // marked adds an id to headings for anchor links
           expect(res.text).toMatch(/<h1[^>]*>Heading<\/h1>/);
           expect(res.text).toContain('The key point.');
         });
 
-      // findable by tag
       await request(server)
         .get('/tag/testing')
         .expect(200)
         .expect((res) => expect(res.text).toContain('Lifecycle Post'));
 
-      // locate its id from the dashboard
       const dash = await request(server)
         .get('/admin')
         .set('Cookie', cookie)
@@ -1984,7 +1913,6 @@ describe('Blog (e2e)', () => {
       const id = /\/admin\/posts\/([0-9a-f-]{36})\/edit/.exec(dash.text)?.[1];
       expect(id).toBeDefined();
 
-      // edit
       await request(server)
         .post(`/admin/posts/${id}/edit`)
         .set('Cookie', cookie)
@@ -2003,7 +1931,6 @@ describe('Blog (e2e)', () => {
         .expect(200)
         .expect((res) => expect(res.text).toContain('Edited body.'));
 
-      // delete
       await request(server)
         .post(`/admin/posts/${id}/delete`)
         .set('Cookie', cookie)
@@ -2063,8 +1990,6 @@ describe('Blog (e2e)', () => {
           expect(res.text).toContain('key-chip');
           expect(res.text).toContain('>Kafka<');
           expect(res.text).toContain('>ci/cd<');
-          // short entries must not fall through to the sentence layouts
-          // (match the element, not the CSS rule, which is always present)
           expect(res.text).not.toContain('Key takeaways');
           expect(res.text).not.toContain('class="pullquote"');
         });

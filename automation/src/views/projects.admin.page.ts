@@ -125,7 +125,6 @@ export function projectsAdminPage(opts: {
   const pageLink = (n: number, label = String(n), extra = ''): string =>
     `<a href="/admin/projects?page=${n}${query ? `&q=${encodeURIComponent(query)}` : ''}" class="${extra}">${label}</a>`;
 
-  // A window around the current page keeps the control short at any size.
   const windowStart = Math.max(1, Math.min(page - 2, pageCount - 4));
   const windowEnd = Math.min(pageCount, Math.max(page + 2, 5));
   const numbers: string[] = [];

@@ -50,14 +50,12 @@ export class AboutController {
     private readonly auth: AuthService,
   ) {}
 
-  /** Public page. */
   @Get('about')
   @Header('Content-Type', 'text/html')
   page(@Req() req: Request): string {
     const content = this.about.get();
     const token = req.cookies?.[AuthService.COOKIE] as string | undefined;
 
-    // Newest first, then render each description so markdown works there too.
     const milestones = sortMilestones(content.milestones);
 
     return aboutPage(

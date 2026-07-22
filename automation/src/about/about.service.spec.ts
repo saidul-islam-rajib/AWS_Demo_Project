@@ -161,7 +161,6 @@ describe('about.model parsers', () => {
   });
 
   describe('milestones saved before dates existed', () => {
-    // about.json written before startDate/endDate were added has neither.
     const legacy = (period: string, title: string) =>
       ({ period, title, org: '', description: '' }) as never;
 
@@ -325,8 +324,6 @@ describe('about.model parsers', () => {
       expect(preview.length).toBeLessThanOrEqual(CAPTION_PREVIEW_LIMIT + 1);
       expect(preview.endsWith('…')).toBe(true);
 
-      // The real property: the preview is a prefix of the original that ends
-      // where a word ends, so no word is cut in half.
       const body = preview.slice(0, -1);
       expect(long.startsWith(body)).toBe(true);
       expect(long.charAt(body.length)).toMatch(/\s|^$/);

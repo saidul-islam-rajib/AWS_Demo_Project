@@ -175,20 +175,10 @@ const FEED_CSS = `
   a.stat-link:hover .v, a.stat-link:hover .l { color: var(--accent); }
 </style>`;
 
-/**
- * A keyword is short *and* only a word or two — length alone is not enough,
- * since a real takeaway like "Docker containers are ephemeral" is only 31
- * characters but is plainly a sentence.
- */
 function isKeyword(text: string): boolean {
   return text.length <= 24 && text.split(/\s+/).length <= 2;
 }
 
-/**
- * Three shapes, picked from the content itself:
- * short entries become chips, one sentence becomes a pull quote,
- * several sentences become a takeaways list.
- */
 function highlightBlock(post: Post, variant: 'card' | 'article'): string {
   const items = highlightList(post.highlight);
   if (items.length === 0) return '';
@@ -233,11 +223,6 @@ function card(post: Post): string {
   </article>`;
 }
 
-/**
- * Live search. Debounced so typing does not fire a request per keystroke,
- * with arrow-key navigation and Escape to dismiss. The form still submits
- * normally if the script fails, so search works without JavaScript.
- */
 const SEARCH_JS = `
 <script>
 (function () {
@@ -386,8 +371,6 @@ export function homePage(opts: {
       ? `${posts.length} post${posts.length === 1 ? '' : 's'} found.`
       : esc(getSettings().siteTagline);
 
-  // The intro block is hideable, but tag and search headings must always
-  // render or the page loses its context entirely.
   const showIntro = getSettings().showIntro || Boolean(activeTag || query);
 
   const body = `
@@ -481,7 +464,6 @@ ${FEED_CSS}
   });
 }
 
-/** First image in the body, used as the social preview. */
 function firstImage(content: string): string | undefined {
   const match = /!\[[^\]]*\]\(([^)\s]+)/.exec(content);
   return match?.[1];
@@ -694,7 +676,6 @@ export function postPage(
   });
 }
 
-/** Click any article image to view it full size. */
 const LIGHTBOX_JS = `
 <script>
 (function () {
@@ -750,7 +731,6 @@ const LIGHTBOX_JS = `
 
 export function tagsPage(opts: {
   tags: { tag: string; count: number }[];
-  /** The few most-used tags, with their latest posts. */
   featured: { tag: string; count: number; posts: Post[] }[];
   technologies: { term: string; slug: string; count: number }[];
   topics: { term: string; slug: string; count: number }[];
@@ -768,8 +748,6 @@ export function tagsPage(opts: {
     projectCount,
   } = opts;
 
-  // Cloud weighting: scale font size between the least and most used tag, so
-  // the shape of what gets written about is visible at a glance.
   const counts = tags.map((t) => t.count);
   const min = Math.min(...counts, 1);
   const max = Math.max(...counts, 1);

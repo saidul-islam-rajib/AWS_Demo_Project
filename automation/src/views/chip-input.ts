@@ -1,9 +1,3 @@
-/**
- * Chip input, shared by the post editor and the project editor.
- *
- * Progressive enhancement: the real value always lives in a hidden field, so
- * the form still submits correctly if the script never runs.
- */
 export const CHIP_CSS = `
   /* ---------- chip input ---------- */
   .chip-input {

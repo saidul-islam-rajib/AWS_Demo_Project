@@ -4,7 +4,6 @@ import { ProjectsService } from '../projects/projects.service';
 import { SettingsService } from '../settings/settings.service';
 import { termSlug } from '../projects/project.model';
 
-/** Escape the five characters that are not legal as raw text in XML. */
 function xml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -54,7 +53,6 @@ export class SeoController {
       entries.push({ loc: `/tag/${tag}`, priority: '0.5' });
     }
 
-    // Every taxonomy term is its own indexable page.
     for (const taxonomy of ['tech', 'topics', 'keywords', 'tags'] as const) {
       for (const { term } of this.projects.terms(taxonomy)) {
         entries.push({

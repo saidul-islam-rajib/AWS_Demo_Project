@@ -11,16 +11,6 @@ import { DEFAULT_SETTINGS } from '../settings/settings.model';
 import { Post } from '../posts/post.model';
 import { Project } from '../projects/project.model';
 
-/**
- * Every page ships its behaviour as inline script inside a TS template
- * literal, which means an escape can be silently eaten on the way out: `\n`
- * written as '\n' emits a real newline and breaks the string literal, taking
- * the whole script — and every feature on the page — down with it.
- *
- * A page that renders fine can still ship dead JavaScript, so these parse the
- * emitted scripts rather than trusting the source.
- */
-
 const post: Post = {
   id: 'p1',
   slug: 'a-post',
@@ -130,14 +120,10 @@ describe('inline scripts', () => {
     const scripts = inlineScripts(render());
 
     for (const source of scripts) {
-      // Throws on a syntax error, which is exactly what a broken escape causes.
       expect(() => new Script(source)).not.toThrow();
     }
   });
 
-  // A literal backslash-n between meta tags rendered as visible text at the
-  // top of every page, because inside a template expression '\n' is two
-  // characters rather than a newline.
   it.each(pages)(
     '%s has no literal escape sequence in its head',
     (_name, render) => {
@@ -151,7 +137,6 @@ describe('inline scripts', () => {
   );
 
   it('parses the scripts it is meant to guard', () => {
-    // Sanity check: the helper must actually be finding scripts.
     expect(inlineScripts(aboutAdminPage(EMPTY_ABOUT)).length).toBeGreaterThan(
       0,
     );

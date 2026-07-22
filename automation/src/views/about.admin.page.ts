@@ -9,7 +9,6 @@ import {
   isOngoing,
 } from '../about/about.model';
 
-/** One image chip inside a photo record, with its own remove control. */
 function thumb(url: string): string {
   return `<span class="shot-thumb" data-url="${esc(url)}">
     <img src="${esc(url)}" alt="" />

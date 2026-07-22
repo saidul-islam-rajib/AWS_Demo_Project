@@ -26,7 +26,6 @@ import {
   projectsAdminPage,
 } from '../views/projects.admin.page';
 
-/** Rows per page in the admin list. */
 const ADMIN_PAGE_SIZE = 10;
 
 @Controller()
@@ -35,8 +34,6 @@ export class ProjectsController {
     private readonly projects: ProjectsService,
     private readonly settings: SettingsService,
   ) {}
-
-  // ---------- public ----------
 
   @Get('projects')
   @Header('Content-Type', 'text/html')
@@ -80,7 +77,6 @@ export class ProjectsController {
       return;
     }
 
-    // Rank by shared technologies first, then anything from the same year.
     const related = this.projects
       .findAll()
       .filter((p) => p.id !== project.id)
@@ -140,8 +136,6 @@ export class ProjectsController {
     });
   }
 
-  // ---------- admin ----------
-
   @Get('admin/projects')
   @UseGuards(AuthGuard)
   @Header('Content-Type', 'text/html')
@@ -178,7 +172,6 @@ export class ProjectsController {
     const all = this.projects.search(q);
     const pageCount = Math.max(1, Math.ceil(all.length / ADMIN_PAGE_SIZE));
 
-    // Clamp rather than 404: a stale bookmark should still show something.
     const parsed = Number.parseInt(pageParam ?? '1', 10);
     const page = Math.min(
       Math.max(Number.isFinite(parsed) ? parsed : 1, 1),

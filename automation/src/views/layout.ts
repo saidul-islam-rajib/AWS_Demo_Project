@@ -1,9 +1,3 @@
-/**
- * Escape untrusted text before interpolating it into HTML.
- *
- * Deliberately narrow: passing an object here would stringify to
- * "[object Object]" and silently render nonsense.
- */
 export function esc(value: string | number | null | undefined): string {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -17,36 +11,20 @@ interface LayoutOptions {
   title: string;
   description?: string;
   body: string;
-  /** Rendered in the header's right slot. */
   nav?: string;
-  /** Wider reading measure is used for article pages. */
   variant?: 'default' | 'article' | 'admin';
-  /** Site-relative path of this page, for canonical and og:url. */
   path?: string;
-  /** Preview image. Relative paths are made absolute against siteUrl. */
   image?: string;
   ogType?: 'website' | 'article' | 'profile';
-  /** Emitted as article:published_time. */
   publishedAt?: string;
-  /** Extra <head> markup, e.g. JSON-LD. */
   head?: string;
-  /** Keep this page out of search results. */
   noindex?: boolean;
 }
 
 import { initials } from '../settings/settings.model';
 import { getSettings } from '../settings/settings.store';
-// Imported rather than restated so the tags cannot drift from the size the
-// card is actually built at.
 import { CARD_HEIGHT, CARD_WIDTH } from '../uploads/images.service';
 
-/**
- * Uploaded avatar when one is set, initials otherwise.
- *
- * The header renders this at 30px and the About hero at 96px, so the full
- * upload is never the right thing to send. It is also above the fold on
- * every page, so it loads eagerly with high priority rather than lazily.
- */
 export function avatarMark(
   avatarUrl: string,
   name: string,
@@ -64,29 +42,8 @@ export function avatarMark(
     width="200" height="200" decoding="async" fetchpriority="high" />`;
 }
 
-/**
- * Pages are cheap to regenerate but must never be served stale after an
- * edit, so the browser revalidates every time and the existing ETag turns
- * that into a 304 with no body.
- */
 export const HTML_CACHE_CONTROL = 'no-cache, must-revalidate';
 
-/**
- * A loading placeholder for images, as one drop-in block of style and
- * behaviour. Add `class="skel"` to any img and include this once per page.
- *
- * The shimmer is painted as the image's own background rather than as a
- * separate element underneath it. An image that has not arrived draws
- * nothing, so the background shows through, and the photo covers it the
- * instant it paints. That ordering matters: the obvious alternative, fading
- * the image in from opacity zero, leaves a permanently blank box if the
- * script fails to run. Here a failed script costs a shimmer that keeps
- * animating behind a visible photo, which is a far cheaper way to be wrong.
- *
- * The element must have a reserved height for any of this to be seen — the
- * gallery and cards get theirs from aspect-ratio, and the two that size
- * themselves from the image are given one below for as long as they load.
- */
 export const IMAGE_SKELETON = `
 <style>
   .skel {
@@ -177,17 +134,8 @@ export function layout({
 
   const canonical = absolute(path);
 
-  // Fall back to the avatar so a shared link is never imageless. Crawlers
-  // will not follow a relative path, so this must be absolute.
   const preview = image ?? (s.avatarUrl || '');
 
-  /*
-   * An uploaded photo is whatever shape the camera made it, which is rarely
-   * the shape a share card wants, so it is served through the endpoint that
-   * rebuilds it at card proportions. Anything else — a project's GitHub
-   * preview, say — is already generated at the right size and is linked as
-   * it stands.
-   */
   const cardName =
     preview.startsWith('/uploads/') && !/\.(svg|gif)(\?|$)/i.test(preview)
       ? preview.slice('/uploads/'.length)
@@ -207,14 +155,6 @@ export function layout({
           ? 'image/webp'
           : '';
 
-  /*
-   * What a shared link says under the title.
-   *
-   * A post or project passes its own description and keeps it — it is the
-   * thing being shared. Everything else falls through to the sharing intro
-   * the author wrote for exactly this purpose, then to the bio, then to the
-   * tagline, so the line is never empty.
-   */
   const summary = description || s.shareIntro || s.authorBio || s.siteTagline;
 
   return `<!doctype html>
@@ -238,13 +178,6 @@ ${
   previewUrl
     ? [
         `<meta property="og:image" content="${esc(previewUrl)}" />`,
-        /*
-         * Facebook and LinkedIn lay the card out from these before the image
-         * itself has been fetched, so they are only worth sending when they
-         * are true. They are stated for a card we generate, whose size we
-         * therefore know, and left off an image we merely link to — a wrong
-         * size renders worse than an absent one.
-         */
         ...(cardName
           ? [
               `<meta property="og:image:width" content="${CARD_WIDTH}" />`,
@@ -614,15 +547,10 @@ ${body}
 </html>`;
 }
 
-/**
- * Marks the current section. Longest matching prefix wins, so /projects/x
- * highlights Projects rather than Home.
- */
 function navLink(
   href: string,
   label: string,
   path: string,
-  /** Where the link goes, when that differs from the section it matches. */
   target = href,
 ): string {
   const active =
@@ -644,7 +572,6 @@ export function defaultNav(path = '/'): string {
 export function adminNav(path = '/admin'): string {
   return [
     '<a href="/">View site</a>',
-    // Exact match: /admin is a prefix of every other admin route.
     `<a href="/admin" class="${path === '/admin' ? 'active' : ''}">Dashboard</a>`,
     navLink('/admin/projects', 'Projects', path),
     navLink('/admin/about', 'About', path),

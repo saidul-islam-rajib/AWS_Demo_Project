@@ -149,7 +149,6 @@ describe('SettingsService', () => {
 
   it('fills in fields missing from an older settings file', () => {
     service.update({ authorName: 'Partial' });
-    // A file written before a field existed must not leave it undefined.
     const reloaded = new SettingsService().get();
 
     expect(reloaded.siteTitle).toBe(DEFAULT_SETTINGS.siteTitle);
