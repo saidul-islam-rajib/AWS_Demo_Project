@@ -2,6 +2,66 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { TUTORIALS_STYLES } from './public/tutorials.styles';
 import { TUTORIALS_ADMIN_STYLES } from './admin/tutorials.styles';
+import { tutorialPage, tutorialsIndexPage } from './public/tutorials.page';
+import {
+  AUTO_COMPLETE_DELAY_MS,
+  PROGRESS_TRACKER_SCRIPT,
+} from './shared/scripts/progress-tracker';
+import { Difficulty, Subject, Tutorial } from '../tutorials/tutorial.model';
+
+const subject: Subject = {
+  id: 's1',
+  slug: 'networking',
+  title: 'Networking',
+  summary: 'How machines find each other.',
+  icon: '🌐',
+  order: 1,
+  status: 'published',
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+};
+
+const lesson: Tutorial = {
+  id: 't1',
+  subjectId: 's1',
+  slug: 'ip-addresses',
+  title: 'What an IP address is',
+  summary: 'Addressing and subnets.',
+  content: '## Addressing\n\nBody text.',
+  difficulty: 'beginner',
+  order: 1,
+  status: 'published',
+  tags: [],
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+  views: 0,
+};
+
+const lessonHtml = (): string =>
+  tutorialPage(
+    subject,
+    lesson,
+    [lesson],
+    { position: 1, total: 1 },
+    '<p>body</p>',
+  );
+
+const indexHtml = (difficulties: string[]): string =>
+  tutorialsIndexPage(
+    [subject],
+    new Map([
+      [
+        subject.id,
+        {
+          total: difficulties.length,
+          minutes: 3,
+          difficulties: difficulties as Difficulty[],
+        },
+      ],
+    ]),
+    new Map([[subject.id, difficulties.length ? ['a'] : []]]),
+    { subjects: 1, tutorials: difficulties.length, minutes: 3 },
+  );
 
 const layoutSource = readFileSync(
   join(__dirname, 'shared', 'layout.ts'),
@@ -64,5 +124,79 @@ describe('clickable cards', () => {
   it('shows the accent border when a card is focused by keyboard', () => {
     expect(TUTORIALS_STYLES).toContain('.subj-card:focus-within');
     expect(TUTORIALS_STYLES).toContain('.lesson-item:focus-within');
+  });
+});
+
+describe('automatic completion', () => {
+  it('places a sentinel at the end of the lesson content', () => {
+    const html = lessonHtml();
+
+    const contentAt = html.indexOf('class="prose"');
+    const sentinelAt = html.indexOf('<div data-lesson-end');
+    const navAt = html.indexOf('class="tut-nav"');
+
+    expect(sentinelAt).toBeGreaterThan(contentAt);
+    expect(sentinelAt).toBeLessThan(navAt);
+  });
+
+  it('hides the sentinel from assistive technology', () => {
+    expect(lessonHtml()).toContain('<div data-lesson-end aria-hidden="true">');
+  });
+
+  it('keeps a manual toggle so a wrong guess can be undone', () => {
+    const html = lessonHtml();
+
+    expect(html).toContain('data-mark-done="t1"');
+    expect(html).toContain('aria-pressed="false"');
+  });
+
+  it('tells the reader completion is automatic', () => {
+    expect(lessonHtml()).toContain(
+      'Marked automatically once you reach the end',
+    );
+  });
+
+  it('observes the sentinel and marks after a dwell', () => {
+    expect(PROGRESS_TRACKER_SCRIPT).toContain('[data-lesson-end]');
+    expect(PROGRESS_TRACKER_SCRIPT).toContain('IntersectionObserver');
+    expect(PROGRESS_TRACKER_SCRIPT).toContain(
+      `var DWELL = ${AUTO_COMPLETE_DELAY_MS}`,
+    );
+  });
+
+  it('cancels the pending mark when the reader scrolls away', () => {
+    expect(PROGRESS_TRACKER_SCRIPT).toContain('window.clearTimeout(timer)');
+  });
+
+  it('does not re-mark a lesson the reader has already completed', () => {
+    expect(PROGRESS_TRACKER_SCRIPT).toContain(
+      'if (!isDone(id) && timer === null)',
+    );
+  });
+
+  it('degrades without IntersectionObserver rather than throwing', () => {
+    expect(PROGRESS_TRACKER_SCRIPT).toContain(
+      "typeof window.IntersectionObserver === 'function'",
+    );
+  });
+});
+
+describe('difficulty range', () => {
+  it('shows a single badge when every lesson is the same level', () => {
+    const html = indexHtml(['beginner']);
+
+    expect(html).toContain('>Beginner<');
+    expect(html).not.toContain('–');
+  });
+
+  it('collapses several levels into one range badge', () => {
+    const html = indexHtml(['beginner', 'intermediate', 'advanced']);
+
+    expect(html).toContain('>Beginner–Advanced<');
+    expect(html).not.toContain('>Intermediate<');
+  });
+
+  it('shows nothing when a subject has no lessons', () => {
+    expect(indexHtml([])).not.toContain('class="level');
   });
 });

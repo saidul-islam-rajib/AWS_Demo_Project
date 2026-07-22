@@ -108,7 +108,7 @@ pipeline {
                     set -e
 
                     if [ "$rc" = "2" ]; then
-                        echo "WARNING: backup skipped for lack of disk space."
+                        echo "WARNING: backup skipped — see the reason above. Continuing to deploy."
                     elif [ "$rc" != "0" ]; then
                         echo "Backup failed (exit $rc). Refusing to deploy over unbacked-up data."
                         exit "$rc"

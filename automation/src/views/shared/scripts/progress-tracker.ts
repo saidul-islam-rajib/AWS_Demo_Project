@@ -1,7 +1,10 @@
+export const AUTO_COMPLETE_DELAY_MS = 1500;
+
 export const PROGRESS_TRACKER_SCRIPT = `
 <script>
 (function () {
   var KEY = 'tutorial-progress';
+  var DWELL = ${AUTO_COMPLETE_DELAY_MS};
 
   function read() {
     try {
@@ -60,30 +63,66 @@ export const PROGRESS_TRACKER_SCRIPT = `
     paintProgress();
   }
 
-  var button = document.querySelector('[data-mark-done]');
-  if (button) {
-    var id = button.getAttribute('data-mark-done');
-    var sync = function () {
-      var done = isDone(id);
-      button.setAttribute('aria-pressed', done ? 'true' : 'false');
-      var text = button.querySelector('[data-mark-label]');
-      if (text) text.textContent = done ? 'Completed' : 'Mark as complete';
-    };
+  var toggle = document.querySelector('[data-mark-done]');
 
-    button.addEventListener('click', function () {
-      if (isDone(id)) {
-        delete state[id];
-      } else {
-        state[id] = true;
-      }
-      write(state);
-      sync();
-      paint();
-    });
-
-    sync();
+  if (!toggle) {
+    paint();
+    return;
   }
 
+  var id = toggle.getAttribute('data-mark-done');
+
+  function sync() {
+    var done = isDone(id);
+    toggle.setAttribute('aria-pressed', done ? 'true' : 'false');
+
+    var label = toggle.querySelector('[data-mark-label]');
+    if (label) label.textContent = done ? 'Completed' : 'Mark as complete';
+
+    var note = document.querySelector('[data-auto-note]');
+    if (note) note.hidden = done;
+  }
+
+  function setDone(value) {
+    if (value) {
+      state[id] = true;
+    } else {
+      delete state[id];
+    }
+    write(state);
+    sync();
+    paint();
+  }
+
+  toggle.addEventListener('click', function () {
+    setDone(!isDone(id));
+  });
+
+  var sentinel = document.querySelector('[data-lesson-end]');
+
+  if (sentinel && typeof window.IntersectionObserver === 'function') {
+    var timer = null;
+
+    var observer = new window.IntersectionObserver(function (entries) {
+      for (var i = 0; i < entries.length; i++) {
+        if (entries[i].isIntersecting) {
+          if (!isDone(id) && timer === null) {
+            timer = window.setTimeout(function () {
+              timer = null;
+              if (!isDone(id)) setDone(true);
+            }, DWELL);
+          }
+        } else if (timer !== null) {
+          window.clearTimeout(timer);
+          timer = null;
+        }
+      }
+    });
+
+    observer.observe(sentinel);
+  }
+
+  sync();
   paint();
 })();
 </script>`;

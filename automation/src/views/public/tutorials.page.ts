@@ -28,6 +28,17 @@ function levelBadge(level: string): string {
   );
 }
 
+function levelRange(levels: string[]): string {
+  if (levels.length === 0) return '';
+  if (levels.length === 1) return levelBadge(levels[0]);
+
+  const lowest = levels[0];
+  const highest = levels[levels.length - 1];
+  const label = `${DIFFICULTY_LABELS[lowest as keyof typeof DIFFICULTY_LABELS]}–${DIFFICULTY_LABELS[highest as keyof typeof DIFFICULTY_LABELS]}`;
+
+  return badge(label, lowest);
+}
+
 export function tutorialsIndexPage(
   subjects: Subject[],
   stats: Map<string, SubjectStats>,
@@ -52,7 +63,7 @@ export function tutorialsIndexPage(
           <span>${stat.total} ${pluralise(stat.total, 'lesson')}</span>
           ${metaSeparator()}
           <span>${esc(formatDuration(stat.minutes))}</span>
-          ${stat.difficulties.length ? `${metaSeparator()}${stat.difficulties.map(levelBadge).join(' ')}` : ''}
+          ${stat.difficulties.length ? `${metaSeparator()}${levelRange(stat.difficulties)}` : ''}
         </div>
       </article>`;
     })
@@ -196,11 +207,14 @@ export function tutorialPage(
 
         <div class="prose">${contentHtml}</div>
 
-        <p style="margin-top:2rem">
+        <div data-lesson-end aria-hidden="true"></div>
+
+        <div class="lesson-status">
           <button type="button" class="mark-done" data-mark-done="${esc(tutorial.id)}" aria-pressed="false">
             <span class="tick">✓</span><span data-mark-label>Mark as complete</span>
           </button>
-        </p>
+          <span class="auto-note" data-auto-note>Marked automatically once you reach the end.</span>
+        </div>
 
         <nav class="tut-nav">
           ${previous}

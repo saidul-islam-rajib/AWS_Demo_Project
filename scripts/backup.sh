@@ -14,12 +14,30 @@ ARCHIVE="blog_data-${STAMP}.tar.gz"
 log() { echo "[backup] $*"; }
 fail() { echo "[backup] ERROR: $*" >&2; exit 1; }
 
+skip() {
+    log "$*"
+    log "Skipping the backup. This does not fail the build and the running site is untouched."
+    exit 2
+}
+
 command -v docker > /dev/null 2>&1 || fail "docker is not on PATH."
 
 docker volume inspect "$VOLUME" > /dev/null 2>&1 \
-    || fail "volume '$VOLUME' does not exist — nothing to back up."
+    || skip "Volume '$VOLUME' does not exist yet, so there is nothing to back up."
 
-mkdir -p "$BACKUP_DIR" || fail "cannot create $BACKUP_DIR"
+if ! mkdir -p "$BACKUP_DIR" 2> /dev/null; then
+    log "Cannot create $BACKUP_DIR — the $(whoami) user has no write access there."
+    log "Create it once on the host:"
+    log "    sudo mkdir -p $BACKUP_DIR"
+    log "    sudo chown $(whoami):$(whoami) $BACKUP_DIR"
+    skip "Backups are not set up on this host."
+fi
+
+if [ ! -w "$BACKUP_DIR" ]; then
+    log "$BACKUP_DIR exists but is not writable by $(whoami)."
+    log "Fix it with:  sudo chown $(whoami):$(whoami) $BACKUP_DIR"
+    skip "Backups are not set up on this host."
+fi
 
 prune_old() {
     ls -1t "$BACKUP_DIR"/blog_data-*.tar.gz 2> /dev/null \
