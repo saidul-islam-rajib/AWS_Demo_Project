@@ -32,6 +32,7 @@ subject, and the CI/CD that ships it is half the point.
 - [Running locally](#running-locally)
 - [Configuration](#configuration)
 - [Deployment](#deployment)
+- [HTTPS](#https)
 - [Testing](#testing)
 - [Project structure](#project-structure)
 - [Known limitations](#known-limitations)
@@ -339,6 +340,29 @@ docker run -d --name nestjs-app --restart unless-stopped -p 3000:3000 \
 ever collected and the disk filled at build #15. Cleanup was added to `post` — which then failed at
 build #41, because once the disk is full a build cannot reach the step that would free it. The
 **Preflight** stage exists to break that deadlock.
+
+---
+
+## HTTPS
+
+Caddy is installed on the instance and reverse-proxies `16.171.254.209.sslip.io` to the app on
+port 3000. The config is in [`deploy/Caddyfile`](deploy/Caddyfile) and lives at `/etc/caddy/Caddyfile`
+on the server. `sslip.io` resolves any embedded IP back to itself, so this needs no domain
+registration.
+
+Certificates are issued by Let's Encrypt automatically, which requires inbound **80 and 443** in
+the EC2 security group. Until those are open, Caddy serves HTTP only and retries issuance.
+
+Once HTTPS is confirmed working, finish in this order:
+
+1. **Close public access to port 3000.** Caddy reaches the app over localhost, so the app no
+   longer needs to be exposed directly.
+2. **Set `TRUST_PROXY=1`** in `/opt/blog/.env` and redeploy.
+
+The order matters. `TRUST_PROXY=1` tells Express to believe `X-Forwarded-For`, which is only safe
+when every request genuinely arrives through the proxy. Setting it while port 3000 is still
+publicly reachable lets an attacker connect directly and forge that header, which defeats the
+sign-in rate limit entirely.
 
 ---
 
