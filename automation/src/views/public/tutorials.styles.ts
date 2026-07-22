@@ -21,12 +21,15 @@ const SUBJECT_STYLES = `
     grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
   }
   .subj-card {
+    position: relative;
     display: flex; flex-direction: column; gap: 0.75rem;
     border: 1px solid var(--border); border-radius: 14px;
     background: var(--surface); padding: 1.4rem;
     transition: border-color .18s, transform .18s;
   }
   .subj-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .subj-card:focus-within { border-color: var(--accent); }
+  .subj-card h2 a::after { content: ""; position: absolute; inset: 0; border-radius: 14px; }
   .subj-icon { font-size: 1.9rem; line-height: 1; }
   .subj-card h2 {
     font-family: var(--serif); font-size: 1.35rem; letter-spacing: -0.02em;
@@ -53,12 +56,15 @@ const SUBJECT_STYLES = `
 const LESSON_LIST_STYLES = `
   .lesson-list { list-style: none; margin: 1.75rem 0 3rem; padding: 0; }
   .lesson-item {
+    position: relative;
     display: flex; gap: 1rem; align-items: flex-start;
     padding: 1rem; border: 1px solid var(--border); border-radius: 12px;
     margin-bottom: 0.6rem; background: var(--surface);
     transition: border-color .18s;
   }
   .lesson-item:hover { border-color: var(--accent); }
+  .lesson-item:focus-within { border-color: var(--accent); }
+  .lesson-body h3 a::after { content: ""; position: absolute; inset: 0; border-radius: 12px; }
   .lesson-item.done { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
   .lesson-num {
     flex: none; width: 2rem; height: 2rem; border-radius: 100px;
@@ -143,7 +149,7 @@ const LESSON_PAGE_STYLES = `
   }
   .tut-nav a:hover { border-color: var(--accent); }
   .tut-nav .dir { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-3); }
-  .tut-nav .name { display: block; margin-top: 0.25rem; color: var(--ink-1); font-size: 0.95rem; }
+  .tut-nav .name { display: block; margin-top: 0.25rem; color: var(--ink); font-size: 0.95rem; }
   .tut-nav .next { text-align: right; grid-column: 2; }
   @media (max-width: 600px) { .tut-nav .next { text-align: left; grid-column: 1; } }
 `;
