@@ -6,10 +6,22 @@ import { homePage, postPage, tagsPage } from './public.pages';
 import { projectEditorPage, projectsAdminPage } from './projects.admin.page';
 import { projectDetailPage, projectsPage } from './projects.page';
 import { settingsPage } from './settings.page';
+import {
+  subjectPage,
+  tutorialPage,
+  tutorialsIndexPage,
+} from './tutorials.page';
+import {
+  lessonEditorPage,
+  subjectEditorPage,
+  subjectLessonsPage,
+  tutorialsAdminPage,
+} from './tutorials.admin.page';
 import { EMPTY_ABOUT } from '../about/about.model';
 import { DEFAULT_SETTINGS } from '../settings/settings.model';
 import { Post } from '../posts/post.model';
 import { Project } from '../projects/project.model';
+import { Subject, Tutorial } from '../tutorials/tutorial.model';
 
 const post: Post = {
   id: 'p1',
@@ -62,6 +74,40 @@ const stats = {
   readingMinutes: 1,
 };
 
+const subject: Subject = {
+  id: 's1',
+  slug: 'networking',
+  title: 'Networking',
+  summary: 'How machines find each other.',
+  icon: '🌐',
+  order: 1,
+  status: 'published',
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+};
+
+const lesson: Tutorial = {
+  id: 't1',
+  subjectId: 's1',
+  slug: 'ip-addresses',
+  title: 'What an IP address is',
+  summary: 'Addressing and subnets.',
+  content: '## Addressing\n\nBody text.',
+  difficulty: 'beginner',
+  order: 1,
+  status: 'published',
+  tags: ['networking'],
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+  views: 2,
+};
+
+const subjectStat = {
+  total: 1,
+  minutes: 4,
+  difficulties: ['beginner'] as const,
+};
+
 const pages: [string, () => string][] = [
   [
     'home',
@@ -110,6 +156,49 @@ const pages: [string, () => string][] = [
   ],
   ['project editor (new)', () => projectEditorPage()],
   ['project editor (edit)', () => projectEditorPage(project)],
+  [
+    'tutorials index',
+    () =>
+      tutorialsIndexPage(
+        [subject],
+        new Map([[subject.id, { ...subjectStat, difficulties: ['beginner'] }]]),
+        new Map([[subject.id, [lesson.id]]]),
+        { subjects: 1, tutorials: 1, minutes: 4 },
+      ),
+  ],
+  [
+    'tutorial subject',
+    () =>
+      subjectPage(subject, [lesson], {
+        ...subjectStat,
+        difficulties: ['beginner'],
+      }),
+  ],
+  [
+    'tutorial lesson',
+    () =>
+      tutorialPage(
+        subject,
+        lesson,
+        [lesson],
+        { position: 1, total: 1 },
+        '<p>x</p>',
+      ),
+  ],
+  [
+    'tutorials admin',
+    () =>
+      tutorialsAdminPage(
+        [subject],
+        new Map([[subject.id, { ...subjectStat, difficulties: ['beginner'] }]]),
+        new Map([[subject.id, 0]]),
+      ),
+  ],
+  ['subject editor (new)', () => subjectEditorPage()],
+  ['subject editor (edit)', () => subjectEditorPage(subject)],
+  ['subject lessons', () => subjectLessonsPage(subject, [lesson])],
+  ['lesson editor (new)', () => lessonEditorPage([subject], subject)],
+  ['lesson editor (edit)', () => lessonEditorPage([subject], subject, lesson)],
 ];
 
 function inlineScripts(html: string): string[] {

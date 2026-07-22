@@ -563,6 +563,7 @@ function navLink(
 export function defaultNav(path = '/'): string {
   return [
     navLink('/', 'Home', path),
+    navLink('/tutorials', 'Tutorials', path),
     navLink('/projects', 'Projects', path),
     navLink('/about', 'About', path),
     navLink('/tags', 'Tags', path),
@@ -575,6 +576,7 @@ export function adminNav(path = '/admin'): string {
     '<a href="/">View site</a>',
     `<a href="/admin" class="${path === '/admin' ? 'active' : ''}">Dashboard</a>`,
     navLink('/admin/projects', 'Projects', path),
+    navLink('/admin/tutorials', 'Tutorials', path),
     navLink('/admin/about', 'About', path),
     navLink('/admin/settings', 'Settings', path),
     navLink('/admin/posts', 'Write', path, '/admin/posts/new'),

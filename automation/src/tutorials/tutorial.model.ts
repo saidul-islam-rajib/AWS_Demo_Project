@@ -1,0 +1,219 @@
+import { readingMinutes, slugify } from '../posts/post.model';
+
+export type TutorialStatus = 'draft' | 'published';
+
+export type Difficulty = 'beginner' | 'intermediate' | 'advanced';
+
+export const DIFFICULTIES: Difficulty[] = [
+  'beginner',
+  'intermediate',
+  'advanced',
+];
+
+export const DIFFICULTY_LABELS: Record<Difficulty, string> = {
+  beginner: 'Beginner',
+  intermediate: 'Intermediate',
+  advanced: 'Advanced',
+};
+
+export interface Subject {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string;
+  icon: string;
+  order: number;
+  status: TutorialStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Tutorial {
+  id: string;
+  subjectId: string;
+  slug: string;
+  title: string;
+  summary: string;
+  content: string;
+  difficulty: Difficulty;
+  order: number;
+  status: TutorialStatus;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+  views: number;
+}
+
+export interface TutorialStore {
+  subjects: Subject[];
+  tutorials: Tutorial[];
+}
+
+export interface SubjectInput {
+  title: string;
+  summary?: string;
+  icon?: string;
+  status?: TutorialStatus;
+}
+
+export interface TutorialInput {
+  subjectId: string;
+  title: string;
+  summary?: string;
+  content: string;
+  difficulty?: string;
+  status?: TutorialStatus;
+  tags?: string | string[];
+}
+
+export interface SubjectStats {
+  total: number;
+  minutes: number;
+  difficulties: Difficulty[];
+}
+
+export interface Neighbours {
+  previous?: Tutorial;
+  next?: Tutorial;
+  position: number;
+  total: number;
+}
+
+export { slugify };
+
+export function parseDifficulty(value?: string): Difficulty {
+  const candidate = (value ?? '').trim().toLowerCase();
+  return DIFFICULTIES.includes(candidate as Difficulty)
+    ? (candidate as Difficulty)
+    : 'beginner';
+}
+
+export function parseStatus(value?: string): TutorialStatus {
+  return (value ?? '').trim().toLowerCase() === 'draft' ? 'draft' : 'published';
+}
+
+export function normaliseIcon(value?: string): string {
+  const trimmed = (value ?? '').trim();
+  if (!trimmed) return '';
+  return [...trimmed].slice(0, 2).join('');
+}
+
+export function sortByOrder<T extends { order: number; title: string }>(
+  items: T[],
+): T[] {
+  return [...items].sort(
+    (a, b) => a.order - b.order || a.title.localeCompare(b.title),
+  );
+}
+
+export function nextOrder(items: { order: number }[]): number {
+  return items.reduce((highest, item) => Math.max(highest, item.order), 0) + 1;
+}
+
+export function resequence<T extends { order: number; title: string }>(
+  items: T[],
+): T[] {
+  return sortByOrder(items).map((item, index) => ({
+    ...item,
+    order: index + 1,
+  }));
+}
+
+export function moveInSequence<
+  T extends { id: string; order: number; title: string },
+>(items: T[], id: string, direction: 'up' | 'down'): T[] {
+  const ordered = resequence(items);
+  const index = ordered.findIndex((item) => item.id === id);
+  if (index === -1) return ordered;
+
+  const target = direction === 'up' ? index - 1 : index + 1;
+  if (target < 0 || target >= ordered.length) return ordered;
+
+  const swapped = [...ordered];
+  const a = swapped[index];
+  const b = swapped[target];
+  swapped[index] = { ...b, order: a.order };
+  swapped[target] = { ...a, order: b.order };
+
+  return sortByOrder(swapped);
+}
+
+export function publishedOnly<T extends { status: TutorialStatus }>(
+  items: T[],
+): T[] {
+  return items.filter((item) => item.status === 'published');
+}
+
+export function lessonsOf(
+  tutorials: Tutorial[],
+  subjectId: string,
+  includeDrafts = false,
+): Tutorial[] {
+  const scoped = tutorials.filter((t) => t.subjectId === subjectId);
+  return sortByOrder(includeDrafts ? scoped : publishedOnly(scoped));
+}
+
+export function subjectStats(
+  tutorials: Tutorial[],
+  subjectId: string,
+): SubjectStats {
+  const lessons = lessonsOf(tutorials, subjectId);
+  const difficulties = DIFFICULTIES.filter((level) =>
+    lessons.some((lesson) => lesson.difficulty === level),
+  );
+
+  return {
+    total: lessons.length,
+    minutes: lessons.reduce(
+      (sum, lesson) => sum + readingMinutes(lesson.content),
+      0,
+    ),
+    difficulties,
+  };
+}
+
+export function neighbours(lessons: Tutorial[], currentId: string): Neighbours {
+  const ordered = sortByOrder(lessons);
+  const index = ordered.findIndex((lesson) => lesson.id === currentId);
+
+  if (index === -1) {
+    return { position: 0, total: ordered.length };
+  }
+
+  return {
+    previous: index > 0 ? ordered[index - 1] : undefined,
+    next: index < ordered.length - 1 ? ordered[index + 1] : undefined,
+    position: index + 1,
+    total: ordered.length,
+  };
+}
+
+export function formatDuration(minutes: number): string {
+  if (minutes <= 0) return '—';
+  if (minutes < 60) return `${minutes} min`;
+
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+
+  return rest === 0 ? `${hours} hr` : `${hours} hr ${rest} min`;
+}
+
+export function searchTutorials(
+  tutorials: Tutorial[],
+  query: string,
+): Tutorial[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+
+  return publishedOnly(tutorials).filter((tutorial) =>
+    [
+      tutorial.title,
+      tutorial.summary,
+      tutorial.content,
+      tutorial.tags.join(' '),
+    ]
+      .join(' ')
+      .toLowerCase()
+      .includes(q),
+  );
+}

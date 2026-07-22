@@ -2,6 +2,7 @@ import { Controller, Get, Header } from '@nestjs/common';
 import { PostsService } from '../posts/posts.service';
 import { ProjectsService } from '../projects/projects.service';
 import { SettingsService } from '../settings/settings.service';
+import { TutorialsService } from '../tutorials/tutorials.service';
 import { termSlug } from '../projects/project.model';
 import { renderMarkdown } from '../posts/markdown';
 import { buildFeed, xmlEscape as xml } from './feed.model';
@@ -12,6 +13,7 @@ export class SeoController {
     private readonly posts: PostsService,
     private readonly projects: ProjectsService,
     private readonly settings: SettingsService,
+    private readonly tutorials: TutorialsService,
   ) {}
 
   @Get('sitemap.xml')
@@ -21,10 +23,27 @@ export class SeoController {
 
     const entries: { loc: string; lastmod?: string; priority: string }[] = [
       { loc: '/', priority: '1.0' },
+      { loc: '/tutorials', priority: '0.9' },
       { loc: '/projects', priority: '0.9' },
       { loc: '/about', priority: '0.8' },
       { loc: '/tags', priority: '0.6' },
     ];
+
+    for (const subject of this.tutorials.findSubjects()) {
+      entries.push({
+        loc: `/tutorials/${subject.slug}`,
+        lastmod: subject.updatedAt.slice(0, 10),
+        priority: '0.8',
+      });
+
+      for (const lesson of this.tutorials.lessons(subject.id)) {
+        entries.push({
+          loc: `/tutorials/${subject.slug}/${lesson.slug}`,
+          lastmod: lesson.updatedAt.slice(0, 10),
+          priority: '0.7',
+        });
+      }
+    }
 
     for (const post of this.posts.findPublished()) {
       entries.push({
