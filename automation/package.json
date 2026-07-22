@@ -1,8 +1,8 @@
 {
   "name": "automation",
   "version": "0.0.1",
-  "description": "",
-  "author": "",
+  "description": "Server-rendered blog and project portfolio built with NestJS, containerised with Docker, and deployed to AWS EC2 by a Jenkins pipeline.",
+  "author": "Saidul Islam Rajib <saidul.is.rajib@gmail.com> (Team Sober)",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {

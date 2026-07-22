@@ -699,6 +699,18 @@ Honest about what is not production-grade:
 
 ---
 
+## Author
+
+**Saidul Islam Rajib** — Software Engineer, Team Sober
+
+- Email: saidul.is.rajib@gmail.com
+- Portfolio: https://portfolio-rajib.vercel.app/
+- Blog: https://16.171.254.209.sslip.io/
+
+---
+
 ## License
 
 UNLICENSED — private project, published for demonstration.
+
+Copyright © 2026 Saidul Islam Rajib, Team Sober. All rights reserved.
