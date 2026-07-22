@@ -5,87 +5,13 @@ import {
   SubjectStats,
   Tutorial,
   formatDuration,
-} from '../tutorials/tutorial.model';
-import { readingMinutes } from '../posts/post.model';
-import { adminNav, esc, layout } from './layout';
+} from '../../tutorials/tutorial.model';
+import { readingMinutes } from '../../posts/post.model';
+import { adminNav, esc, layout } from '../shared/layout';
+import { emptyState, statusPill } from '../shared/components';
+import { TUTORIALS_ADMIN_STYLES as STYLES } from './tutorials.styles';
 
-const CSS = `
-<style>
-  .page-title { font-family: var(--serif); font-size: 1.9rem; letter-spacing: -0.02em; }
-  .back-link { font-size: 0.84rem; color: var(--ink-3); display: inline-block; margin-bottom: 0.4rem; }
-  .back-link:hover { color: var(--accent); }
-  .toolbar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
-  .toolbar .spacer { flex: 1; }
-
-  .panel {
-    background: var(--surface-2); border: 1px solid var(--border);
-    border-radius: 12px; padding: 1.1rem; margin-bottom: 1.1rem;
-  }
-  .panel h3 {
-    font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.07em;
-    color: var(--ink-3); margin-bottom: 0.85rem;
-  }
-  .field { margin-bottom: 1rem; }
-  .field:last-child { margin-bottom: 0; }
-  .field label { display: block; font-size: 0.82rem; margin-bottom: 0.3rem; color: var(--ink-2); }
-  .hint { font-size: 0.76rem; color: var(--ink-3); margin-top: 0.3rem; }
-
-  .form-grid { display: grid; grid-template-columns: 1fr 300px; gap: 1.5rem; align-items: start; }
-  @media (max-width: 860px) { .form-grid { grid-template-columns: 1fr; } }
-
-  .subj-row {
-    display: flex; align-items: center; gap: 0.9rem;
-    border: 1px solid var(--border); border-radius: 12px;
-    padding: 0.9rem 1.1rem; margin-bottom: 0.6rem; background: var(--surface-2);
-  }
-  .subj-row .icon { font-size: 1.4rem; flex: none; }
-  .subj-row .info { flex: 1; min-width: 0; }
-  .subj-row .info b { display: block; font-size: 0.98rem; }
-  .subj-row .info span { font-size: 0.8rem; color: var(--ink-3); }
-  .subj-row .actions { display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center; }
-
-  .pill {
-    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;
-    padding: 0.15rem 0.5rem; border-radius: 100px; font-weight: 700;
-    border: 1px solid currentColor; white-space: nowrap;
-  }
-  .pill.pub { color: var(--good); }
-  .pill.draft { color: var(--warn); }
-
-  .move {
-    border: 1px solid var(--border); background: transparent; cursor: pointer;
-    border-radius: 7px; width: 1.9rem; height: 1.9rem; line-height: 1;
-    color: var(--ink-3); font-size: 0.85rem; font-family: inherit;
-  }
-  .move:hover { border-color: var(--accent); color: var(--accent); }
-  .move[disabled] { opacity: 0.3; cursor: not-allowed; }
-
-  .lesson-row {
-    display: flex; align-items: center; gap: 0.9rem;
-    border: 1px solid var(--border); border-radius: 10px;
-    padding: 0.75rem 0.9rem; margin-bottom: 0.5rem; background: var(--surface-2);
-  }
-  .lesson-row .num {
-    flex: none; width: 1.8rem; height: 1.8rem; border-radius: 100px;
-    display: grid; place-items: center; font-size: 0.78rem;
-    border: 1px solid var(--border); color: var(--ink-3);
-  }
-  .lesson-row .info { flex: 1; min-width: 0; }
-  .lesson-row .info b { display: block; font-size: 0.92rem; }
-  .lesson-row .info span { font-size: 0.78rem; color: var(--ink-3); }
-
-  .empty {
-    border: 1px dashed var(--border); border-radius: 12px;
-    padding: 2rem 1.5rem; text-align: center; color: var(--ink-3);
-  }
-  .inline-form { display: inline; }
-</style>`;
-
-function statusPill(status: string): string {
-  return status === 'draft'
-    ? '<span class="pill draft">Draft</span>'
-    : '<span class="pill pub">Published</span>';
-}
+const CSS = STYLES;
 
 export function tutorialsAdminPage(
   subjects: Subject[],
@@ -139,7 +65,7 @@ ${CSS}
     <a class="btn btn-primary" href="/admin/tutorials/subjects/new">New subject</a>
   </div>
 
-  ${subjects.length ? rows : '<div class="empty"><p>No subjects yet. Create one to start adding lessons.</p></div>'}
+  ${subjects.length ? rows : emptyState('No subjects yet. Create one to start adding lessons.')}
 `;
 
   return layout({
@@ -286,7 +212,7 @@ ${CSS}
     <a class="btn btn-primary" href="/admin/tutorials/subjects/${esc(subject.id)}/lessons/new">New lesson</a>
   </div>
 
-  ${lessons.length ? rows : '<div class="empty"><p>No lessons in this subject yet.</p></div>'}
+  ${lessons.length ? rows : emptyState('No lessons in this subject yet.')}
 `;
 
   return layout({

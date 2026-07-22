@@ -4,9 +4,9 @@ import {
   isScheduled,
   readingMinutes,
   toLocalInput,
-} from '../posts/post.model';
-import { adminNav, esc, layout } from './layout';
-import { CHIP_CSS, CHIP_JS } from './chip-input';
+} from '../../posts/post.model';
+import { adminNav, esc, layout } from '../shared/layout';
+import { CHIP_CSS, CHIP_JS } from '../shared/scripts/chip-input';
 
 const ADMIN_CSS = `
 <style>

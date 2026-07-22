@@ -2,12 +2,12 @@ import { Controller, Get, Param, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { TutorialsService } from './tutorials.service';
 import { renderMarkdown } from '../posts/markdown';
-import { notFoundPage } from '../views/public.pages';
+import { notFoundPage } from '../views/public/posts.pages';
 import {
   subjectPage,
   tutorialPage,
   tutorialsIndexPage,
-} from '../views/tutorials.page';
+} from '../views/public/tutorials.page';
 import { SubjectStats } from './tutorial.model';
 
 @Controller('tutorials')

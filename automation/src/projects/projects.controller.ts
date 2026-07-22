@@ -20,11 +20,11 @@ import {
   projectDetailPage,
   projectsPage,
   taxonomyPage,
-} from '../views/projects.page';
+} from '../views/public/projects.page';
 import {
   projectEditorPage,
   projectsAdminPage,
-} from '../views/projects.admin.page';
+} from '../views/admin/projects.page';
 
 const ADMIN_PAGE_SIZE = 10;
 

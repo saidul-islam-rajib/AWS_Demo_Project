@@ -6,9 +6,9 @@ import {
   readingMinutes,
   relativeDate,
   wordCount,
-} from '../posts/post.model';
-import { avatarMark, esc, IMAGE_SKELETON, layout } from './layout';
-import { getSettings } from '../settings/settings.store';
+} from '../../posts/post.model';
+import { avatarMark, esc, IMAGE_SKELETON, layout } from '../shared/layout';
+import { getSettings } from '../../settings/settings.store';
 
 const FEED_CSS = `
 <style>

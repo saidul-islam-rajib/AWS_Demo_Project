@@ -9,7 +9,7 @@ import {
   notFoundPage,
   postPage,
   tagsPage,
-} from '../views/public.pages';
+} from '../views/public/posts.pages';
 
 @Controller()
 export class PostsController {

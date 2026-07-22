@@ -17,7 +17,11 @@ import type { PostInput } from './post.model';
 import { AuthService } from '../auth/auth.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { LoginThrottleService } from '../auth/login-throttle.service';
-import { dashboardPage, editorPage, loginPage } from '../views/admin.pages';
+import {
+  dashboardPage,
+  editorPage,
+  loginPage,
+} from '../views/admin/posts.pages';
 
 const PAGE_SIZE = 10;
 

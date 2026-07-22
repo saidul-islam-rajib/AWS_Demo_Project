@@ -21,9 +21,9 @@ interface LayoutOptions {
   noindex?: boolean;
 }
 
-import { initials } from '../settings/settings.model';
-import { getSettings } from '../settings/settings.store';
-import { CARD_HEIGHT, CARD_WIDTH } from '../uploads/images.service';
+import { initials } from '../../settings/settings.model';
+import { getSettings } from '../../settings/settings.store';
+import { CARD_HEIGHT, CARD_WIDTH } from '../../uploads/images.service';
 
 export function avatarMark(
   avatarUrl: string,

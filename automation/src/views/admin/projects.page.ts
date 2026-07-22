@@ -4,9 +4,9 @@ import {
   Project,
   SHORT_WORD_LIMIT,
   STATUS_LABELS,
-} from '../projects/project.model';
-import { adminNav, esc, layout } from './layout';
-import { CHIP_CSS, CHIP_JS } from './chip-input';
+} from '../../projects/project.model';
+import { adminNav, esc, layout } from '../shared/layout';
+import { CHIP_CSS, CHIP_JS } from '../shared/scripts/chip-input';
 
 const CSS = `
 <style>

@@ -7,7 +7,7 @@ import {
   Milestone,
   STATUS_LABELS,
   isOngoing,
-} from '../about/about.model';
+} from '../../about/about.model';
 
 function thumb(url: string): string {
   return `<span class="shot-thumb" data-url="${esc(url)}">
@@ -15,7 +15,7 @@ function thumb(url: string): string {
     <button type="button" class="drop-shot" aria-label="Remove image">&times;</button>
   </span>`;
 }
-import { adminNav, esc, layout } from './layout';
+import { adminNav, esc, layout } from '../shared/layout';
 
 const ADMIN_ABOUT_CSS = `
 <style>

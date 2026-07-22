@@ -7,9 +7,9 @@ import {
   isAboutEmpty,
   isCaptionLong,
   milestonePeriod,
-} from '../about/about.model';
-import { getSettings } from '../settings/settings.store';
-import { avatarMark, esc, IMAGE_SKELETON, layout } from './layout';
+} from '../../about/about.model';
+import { getSettings } from '../../settings/settings.store';
+import { avatarMark, esc, IMAGE_SKELETON, layout } from '../shared/layout';
 
 const ABOUT_CSS = `
 <style>

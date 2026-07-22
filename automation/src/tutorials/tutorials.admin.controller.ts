@@ -17,7 +17,7 @@ import {
   subjectEditorPage,
   subjectLessonsPage,
   tutorialsAdminPage,
-} from '../views/tutorials.admin.page';
+} from '../views/admin/tutorials.page';
 
 interface SubjectBody {
   title?: string;

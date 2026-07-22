@@ -1,22 +1,22 @@
 import { Script } from 'vm';
-import { aboutAdminPage } from './about.admin.page';
-import { aboutPage } from './about.page';
-import { dashboardPage, editorPage, loginPage } from './admin.pages';
-import { homePage, postPage, tagsPage } from './public.pages';
-import { projectEditorPage, projectsAdminPage } from './projects.admin.page';
-import { projectDetailPage, projectsPage } from './projects.page';
-import { settingsPage } from './settings.page';
+import { aboutAdminPage } from './admin/about.page';
+import { aboutPage } from './public/about.page';
+import { dashboardPage, editorPage, loginPage } from './admin/posts.pages';
+import { homePage, postPage, tagsPage } from './public/posts.pages';
+import { projectEditorPage, projectsAdminPage } from './admin/projects.page';
+import { projectDetailPage, projectsPage } from './public/projects.page';
+import { settingsPage } from './admin/settings.page';
 import {
   subjectPage,
   tutorialPage,
   tutorialsIndexPage,
-} from './tutorials.page';
+} from './public/tutorials.page';
 import {
   lessonEditorPage,
   subjectEditorPage,
   subjectLessonsPage,
   tutorialsAdminPage,
-} from './tutorials.admin.page';
+} from './admin/tutorials.page';
 import { EMPTY_ABOUT } from '../about/about.model';
 import { DEFAULT_SETTINGS } from '../settings/settings.model';
 import { Post } from '../posts/post.model';

@@ -5,9 +5,9 @@ import {
   TAXONOMY_LABELS,
   repoHost,
   termSlug,
-} from '../projects/project.model';
-import { getSettings } from '../settings/settings.store';
-import { esc, IMAGE_SKELETON, layout } from './layout';
+} from '../../projects/project.model';
+import { getSettings } from '../../settings/settings.store';
+import { esc, IMAGE_SKELETON, layout } from '../shared/layout';
 
 const PROJECTS_CSS = `
 <style>

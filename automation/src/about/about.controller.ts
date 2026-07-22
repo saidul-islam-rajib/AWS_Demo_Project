@@ -22,8 +22,8 @@ import {
   parseSocials,
 } from './about.model';
 import { renderMarkdown } from '../posts/markdown';
-import { aboutPage } from '../views/about.page';
-import { aboutAdminPage } from '../views/about.admin.page';
+import { aboutPage } from '../views/public/about.page';
+import { aboutAdminPage } from '../views/admin/about.page';
 
 interface AboutForm {
   headline?: string;
