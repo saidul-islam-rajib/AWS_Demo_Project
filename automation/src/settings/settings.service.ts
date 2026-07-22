@@ -15,7 +15,6 @@ import {
 } from './settings.model';
 import { setSettings } from './settings.store';
 
-/** Stored beside posts.json on the data volume, so it survives redeploys. */
 @Injectable()
 export class SettingsService {
   private readonly logger = new Logger(SettingsService.name);
@@ -46,8 +45,6 @@ export class SettingsService {
         readFileSync(this.file, 'utf8'),
       ) as Partial<SiteSettings>;
 
-      // Merge over defaults so a settings file written by an older version
-      // does not leave newly added fields undefined.
       setSettings({ ...DEFAULT_SETTINGS, ...stored });
       this.logger.log('Loaded site settings');
     } catch (err) {
@@ -96,7 +93,6 @@ export class SettingsService {
       githubUser: (input.githubUser ?? currentValue.githubUser)
         .trim()
         .replace(/^@/, ''),
-      // An unchecked checkbox submits nothing, so absence means false.
       showIntro: input.showIntro === true,
 
       footerOwner: (input.footerOwner ?? currentValue.footerOwner).trim(),
@@ -117,7 +113,6 @@ export class SettingsService {
       if (!existsSync(this.dataDir))
         mkdirSync(this.dataDir, { recursive: true });
 
-      // Temp file then rename, so a crash mid-write cannot truncate the file.
       const tmp = `${this.file}.tmp`;
       writeFileSync(tmp, JSON.stringify(value, null, 2), 'utf8');
       renameSync(tmp, this.file);

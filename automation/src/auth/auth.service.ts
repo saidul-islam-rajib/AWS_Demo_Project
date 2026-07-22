@@ -1,20 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 
-/**
- * Single-author auth. There is no user table — one password, supplied by the
- * ADMIN_PASSWORD environment variable, unlocks the admin routes.
- *
- * The session cookie is an HMAC-signed expiry stamp, so it cannot be forged
- * without the secret and expires on its own.
- */
 @Injectable()
 export class AuthService {
   static readonly COOKIE = 'blog_session';
 
   private readonly logger = new Logger(AuthService.name);
   private readonly password = process.env.ADMIN_PASSWORD ?? '';
-  /** Regenerated per boot when unset, which invalidates old cookies on restart. */
   private readonly secret =
     process.env.SESSION_SECRET ?? randomBytes(32).toString('hex');
   private readonly maxAgeMs = 1000 * 60 * 60 * 12;
@@ -31,7 +23,6 @@ export class AuthService {
     return this.password.length > 0;
   }
 
-  /** Constant-time comparison so the check does not leak the password by timing. */
   verifyPassword(candidate: string): boolean {
     if (!this.configured || !candidate) return false;
 

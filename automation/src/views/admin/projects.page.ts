@@ -4,9 +4,9 @@ import {
   Project,
   SHORT_WORD_LIMIT,
   STATUS_LABELS,
-} from '../projects/project.model';
-import { adminNav, esc, layout } from './layout';
-import { CHIP_CSS, CHIP_JS } from './chip-input';
+} from '../../projects/project.model';
+import { adminNav, esc, layout } from '../shared/layout';
+import { CHIP_CSS, CHIP_JS } from '../shared/scripts/chip-input';
 
 const CSS = `
 <style>
@@ -125,7 +125,6 @@ export function projectsAdminPage(opts: {
   const pageLink = (n: number, label = String(n), extra = ''): string =>
     `<a href="/admin/projects?page=${n}${query ? `&q=${encodeURIComponent(query)}` : ''}" class="${extra}">${label}</a>`;
 
-  // A window around the current page keeps the control short at any size.
   const windowStart = Math.max(1, Math.min(page - 2, pageCount - 4));
   const windowEnd = Math.min(pageCount, Math.max(page + 2, 5));
   const numbers: string[] = [];

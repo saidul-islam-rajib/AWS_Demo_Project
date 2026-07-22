@@ -19,12 +19,6 @@ import {
   readingMinutes,
 } from './post.model';
 
-/**
- * JSON-file backed store.
- *
- * DATA_DIR must point at a mounted Docker volume, otherwise posts are lost
- * when the pipeline replaces the container on the next deploy.
- */
 @Injectable()
 export class PostsService {
   private readonly logger = new Logger(PostsService.name);
@@ -45,8 +39,6 @@ export class PostsService {
 
       if (existsSync(this.file)) {
         const stored = JSON.parse(readFileSync(this.file, 'utf8')) as Post[];
-        // Posts written before scheduling existed have no publishedAt, and
-        // ones written before hand-picked related posts have no relatedIds.
         this.posts = stored.map((p) => ({
           ...p,
           publishedAt: p.publishedAt ?? p.createdAt,
@@ -62,13 +54,11 @@ export class PostsService {
       this.persist();
       this.logger.log(`Seeded ${this.posts.length} starter post(s)`);
     } catch (err) {
-      // A corrupt file must not take the whole app down.
       this.logger.error(`Could not load posts: ${String(err)}`);
       this.posts = [];
     }
   }
 
-  /** Write to a temp file then rename, so a crash mid-write cannot truncate the store. */
   private persist(): void {
     try {
       const tmp = `${this.file}.tmp`;
@@ -91,8 +81,6 @@ export class PostsService {
     return slug;
   }
 
-  // ---------- reads ----------
-
   findAll(): Post[] {
     return [...this.posts].sort(
       (a, b) =>
@@ -101,17 +89,12 @@ export class PostsService {
     );
   }
 
-  /** Public feed: published, and not scheduled for a future time. */
   findPublished(): Post[] {
     return this.findAll().filter(
       (p) => p.status === 'published' && !isScheduled(p),
     );
   }
 
-  /**
-   * Admin search across every post, drafts and scheduled included, so the
-   * dashboard can find things the public feed deliberately hides.
-   */
   searchAll(query: string): Post[] {
     const q = query.trim().toLowerCase();
     if (!q) return this.findAll();
@@ -124,15 +107,10 @@ export class PostsService {
     );
   }
 
-  /** Published but not yet live. */
   findScheduled(): Post[] {
     return this.findAll().filter(isScheduled);
   }
 
-  /**
-   * One page of posts, newest first, for the dashboard's infinite scroll.
-   * `hasMore` tells the client whether to keep requesting.
-   */
   page(
     offset = 0,
     limit = 10,
@@ -161,7 +139,6 @@ export class PostsService {
     return post;
   }
 
-  /** Published posts matching a free-text query across title, subtitle, body and tags. */
   search(query: string): Post[] {
     const q = query.trim().toLowerCase();
     if (!q) return this.findPublished();
@@ -179,7 +156,6 @@ export class PostsService {
     return this.findPublished().filter((p) => p.tags.includes(t));
   }
 
-  /** Every tag in use, with counts, most used first. */
   tagCounts(): { tag: string; count: number }[] {
     const counts = new Map<string, number>();
 
@@ -225,8 +201,6 @@ export class PostsService {
     this.persist();
   }
 
-  // ---------- writes ----------
-
   create(input: PostInput): Post {
     const now = new Date().toISOString();
     const title = input.title?.trim() || 'Untitled';
@@ -256,7 +230,6 @@ export class PostsService {
     const post = this.findById(id);
     const title = input.title?.trim() || post.title;
 
-    // Only re-slug when the title actually changed, so existing links survive edits.
     if (title !== post.title) {
       post.slug = this.uniqueSlug(title, post.id);
     }
@@ -266,7 +239,6 @@ export class PostsService {
     post.content = input.content ?? '';
     post.highlight = input.highlight?.trim() ?? '';
     post.tags = normaliseTags(input.tags);
-    // A post can never be related to itself, however the form was submitted.
     post.relatedIds = normaliseRelatedIds(input.relatedIds).filter(
       (id) => id !== post.id,
     );
@@ -281,13 +253,6 @@ export class PostsService {
     return post;
   }
 
-  /**
-   * Adds any starter post whose slug is not already present.
-   *
-   * Seeding otherwise only runs on an empty store, so an existing deployment
-   * never sees new starter content. Skipping by slug means posts the author
-   * has since deleted do not come back, and their own work is untouched.
-   */
   importStarters(): { added: number; skipped: number } {
     const existing = new Set(this.posts.map((p) => p.slug));
     const missing = seedPosts().filter((p) => !existing.has(p.slug));
@@ -307,7 +272,6 @@ export class PostsService {
   }
 }
 
-/** Starter content so a fresh deploy is not an empty site. */
 function seedPosts(): Post[] {
   const make = (
     title: string,
@@ -326,8 +290,6 @@ function seedPosts(): Post[] {
       highlight,
       content,
       tags,
-      // Seeded posts suggest by tag; the author picks their own once they
-      // have something in mind.
       relatedIds: [],
       status: 'published',
       publishedAt: created,

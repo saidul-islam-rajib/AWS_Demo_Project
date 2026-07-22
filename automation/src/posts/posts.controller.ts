@@ -9,7 +9,7 @@ import {
   notFoundPage,
   postPage,
   tagsPage,
-} from '../views/public.pages';
+} from '../views/public/posts.pages';
 
 @Controller()
 export class PostsController {
@@ -18,7 +18,6 @@ export class PostsController {
     private readonly projects: ProjectsService,
   ) {}
 
-  /** Site-level figures for the feed sidebar — recency and breadth, not volume. */
   private feedStats() {
     const published = this.posts.findPublished();
     const tags = this.posts.tagCounts();
@@ -56,7 +55,6 @@ export class PostsController {
   tags(): string {
     const tags = this.posts.tagCounts();
 
-    // The handful of recurring themes, each with its latest few posts.
     const featured = tags
       .filter((t) => t.count > 1)
       .slice(0, 6)
@@ -103,20 +101,10 @@ export class PostsController {
 
     const others = published.filter((p) => p.id !== post.id);
 
-    /*
-     * The author's own picks win outright, in the order they are listed. A
-     * pick that has since been deleted, unpublished or scheduled forward
-     * simply drops out, which is why this resolves against the published
-     * list rather than trusting the stored ids.
-     *
-     * They are not topped up to three from the automatic guess: having
-     * chosen, the author gets exactly what they chose.
-     */
     const chosen = post.relatedIds
       .map((id) => others.find((p) => p.id === id))
       .filter((p): p is Post => Boolean(p));
 
-    // Same tag = related; fall back to most recent when nothing overlaps.
     const related = chosen.length
       ? chosen
       : others
@@ -132,7 +120,6 @@ export class PostsController {
     res.send(postPage(post, related, html));
   }
 
-  /** Live search results for the header box. */
   @Get('api/search')
   quickSearch(@Query('q') q = ''): {
     results: { title: string; url: string; kind: string; meta: string }[];

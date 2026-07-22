@@ -1,25 +1,27 @@
 import { Script } from 'vm';
-import { aboutAdminPage } from './about.admin.page';
-import { aboutPage } from './about.page';
-import { dashboardPage, editorPage, loginPage } from './admin.pages';
-import { homePage, postPage, tagsPage } from './public.pages';
-import { projectEditorPage, projectsAdminPage } from './projects.admin.page';
-import { projectDetailPage, projectsPage } from './projects.page';
-import { settingsPage } from './settings.page';
+import { aboutAdminPage } from './admin/about.page';
+import { aboutPage } from './public/about.page';
+import { dashboardPage, editorPage, loginPage } from './admin/posts.pages';
+import { homePage, postPage, tagsPage } from './public/posts.pages';
+import { projectEditorPage, projectsAdminPage } from './admin/projects.page';
+import { projectDetailPage, projectsPage } from './public/projects.page';
+import { settingsPage } from './admin/settings.page';
+import {
+  subjectPage,
+  tutorialPage,
+  tutorialsIndexPage,
+} from './public/tutorials.page';
+import {
+  lessonEditorPage,
+  subjectEditorPage,
+  subjectLessonsPage,
+  tutorialsAdminPage,
+} from './admin/tutorials.page';
 import { EMPTY_ABOUT } from '../about/about.model';
 import { DEFAULT_SETTINGS } from '../settings/settings.model';
 import { Post } from '../posts/post.model';
 import { Project } from '../projects/project.model';
-
-/**
- * Every page ships its behaviour as inline script inside a TS template
- * literal, which means an escape can be silently eaten on the way out: `\n`
- * written as '\n' emits a real newline and breaks the string literal, taking
- * the whole script — and every feature on the page — down with it.
- *
- * A page that renders fine can still ship dead JavaScript, so these parse the
- * emitted scripts rather than trusting the source.
- */
+import { Subject, Tutorial } from '../tutorials/tutorial.model';
 
 const post: Post = {
   id: 'p1',
@@ -29,6 +31,7 @@ const post: Post = {
   content: '# Heading\n\nBody text.',
   highlight: '',
   tags: ['docker'],
+  relatedIds: [],
   status: 'published',
   publishedAt: '2026-01-01T00:00:00.000Z',
   createdAt: '2026-01-01T00:00:00.000Z',
@@ -69,6 +72,40 @@ const stats = {
   views: 3,
   words: 3,
   readingMinutes: 1,
+};
+
+const subject: Subject = {
+  id: 's1',
+  slug: 'networking',
+  title: 'Networking',
+  summary: 'How machines find each other.',
+  icon: '🌐',
+  order: 1,
+  status: 'published',
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+};
+
+const lesson: Tutorial = {
+  id: 't1',
+  subjectId: 's1',
+  slug: 'ip-addresses',
+  title: 'What an IP address is',
+  summary: 'Addressing and subnets.',
+  content: '## Addressing\n\nBody text.',
+  difficulty: 'beginner',
+  order: 1,
+  status: 'published',
+  tags: ['networking'],
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+  views: 2,
+};
+
+const subjectStat = {
+  total: 1,
+  minutes: 4,
+  difficulties: ['beginner'] as const,
 };
 
 const pages: [string, () => string][] = [
@@ -119,6 +156,49 @@ const pages: [string, () => string][] = [
   ],
   ['project editor (new)', () => projectEditorPage()],
   ['project editor (edit)', () => projectEditorPage(project)],
+  [
+    'tutorials index',
+    () =>
+      tutorialsIndexPage(
+        [subject],
+        new Map([[subject.id, { ...subjectStat, difficulties: ['beginner'] }]]),
+        new Map([[subject.id, [lesson.id]]]),
+        { subjects: 1, tutorials: 1, minutes: 4 },
+      ),
+  ],
+  [
+    'tutorial subject',
+    () =>
+      subjectPage(subject, [lesson], {
+        ...subjectStat,
+        difficulties: ['beginner'],
+      }),
+  ],
+  [
+    'tutorial lesson',
+    () =>
+      tutorialPage(
+        subject,
+        lesson,
+        [lesson],
+        { position: 1, total: 1 },
+        '<p>x</p>',
+      ),
+  ],
+  [
+    'tutorials admin',
+    () =>
+      tutorialsAdminPage(
+        [subject],
+        new Map([[subject.id, { ...subjectStat, difficulties: ['beginner'] }]]),
+        new Map([[subject.id, 0]]),
+      ),
+  ],
+  ['subject editor (new)', () => subjectEditorPage()],
+  ['subject editor (edit)', () => subjectEditorPage(subject)],
+  ['subject lessons', () => subjectLessonsPage(subject, [lesson])],
+  ['lesson editor (new)', () => lessonEditorPage([subject], subject)],
+  ['lesson editor (edit)', () => lessonEditorPage([subject], subject, lesson)],
 ];
 
 function inlineScripts(html: string): string[] {
@@ -130,14 +210,10 @@ describe('inline scripts', () => {
     const scripts = inlineScripts(render());
 
     for (const source of scripts) {
-      // Throws on a syntax error, which is exactly what a broken escape causes.
       expect(() => new Script(source)).not.toThrow();
     }
   });
 
-  // A literal backslash-n between meta tags rendered as visible text at the
-  // top of every page, because inside a template expression '\n' is two
-  // characters rather than a newline.
   it.each(pages)(
     '%s has no literal escape sequence in its head',
     (_name, render) => {
@@ -151,7 +227,6 @@ describe('inline scripts', () => {
   );
 
   it('parses the scripts it is meant to guard', () => {
-    // Sanity check: the helper must actually be finding scripts.
     expect(inlineScripts(aboutAdminPage(EMPTY_ABOUT)).length).toBeGreaterThan(
       0,
     );

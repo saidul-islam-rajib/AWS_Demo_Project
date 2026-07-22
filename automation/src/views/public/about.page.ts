@@ -7,9 +7,9 @@ import {
   isAboutEmpty,
   isCaptionLong,
   milestonePeriod,
-} from '../about/about.model';
-import { getSettings } from '../settings/settings.store';
-import { avatarMark, esc, IMAGE_SKELETON, layout } from './layout';
+} from '../../about/about.model';
+import { getSettings } from '../../settings/settings.store';
+import { avatarMark, esc, IMAGE_SKELETON, layout } from '../shared/layout';
 
 const ABOUT_CSS = `
 <style>
@@ -451,10 +451,6 @@ const GALLERY_JS = `
 })();
 </script>`;
 
-/**
- * Uploads are served resized from /img; anything else (an external URL) is
- * passed through untouched.
- */
 function sized(url: string, width: number): string {
   if (!url.startsWith('/uploads/')) return url;
   return `/img/${url.slice('/uploads/'.length)}?w=${width}`;
@@ -464,7 +460,6 @@ export function aboutPage(
   about: AboutContent,
   introHtml: string,
   isAdmin = false,
-  /** Milestone descriptions, pre-rendered from markdown, in the same order. */
   milestoneHtml: string[] = [],
 ): string {
   const s = getSettings();
@@ -556,9 +551,7 @@ export function aboutPage(
                     width="400" height="300"
                     alt="${esc(item.caption || 'Photo')}"
                     loading="lazy" decoding="async" />`
-                  : // Held back until the reader actually pages to it, so a
-                    // record with six images still costs one request.
-                    `<img class="skel"
+                  : `<img class="skel"
                     data-src="${esc(sized(url, 400))}"
                     data-srcset="${esc(sized(url, 400))} 400w, ${esc(sized(url, 800))} 800w"
                     sizes="(max-width: 600px) 45vw, 220px"
@@ -653,8 +646,6 @@ ${IMAGE_SKELETON}
       <p style="margin-top:1.25rem"><a class="btn btn-ghost" href="/">Read the blog</a> <a class="btn btn-ghost" href="/projects">See the projects</a></p>
     </div>`
       : `${
-          // Seeded sections alone are not the author speaking, so nudge them
-          // to add the parts only they can write. Admin only.
           isAdmin && isAboutEmpty(about)
             ? `<div class="flash" style="margin-bottom:2rem">
         Skills and learning items are starter content.

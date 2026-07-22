@@ -2,17 +2,10 @@ import { Controller, Get, Header } from '@nestjs/common';
 import { PostsService } from '../posts/posts.service';
 import { ProjectsService } from '../projects/projects.service';
 import { SettingsService } from '../settings/settings.service';
+import { TutorialsService } from '../tutorials/tutorials.service';
 import { termSlug } from '../projects/project.model';
-
-/** Escape the five characters that are not legal as raw text in XML. */
-function xml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
+import { renderMarkdown } from '../posts/markdown';
+import { buildFeed, xmlEscape as xml } from './feed.model';
 
 @Controller()
 export class SeoController {
@@ -20,6 +13,7 @@ export class SeoController {
     private readonly posts: PostsService,
     private readonly projects: ProjectsService,
     private readonly settings: SettingsService,
+    private readonly tutorials: TutorialsService,
   ) {}
 
   @Get('sitemap.xml')
@@ -29,10 +23,27 @@ export class SeoController {
 
     const entries: { loc: string; lastmod?: string; priority: string }[] = [
       { loc: '/', priority: '1.0' },
+      { loc: '/tutorials', priority: '0.9' },
       { loc: '/projects', priority: '0.9' },
       { loc: '/about', priority: '0.8' },
       { loc: '/tags', priority: '0.6' },
     ];
+
+    for (const subject of this.tutorials.findSubjects()) {
+      entries.push({
+        loc: `/tutorials/${subject.slug}`,
+        lastmod: subject.updatedAt.slice(0, 10),
+        priority: '0.8',
+      });
+
+      for (const lesson of this.tutorials.lessons(subject.id)) {
+        entries.push({
+          loc: `/tutorials/${subject.slug}/${lesson.slug}`,
+          lastmod: lesson.updatedAt.slice(0, 10),
+          priority: '0.7',
+        });
+      }
+    }
 
     for (const post of this.posts.findPublished()) {
       entries.push({
@@ -54,7 +65,6 @@ export class SeoController {
       entries.push({ loc: `/tag/${tag}`, priority: '0.5' });
     }
 
-    // Every taxonomy term is its own indexable page.
     for (const taxonomy of ['tech', 'topics', 'keywords', 'tags'] as const) {
       for (const { term } of this.projects.terms(taxonomy)) {
         entries.push({
@@ -77,6 +87,22 @@ export class SeoController {
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls}
 </urlset>`;
+  }
+
+  @Get('feed.xml')
+  @Header('Content-Type', 'application/rss+xml; charset=utf-8')
+  feed(): string {
+    const settings = this.settings.get();
+
+    return buildFeed({
+      base: settings.siteUrl,
+      title: settings.siteTitle,
+      description:
+        settings.shareIntro || settings.siteTagline || settings.authorBio,
+      authorName: settings.authorName,
+      posts: this.posts.findPublished(),
+      renderHtml: renderMarkdown,
+    });
   }
 
   @Get('robots.txt')

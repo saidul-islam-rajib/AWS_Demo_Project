@@ -14,7 +14,6 @@ import {
   normaliseMilestone,
 } from './about.model';
 
-/** Stored beside posts.json and settings.json on the data volume. */
 @Injectable()
 export class AboutService {
   private readonly logger = new Logger(AboutService.name);
@@ -35,9 +34,6 @@ export class AboutService {
         readFileSync(this.file, 'utf8'),
       ) as Partial<AboutContent>;
 
-      // Merge over the empty shape so a file written by an older version
-      // never leaves a newly added section undefined, then repair individual
-      // milestones, which the top-level merge cannot reach.
       const merged = { ...EMPTY_ABOUT, ...stored };
       return {
         ...merged,
@@ -55,7 +51,6 @@ export class AboutService {
       if (!existsSync(this.dataDir))
         mkdirSync(this.dataDir, { recursive: true });
 
-      // Temp file then rename, so a crash mid-write cannot truncate it.
       const tmp = `${this.file}.tmp`;
       writeFileSync(tmp, JSON.stringify(content, null, 2), 'utf8');
       renameSync(tmp, this.file);

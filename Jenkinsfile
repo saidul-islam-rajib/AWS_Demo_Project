@@ -18,11 +18,18 @@ pipeline {
         EMAIL          = 'saidul.rajib.bd@gmail.com'
         PORT           = '3000'
         APP_DIR        = 'automation'
-        PUBLIC_URL     = 'http://16.171.254.209:3000'
+        PUBLIC_URL     = 'https://16.171.254.209.sslip.io'
         // Named volume holding posts.json, so content survives redeploys.
         DATA_VOLUME    = 'blog_data'
         // Secrets live on the host, never in this repository.
         ENV_FILE       = '/opt/blog/.env'
+
+        BLUE_PORT      = '3001'
+        GREEN_PORT     = '3002'
+        UPSTREAM_FILE  = '/etc/caddy/upstream.conf'
+
+        BACKUP_DIR     = '/opt/blog/backups'
+        S3_BUCKET      = ''
     }
 
     stages {
@@ -86,13 +93,33 @@ pipeline {
             }
         }
 
+        stage('Backup') {
+            steps {
+                sh '''
+                    if [ ! -f scripts/backup.sh ]; then
+                        echo "scripts/backup.sh missing — skipping backup."
+                        exit 0
+                    fi
+
+                    set +e
+                    BACKUP_DIR="$BACKUP_DIR" S3_BUCKET="$S3_BUCKET" \
+                        DATA_VOLUME="$DATA_VOLUME" sh scripts/backup.sh
+                    rc=$?
+                    set -e
+
+                    if [ "$rc" = "2" ]; then
+                        echo "WARNING: backup skipped for lack of disk space."
+                    elif [ "$rc" != "0" ]; then
+                        echo "Backup failed (exit $rc). Refusing to deploy over unbacked-up data."
+                        exit "$rc"
+                    fi
+                '''
+            }
+        }
+
         stage('Deploy') {
             steps {
                 sh '''
-                    docker stop $CONTAINER_NAME || true
-                    docker rm $CONTAINER_NAME || true
-
-                    # Named volume keeps posts.json across redeploys.
                     docker volume create $DATA_VOLUME > /dev/null
 
                     # ADMIN_PASSWORD lives on the host, not in git. Without it the
@@ -112,13 +139,80 @@ pipeline {
                         echo "WARNING: $ENV_FILE not found — admin sign-in will be disabled."
                     fi
 
+                    if ! command -v caddy > /dev/null 2>&1; then
+                        echo "Caddy not installed — deploying single-container on $PORT."
+                        echo "This path has brief downtime. See deploy/README.md to set up TLS."
+
+                        docker stop $CONTAINER_NAME || true
+                        docker rm $CONTAINER_NAME || true
+
+                        docker run -d \
+                            --name $CONTAINER_NAME \
+                            --restart unless-stopped \
+                            -p ${PORT}:${PORT} \
+                            -v $DATA_VOLUME:/app/data \
+                            $ENV_ARG \
+                            $IMAGE_NAME:$BUILD_NUMBER
+
+                        echo "$PORT" > .deployed-port
+                        exit 0
+                    fi
+
+                    ACTIVE_PORT=$(grep -o '127\\.0\\.0\\.1:[0-9]*' "$UPSTREAM_FILE" 2>/dev/null \
+                        | head -1 | cut -d: -f2)
+
+                    if [ "$ACTIVE_PORT" = "$BLUE_PORT" ]; then
+                        NEW_COLOR=green; NEW_PORT=$GREEN_PORT
+                        OLD_COLOR=blue;  OLD_PORT=$BLUE_PORT
+                    else
+                        NEW_COLOR=blue;  NEW_PORT=$BLUE_PORT
+                        OLD_COLOR=green; OLD_PORT=$GREEN_PORT
+                    fi
+
+                    NEW_NAME="${CONTAINER_NAME}-${NEW_COLOR}"
+                    OLD_NAME="${CONTAINER_NAME}-${OLD_COLOR}"
+
+                    echo "Active upstream: ${ACTIVE_PORT:-none} — deploying $NEW_COLOR on $NEW_PORT."
+
+                    docker stop "$NEW_NAME" > /dev/null 2>&1 || true
+                    docker rm   "$NEW_NAME" > /dev/null 2>&1 || true
+
                     docker run -d \
-                        --name $CONTAINER_NAME \
+                        --name "$NEW_NAME" \
                         --restart unless-stopped \
-                        -p ${PORT}:${PORT} \
+                        -p 127.0.0.1:${NEW_PORT}:${PORT} \
                         -v $DATA_VOLUME:/app/data \
                         $ENV_ARG \
                         $IMAGE_NAME:$BUILD_NUMBER
+
+                    echo "Waiting for $NEW_COLOR to answer on $NEW_PORT..."
+                    ok=""
+                    for i in $(seq 1 20); do
+                        if curl -fsS --max-time 3 "http://127.0.0.1:${NEW_PORT}/health" > /dev/null 2>&1; then
+                            echo "  healthy after ${i} attempt(s)."
+                            ok="yes"
+                            break
+                        fi
+                        sleep 2
+                    done
+
+                    if [ -z "$ok" ]; then
+                        echo "$NEW_COLOR never became healthy. Logs:"
+                        docker logs --tail 40 "$NEW_NAME" || true
+                        echo "Removing it. $OLD_COLOR is still serving — the site did not go down."
+                        docker stop "$NEW_NAME" > /dev/null 2>&1 || true
+                        docker rm   "$NEW_NAME" > /dev/null 2>&1 || true
+                        exit 1
+                    fi
+
+                    sh scripts/switch-upstream.sh "$NEW_PORT"
+
+                    if [ "$(docker ps -q -f name="^${OLD_NAME}$")" ]; then
+                        echo "Stopping $OLD_COLOR."
+                        docker stop "$OLD_NAME" > /dev/null || true
+                    fi
+
+                    echo "$NEW_PORT" > .deployed-port
                 '''
             }
         }
@@ -126,19 +220,33 @@ pipeline {
         stage('Verify') {
             steps {
                 sh '''
-                    echo "Waiting for the app to answer on port $PORT..."
+                    PORT_TO_CHECK=$(cat .deployed-port 2>/dev/null || echo "$PORT")
+
+                    echo "Checking the deployed container on port $PORT_TO_CHECK..."
                     for i in $(seq 1 20); do
-                        if curl -fsS http://localhost:${PORT}/health > /dev/null 2>&1; then
+                        if curl -fsS "http://127.0.0.1:${PORT_TO_CHECK}/health" > /dev/null 2>&1; then
                             echo "Health check passed after ${i} attempt(s)."
-                            curl -s http://localhost:${PORT}/health
-                            exit 0
+                            curl -s "http://127.0.0.1:${PORT_TO_CHECK}/health"
+                            echo ""
+                            break
+                        fi
+                        if [ "$i" = "20" ]; then
+                            echo "Health check never passed."
+                            exit 1
                         fi
                         sleep 2
                     done
 
-                    echo "Health check never passed. Container logs:"
-                    docker logs --tail 40 $CONTAINER_NAME || true
-                    exit 1
+                    if command -v caddy > /dev/null 2>&1; then
+                        echo "Checking the public URL through Caddy..."
+                        if curl -fsS --max-time 10 "${PUBLIC_URL}/health" > /dev/null 2>&1; then
+                            echo "Public URL is answering over HTTPS."
+                        else
+                            echo "WARNING: ${PUBLIC_URL}/health did not answer."
+                            echo "         The container is healthy, so this is a proxy or"
+                            echo "         certificate problem rather than a bad release."
+                        fi
+                    fi
                 '''
             }
         }
@@ -182,6 +290,9 @@ pipeline {
 Blog:   ${PUBLIC_URL}/
 Login:  ${PUBLIC_URL}/login
 Health: ${PUBLIC_URL}/health
+Feed:   ${PUBLIC_URL}/feed.xml
+
+The data volume was snapshotted to ${BACKUP_DIR} before this deploy.
 
 Build:  ${BUILD_URL}""",
                 to: "${EMAIL}"
@@ -190,7 +301,13 @@ Build:  ${BUILD_URL}""",
         failure {
             emailext(
                 subject: "Deploy FAILED — build #${BUILD_NUMBER}",
-                body: """The pipeline failed. The previously deployed container may still be running.
+                body: """The pipeline failed.
+
+The new container is only switched to after it passes a health check, so a
+failure before that point leaves the previous release serving traffic. Check
+the console before assuming the site is down:
+
+    ${PUBLIC_URL}/health
 
 Console: ${BUILD_URL}console""",
                 to: "${EMAIL}"

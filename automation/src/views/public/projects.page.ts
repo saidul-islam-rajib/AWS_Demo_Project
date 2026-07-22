@@ -5,9 +5,9 @@ import {
   TAXONOMY_LABELS,
   repoHost,
   termSlug,
-} from '../projects/project.model';
-import { getSettings } from '../settings/settings.store';
-import { esc, IMAGE_SKELETON, layout } from './layout';
+} from '../../projects/project.model';
+import { getSettings } from '../../settings/settings.store';
+import { esc, IMAGE_SKELETON, layout } from '../shared/layout';
 
 const PROJECTS_CSS = `
 <style>
@@ -153,7 +153,6 @@ const PROJECTS_CSS = `
   .proj-detailed pre code { background: none; border: 0; padding: 0; }
 </style>`;
 
-/** Everything a projects view puts in the page before its markup. */
 const PROJECTS_HEAD = `${PROJECTS_CSS}
 ${IMAGE_SKELETON}`;
 
@@ -274,7 +273,6 @@ ${PROJECTS_HEAD}
 export function projectDetailPage(
   project: Project,
   related: Project[],
-  /** Detailed description, pre-rendered from markdown. */
   detailedHtml = '',
 ): string {
   const s = getSettings();
@@ -294,7 +292,6 @@ export function projectDetailPage(
     </div>`
       : '';
 
-  // Structured data helps Google show this as a rich result.
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareSourceCode',

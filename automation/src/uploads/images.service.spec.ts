@@ -21,7 +21,6 @@ describe('ImagesService', () => {
   let dir: string;
   let service: ImagesService;
 
-  /** A real encoded image, so sharp has something genuine to work on. */
   const writeImage = async (name: string, width: number, height: number) => {
     const buffer = await sharp({
       create: {
@@ -69,8 +68,6 @@ describe('ImagesService', () => {
     await writeImage('big.png', 1600, 1200);
 
     const variant = await service.variant('big.png', 400);
-    // Read into a buffer first: reading by path leaves the file open, which
-    // then blocks the temp directory cleanup on Windows.
     const meta = await sharp(readFileSync(variant as string)).metadata();
 
     expect(meta.width).toBe(400);
@@ -89,8 +86,6 @@ describe('ImagesService', () => {
   });
 
   it('applies EXIF orientation instead of serving the raw sensor image', async () => {
-    // Red on top, blue underneath, tagged as needing a 180 degree rotation —
-    // exactly what a phone writes when the photo was taken upside down.
     const top = await sharp({
       create: {
         width: 400,
@@ -136,8 +131,6 @@ describe('ImagesService', () => {
       .raw()
       .toBuffer();
 
-    // Rotating 180 degrees brings the blue half to the top. Without
-    // auto-orientation the resize drops the tag and this stays red.
     expect(pixels[2]).toBeGreaterThan(pixels[0]);
   });
 
@@ -146,7 +139,6 @@ describe('ImagesService', () => {
 
     const variant = await service.variant('small.png', 800);
 
-    // Returns the original rather than a blown-up copy.
     expect(variant).toBe(join(uploadDir(), 'small.png'));
   });
 
@@ -180,8 +172,6 @@ describe('ImagesService', () => {
     await writeImage('big.png', 1600, 1200);
     await service.variant('big.png', 400);
 
-    // Otherwise the cache would be listed as a user upload and served
-    // by the static handler.
     expect(existsSync(join(dir, 'cache', 'images'))).toBe(true);
     expect(existsSync(join(uploadDir(), 'cache'))).toBe(false);
   });
@@ -192,8 +182,6 @@ describe('ImagesService', () => {
 
   describe('social card', () => {
     it('turns a portrait photo into a landscape card', async () => {
-      // The real avatar that prompted this was 492x612 while the page
-      // claimed it was 1200x630.
       await writeImage('me.png', 492, 612);
 
       const card = (await service.socialCard('me.png')) as string;
@@ -209,7 +197,6 @@ describe('ImagesService', () => {
       const card = (await service.socialCard('me.png')) as string;
       const meta = await sharp(readFileSync(card)).metadata();
 
-      // webp previews are unevenly supported and can silently show nothing.
       expect(meta.format).toBe('jpeg');
     });
 

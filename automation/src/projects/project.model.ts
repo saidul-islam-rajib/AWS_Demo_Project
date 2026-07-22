@@ -21,9 +21,7 @@ export interface Project {
   id: string;
   slug: string;
   title: string;
-  /** Short summary, capped at SHORT_WORD_LIMIT. Used on cards. */
   description: string;
-  /** Long form, markdown, capped at DETAILED_WORD_LIMIT. Detail page only. */
   detailedDescription: string;
   showShort: boolean;
   showDetailed: boolean;
@@ -47,11 +45,6 @@ export interface ProjectInput {
   title?: string;
   description?: string;
   detailedDescription?: string;
-  /**
-   * The form pairs each checkbox with a hidden "off" input, so the key is
-   * always submitted: ["off", "on"] when checked, "off" when not. Absent
-   * entirely means the caller is not a form — a seed or a GitHub import.
-   */
   showShort?: string | string[] | boolean;
   showDetailed?: string | string[] | boolean;
   coverUrl?: string;
@@ -75,17 +68,12 @@ export function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
-/**
- * Trims to a word budget rather than rejecting, so a slightly-too-long
- * description still saves instead of losing the author's work.
- */
 export function limitWords(text: string, max: number): string {
   const words = text.trim().split(/\s+/).filter(Boolean);
   if (words.length <= max) return text.trim();
   return `${words.slice(0, max).join(' ')}…`;
 }
 
-/** The four taxonomies a project can be browsed by. */
 export type Taxonomy = 'tech' | 'tags' | 'keywords' | 'topics';
 
 export const TAXONOMY_FIELD: Record<Taxonomy, keyof Project> = {
@@ -102,10 +90,6 @@ export const TAXONOMY_LABELS: Record<Taxonomy, string> = {
   topics: 'Topic',
 };
 
-/**
- * Lowercased, trimmed, deduplicated. Display casing is not preserved because
- * these double as URL segments and must match regardless of how they were typed.
- */
 export function normaliseList(value?: string | string[], cap = 20): string[] {
   if (!value) return [];
 
@@ -121,7 +105,6 @@ export function normaliseList(value?: string | string[], cap = 20): string[] {
   ];
 }
 
-/** URL segment for a taxonomy term, e.g. "ASP.NET Core" -> "asp-net-core". */
 export function termSlug(term: string): string {
   return slugify(term.replace(/\./g, '-'));
 }
@@ -137,7 +120,6 @@ export function parseStatus(value?: string): ProjectStatus {
   return PROJECT_STATUSES.includes(candidate) ? candidate : 'completed';
 }
 
-/** GitHub renders a social preview for every public repo. */
 export function githubCover(repoUrl: string): string {
   const match = /github\.com\/([^/]+)\/([^/?#]+)/i.exec(repoUrl);
   if (!match) return '';
@@ -160,7 +142,6 @@ export function sanitiseInput(
   const explicitCover = safeUrl(input.coverUrl ?? '');
 
   const flag = (value: string | string[] | boolean | undefined): boolean => {
-    // Not submitted at all: a seed or an import, which should show both.
     if (value === undefined) return true;
     if (typeof value === 'boolean') return value;
     if (Array.isArray(value)) return value.includes('on');
@@ -176,7 +157,6 @@ export function sanitiseInput(
     ),
     showShort: flag(input.showShort),
     showDetailed: flag(input.showDetailed),
-    // Fall back to GitHub's generated preview so a project is never imageless.
     coverUrl: explicitCover || githubCover(repoUrl),
     repoUrl,
     demoUrl: safeUrl(input.demoUrl ?? ''),

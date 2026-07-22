@@ -129,8 +129,6 @@ describe('ProjectsService', () => {
     process.env.DATA_DIR = dir;
     service = new ProjectsService();
 
-    // A fresh store seeds the starter projects. Clear them so each test
-    // works against a known set; seeding has its own describe block below.
     for (const project of service.findAll()) service.remove(project.id);
   });
 
@@ -349,7 +347,6 @@ describe('ProjectsService', () => {
       title: 'Hidden detail',
       description: 'short',
       detailedDescription: 'long',
-      // Exactly what the form submits: hidden "off" plus the checkbox when ticked.
       showShort: ['off', 'on'],
       showDetailed: 'off',
     });

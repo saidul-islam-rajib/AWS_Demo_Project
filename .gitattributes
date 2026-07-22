@@ -1,0 +1,16 @@
+* text=auto eol=lf
+
+*.sh                 text eol=lf
+Dockerfile           text eol=lf
+Jenkinsfile          text eol=lf
+deploy/Caddyfile     text eol=lf
+deploy/upstream.conf text eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary

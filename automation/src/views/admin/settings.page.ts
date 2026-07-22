@@ -1,5 +1,5 @@
-import { SiteSettings } from '../settings/settings.model';
-import { adminNav, avatarMark, esc, layout } from './layout';
+import { SiteSettings } from '../../settings/settings.model';
+import { adminNav, avatarMark, esc, layout } from '../shared/layout';
 
 export function settingsPage(s: SiteSettings, saved = false): string {
   const linkRows = [

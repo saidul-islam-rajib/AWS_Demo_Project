@@ -7,16 +7,15 @@ import {
   Milestone,
   STATUS_LABELS,
   isOngoing,
-} from '../about/about.model';
+} from '../../about/about.model';
 
-/** One image chip inside a photo record, with its own remove control. */
 function thumb(url: string): string {
   return `<span class="shot-thumb" data-url="${esc(url)}">
     <img src="${esc(url)}" alt="" />
     <button type="button" class="drop-shot" aria-label="Remove image">&times;</button>
   </span>`;
 }
-import { adminNav, esc, layout } from './layout';
+import { adminNav, esc, layout } from '../shared/layout';
 
 const ADMIN_ABOUT_CSS = `
 <style>

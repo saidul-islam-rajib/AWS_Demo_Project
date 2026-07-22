@@ -12,7 +12,7 @@ import type { Response } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
 import { SettingsService } from './settings.service';
 import { parseFooterLinks } from './settings.model';
-import { settingsPage } from '../views/settings.page';
+import { settingsPage } from '../views/admin/settings.page';
 
 interface SettingsForm {
   authorName?: string;

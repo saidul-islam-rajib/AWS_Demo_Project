@@ -14,11 +14,6 @@ import { diskStorage } from 'multer';
 import { AuthGuard } from '../auth/auth.guard';
 import { MAX_UPLOAD_BYTES, UploadsService, uploadDir } from './uploads.service';
 
-/**
- * Interceptor options are evaluated when the class is decorated, so these
- * callbacks must resolve the directory lazily rather than close over a
- * service instance built at import time.
- */
 const allowed = new UploadsService();
 
 @Controller('admin/uploads')
@@ -61,7 +56,6 @@ export class UploadsController {
       url: `/uploads/${file.filename}`,
       name: file.filename,
       size: file.size,
-      // Ready to paste straight into the editor.
       markdown: `![${file.originalname.replace(/\.[^.]+$/, '')}](/uploads/${file.filename})`,
     };
   }

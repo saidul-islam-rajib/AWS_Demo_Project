@@ -31,8 +31,6 @@ describe('renderMarkdown', () => {
   });
 
   it('escapes an image built from untrusted text', () => {
-    // Writing the tag by hand took escaping away from marked, so quotes in a
-    // src or alt must not be able to close the attribute and add their own.
     const html = renderMarkdown(
       '![" onerror="alert(1)](/uploads/a.png?x="&y=1)',
     );

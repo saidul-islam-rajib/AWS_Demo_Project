@@ -9,7 +9,6 @@ describe('LoginThrottleService', () => {
   let throttle: LoginThrottleService;
   const IP = '203.0.113.9';
 
-  /** Time is injected rather than mocked, so these run instantly. */
   const now = 1_700_000_000_000;
 
   beforeEach(() => {
@@ -59,7 +58,6 @@ describe('LoginThrottleService', () => {
   });
 
   it('locks one address without touching another', () => {
-    // Otherwise one attacker could lock the author out of their own site.
     failTimes(MAX_ATTEMPTS);
 
     expect(throttle.blocked(IP, now)).toBe(true);
@@ -67,7 +65,6 @@ describe('LoginThrottleService', () => {
   });
 
   it('forgets failures that fall outside the window', () => {
-    // A typo today should not combine with one from last week.
     failTimes(MAX_ATTEMPTS - 1);
 
     const later = now + WINDOW_MS + 1;
@@ -84,13 +81,10 @@ describe('LoginThrottleService', () => {
   });
 
   it('does not grow without bound as addresses come and go', () => {
-    // The map is keyed by attacker-controlled input, so stale entries have
-    // to be collected or this is a memory leak with a hostile author.
     for (let i = 0; i < 500; i++) {
       throttle.recordFailure(`10.0.0.${i}`, now);
     }
 
-    // One later failure sweeps everything that can no longer matter.
     throttle.recordFailure('10.1.0.1', now + WINDOW_MS + 1);
 
     const size = (throttle as unknown as { attempts: Map<string, unknown> })

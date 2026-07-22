@@ -24,7 +24,6 @@ describe('post.model', () => {
     });
 
     it('treats an omitted field as no picks at all', () => {
-      // Which is what makes the automatic suggestions the default.
       expect(normaliseRelatedIds(undefined)).toEqual([]);
       expect(normaliseRelatedIds('')).toEqual([]);
     });
