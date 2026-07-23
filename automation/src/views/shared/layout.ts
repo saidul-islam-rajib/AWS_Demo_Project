@@ -419,7 +419,9 @@ ${head}
 
   /* ---------- forms ---------- */
   label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--ink-2); margin-bottom: 0.4rem; }
-  input[type="text"], input[type="password"], input[type="search"], textarea, select {
+  input[type="text"], input[type="password"], input[type="search"],
+  input[type="email"], input[type="url"], input[type="number"],
+  input[type="date"], textarea, select {
     width: 100%; padding: 0.65rem 0.8rem;
     background: var(--surface); color: var(--ink);
     border: 1px solid var(--border); border-radius: 8px;
