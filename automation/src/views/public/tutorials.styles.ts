@@ -127,6 +127,8 @@ const LESSON_PAGE_STYLES = `
   }
   .tut-article-meta .dot { opacity: 0.4; }
 
+  .lesson-end { height: 1px; margin-top: -1px; }
+
   .lesson-status {
     display: flex; align-items: center; gap: 0.85rem; flex-wrap: wrap;
     margin-top: 2rem;

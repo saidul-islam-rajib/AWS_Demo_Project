@@ -80,12 +80,11 @@ ${CSS}
 
   return layout({
     title: 'Tutorials · Admin',
-    body,
+    body: body + SORTABLE_SCRIPT,
     nav: adminNav('/admin/tutorials'),
     variant: 'admin',
     path: '/admin/tutorials',
     noindex: true,
-    head: SORTABLE_SCRIPT,
   });
 }
 
@@ -240,12 +239,11 @@ ${CSS}
 
   return layout({
     title: `${subject.title} lessons · Admin`,
-    body,
+    body: body + SORTABLE_SCRIPT,
     nav: adminNav('/admin/tutorials'),
     variant: 'admin',
     path: '/admin/tutorials',
     noindex: true,
-    head: SORTABLE_SCRIPT,
   });
 }
 

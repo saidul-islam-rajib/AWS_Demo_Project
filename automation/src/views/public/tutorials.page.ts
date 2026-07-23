@@ -19,7 +19,7 @@ import {
 import { PROGRESS_TRACKER_SCRIPT } from '../shared/scripts/progress-tracker';
 import { TUTORIALS_STYLES } from './tutorials.styles';
 
-const HEAD = TUTORIALS_STYLES + PROGRESS_TRACKER_SCRIPT;
+const HEAD = TUTORIALS_STYLES;
 
 function levelBadge(level: string): string {
   return badge(
@@ -91,7 +91,7 @@ export function tutorialsIndexPage(
     title: 'Tutorials',
     description:
       'Subject-by-subject tutorials on backend development, DevOps and cloud infrastructure.',
-    body,
+    body: body + PROGRESS_TRACKER_SCRIPT,
     path: '/tutorials',
     head: HEAD,
   });
@@ -148,7 +148,7 @@ export function subjectPage(
     description:
       subject.summary ||
       `${stats.total} tutorials on ${subject.title.toLowerCase()}.`,
-    body,
+    body: body + PROGRESS_TRACKER_SCRIPT,
     path: `/tutorials/${subject.slug}`,
     head: HEAD,
   });
@@ -207,7 +207,7 @@ export function tutorialPage(
 
         <div class="prose">${contentHtml}</div>
 
-        <div data-lesson-end aria-hidden="true"></div>
+        <div class="lesson-end" data-lesson-end aria-hidden="true"></div>
 
         <div class="lesson-status">
           <button type="button" class="mark-done" data-mark-done="${esc(tutorial.id)}" aria-pressed="false">
@@ -227,7 +227,7 @@ export function tutorialPage(
   return layout({
     title: tutorial.title,
     description: tutorial.summary || `${subject.title} tutorial.`,
-    body,
+    body: body + PROGRESS_TRACKER_SCRIPT,
     path: `/tutorials/${subject.slug}/${tutorial.slug}`,
     ogType: 'article',
     publishedAt: tutorial.createdAt,

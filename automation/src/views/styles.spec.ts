@@ -4,6 +4,7 @@ import { TUTORIALS_STYLES } from './public/tutorials.styles';
 import { TUTORIALS_ADMIN_STYLES } from './admin/tutorials.styles';
 import { tutorialPage, tutorialsIndexPage } from './public/tutorials.page';
 import { homePage, SIDEBAR_TAG_LIMIT } from './public/posts.pages';
+import { subjectLessonsPage, tutorialsAdminPage } from './admin/tutorials.page';
 import {
   AUTO_COMPLETE_DELAY_MS,
   PROGRESS_TRACKER_SCRIPT,
@@ -133,7 +134,7 @@ describe('automatic completion', () => {
     const html = lessonHtml();
 
     const contentAt = html.indexOf('class="prose"');
-    const sentinelAt = html.indexOf('<div data-lesson-end');
+    const sentinelAt = html.indexOf('data-lesson-end');
     const navAt = html.indexOf('class="tut-nav"');
 
     expect(sentinelAt).toBeGreaterThan(contentAt);
@@ -141,7 +142,7 @@ describe('automatic completion', () => {
   });
 
   it('hides the sentinel from assistive technology', () => {
-    expect(lessonHtml()).toContain('<div data-lesson-end aria-hidden="true">');
+    expect(lessonHtml()).toContain('data-lesson-end aria-hidden="true"');
   });
 
   it('keeps a manual toggle so a wrong guess can be undone', () => {
@@ -263,5 +264,55 @@ describe('home sidebar tag list', () => {
 
     expect(html).toContain('No tags yet.');
     expect(html).not.toContain('class="rail-more" href');
+  });
+});
+
+describe('script placement', () => {
+  const pages: [string, () => string][] = [
+    [
+      'tutorials index',
+      () =>
+        tutorialsIndexPage(
+          [subject],
+          new Map([
+            [subject.id, { total: 1, minutes: 3, difficulties: ['beginner'] }],
+          ]),
+          new Map([[subject.id, [lesson.id]]]),
+          { subjects: 1, tutorials: 1, minutes: 3 },
+        ),
+    ],
+    ['tutorial lesson', () => lessonHtml()],
+    [
+      'tutorials admin',
+      () =>
+        tutorialsAdminPage(
+          [subject],
+          new Map([
+            [subject.id, { total: 1, minutes: 3, difficulties: ['beginner'] }],
+          ]),
+          new Map([[subject.id, 0]]),
+        ),
+    ],
+    ['subject lessons admin', () => subjectLessonsPage(subject, [lesson])],
+  ];
+
+  it.each(pages)('%s runs its scripts after the body exists', (_n, render) => {
+    const html = render();
+    const headEnd = html.indexOf('</head>');
+
+    expect(headEnd).toBeGreaterThan(-1);
+
+    const scripts = [...html.matchAll(/<script>/g)].map((m) => m.index ?? -1);
+
+    expect(scripts.length).toBeGreaterThan(0);
+
+    for (const at of scripts) {
+      expect(at).toBeGreaterThan(headEnd);
+    }
+  });
+
+  it('gives the completion sentinel a measurable height', () => {
+    expect(lessonHtml()).toContain('class="lesson-end" data-lesson-end');
+    expect(TUTORIALS_STYLES).toContain('.lesson-end { height: 1px;');
   });
 });
