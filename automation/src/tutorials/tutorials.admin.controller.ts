@@ -25,6 +25,8 @@ interface SubjectBody {
   summary?: string;
   icon?: string;
   status?: string;
+  enrolment?: string;
+  enrolKey?: string;
 }
 
 interface LessonBody {
@@ -87,6 +89,8 @@ export class TutorialsAdminController {
       summary: body.summary,
       icon: body.icon,
       status: body.status as never,
+      enrolment: body.enrolment,
+      enrolKey: body.enrolKey,
     });
 
     res.redirect(`/admin/tutorials/subjects/${subject.id}`);
@@ -116,6 +120,8 @@ export class TutorialsAdminController {
       summary: body.summary,
       icon: body.icon,
       status: body.status as never,
+      enrolment: body.enrolment,
+      enrolKey: body.enrolKey,
     });
 
     res.redirect(`/admin/tutorials/subjects/${id}`);

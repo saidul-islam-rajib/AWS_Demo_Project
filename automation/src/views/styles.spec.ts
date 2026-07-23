@@ -16,6 +16,8 @@ const subject: Subject = {
   icon: '🌐',
   order: 1,
   status: 'published',
+  enrolment: 'open',
+  enrolKey: '',
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };

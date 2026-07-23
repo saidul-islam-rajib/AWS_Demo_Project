@@ -16,6 +16,13 @@ export const DIFFICULTY_LABELS: Record<Difficulty, string> = {
   advanced: 'Advanced',
 };
 
+export type Enrolment = 'open' | 'key';
+
+export const ENROLMENT_LABELS: Record<Enrolment, string> = {
+  open: 'Open to everyone',
+  key: 'Needs an enrolment key',
+};
+
 export interface Subject {
   id: string;
   slug: string;
@@ -24,6 +31,8 @@ export interface Subject {
   icon: string;
   order: number;
   status: TutorialStatus;
+  enrolment: Enrolment;
+  enrolKey: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -78,6 +87,8 @@ export interface SubjectInput {
   summary?: string;
   icon?: string;
   status?: TutorialStatus;
+  enrolment?: string;
+  enrolKey?: string;
 }
 
 export interface TutorialInput {
@@ -136,6 +147,21 @@ export function suggestedCompletionSeconds(content: string): number {
     MAX_COMPLETION_SECONDS,
     Math.max(DEFAULT_COMPLETION_SECONDS, readingMinutes(content) * 60),
   );
+}
+
+export function parseEnrolment(value?: string): Enrolment {
+  return (value ?? '').trim().toLowerCase() === 'key' ? 'key' : 'open';
+}
+
+export function normaliseEnrolKey(value?: string): string {
+  return (value ?? '').trim().slice(0, 64);
+}
+
+export function requiresEnrolment(subject: {
+  enrolment: Enrolment;
+  enrolKey: string;
+}): boolean {
+  return subject.enrolment === 'key' && subject.enrolKey.length > 0;
 }
 
 export function normaliseIcon(value?: string): string {

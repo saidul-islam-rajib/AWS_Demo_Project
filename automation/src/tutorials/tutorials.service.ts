@@ -30,8 +30,10 @@ import {
   neighbours,
   nextOrder,
   normaliseIcon,
+  normaliseEnrolKey,
   parseCompletionSeconds,
   parseDifficulty,
+  parseEnrolment,
   parseStatus,
   publishedOnly,
   resequence,
@@ -72,6 +74,8 @@ export class TutorialsService {
           icon: subject.icon ?? '',
           status: subject.status ?? 'published',
           order: subject.order ?? 0,
+          enrolment: parseEnrolment(subject.enrolment),
+          enrolKey: normaliseEnrolKey(subject.enrolKey),
         }));
 
         this.chapters = (stored.chapters ?? []).map((chapter) => ({
@@ -386,6 +390,8 @@ export class TutorialsService {
       icon: normaliseIcon(input.icon),
       order: nextOrder(this.subjects),
       status: parseStatus(input.status),
+      enrolment: parseEnrolment(input.enrolment),
+      enrolKey: normaliseEnrolKey(input.enrolKey),
       createdAt: now,
       updatedAt: now,
     };
@@ -413,6 +419,8 @@ export class TutorialsService {
       summary: (input.summary ?? '').trim(),
       icon: normaliseIcon(input.icon),
       status: parseStatus(input.status),
+      enrolment: parseEnrolment(input.enrolment),
+      enrolKey: normaliseEnrolKey(input.enrolKey ?? current.enrolKey),
       updatedAt: new Date().toISOString(),
     };
 
@@ -604,6 +612,8 @@ function seedTutorials(): TutorialStore {
     icon: '🌐',
     order: 1,
     status: 'published',
+    enrolment: 'open',
+    enrolKey: '',
     createdAt: now,
     updatedAt: now,
   };

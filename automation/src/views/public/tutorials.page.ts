@@ -110,8 +110,10 @@ export function subjectPage(
   subject: Subject,
   groups: ChapterGroup[],
   stats: SubjectStats,
+  access: { locked: boolean; error?: boolean } = { locked: false },
 ): string {
   const ids = groups.flatMap((group) => group.lessons.map((l) => l.id));
+  const locked = access.locked;
 
   let position = 0;
 
@@ -122,10 +124,14 @@ export function subjectPage(
         .map((lesson) => {
           position += 1;
 
-          return `<li class="lesson-item" data-lesson-id="${esc(lesson.id)}">
-            <span class="lesson-num"><span>${position}</span></span>
+          const title = locked
+            ? `<h3><span class="locked-title">${esc(lesson.title)}</span></h3>`
+            : `<h3><a href="/tutorials/${esc(subject.slug)}/${esc(lesson.slug)}">${esc(lesson.title)}</a></h3>`;
+
+          return `<li class="lesson-item${locked ? ' locked' : ''}"${locked ? '' : ` data-lesson-id="${esc(lesson.id)}"`}>
+            <span class="lesson-num"><span>${locked ? '🔒' : position}</span></span>
             <div class="lesson-body">
-              <h3><a href="/tutorials/${esc(subject.slug)}/${esc(lesson.slug)}">${esc(lesson.title)}</a></h3>
+              ${title}
               ${lesson.summary ? `<p>${esc(lesson.summary)}</p>` : ''}
               <div class="lesson-meta">
                 ${levelBadge(lesson.difficulty)}
@@ -161,8 +167,30 @@ export function subjectPage(
       ${subject.icon ? `<div class="subj-icon">${esc(subject.icon)}</div>` : ''}
       <h1>${esc(subject.title)}</h1>
       ${subject.summary ? `<p>${esc(subject.summary)}</p>` : ''}
-      ${ids.length ? progressBar(ids) : ''}
+      ${ids.length && !locked ? progressBar(ids) : ''}
     </header>
+
+    ${
+      locked
+        ? `<section class="enrol-card">
+             <h2>Enrolment key needed</h2>
+             <p>
+               This course is open to anyone with the key. Enter it once and
+               this browser stays enrolled.
+             </p>
+             ${access.error ? '<p class="enrol-error">That key was not right. Check it and try again.</p>' : ''}
+             <form method="post" action="/tutorials/${esc(subject.slug)}/enrol">
+               <label class="sr-only" for="enrol-key">Enrolment key</label>
+               <input type="text" id="enrol-key" name="key" required
+                      autocomplete="off" placeholder="Enrolment key" />
+               <button class="btn btn-primary" type="submit">Enrol</button>
+             </form>
+             <p class="enrol-note">
+               ${stats.total} ${pluralise(stats.total, 'lesson')} · ${esc(formatDuration(stats.minutes))} of reading
+             </p>
+           </section>`
+        : ''
+    }
 
     ${
       ids.length

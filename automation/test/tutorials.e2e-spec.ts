@@ -571,3 +571,153 @@ describe('per-lesson completion time', () => {
       .expect((res) => expect(res.text).toContain('data-dwell="30"'));
   });
 });
+
+describe('enrolment', () => {
+  const subjectId = async (cookie: string, slug: string) => {
+    const res = await request(ctx.server)
+      .get('/admin/tutorials')
+      .set('Cookie', cookie)
+      .expect(200);
+
+    const rows = [
+      ...res.text.matchAll(
+        /data-sort-id="([0-9a-f-]+)"[^]*?\/tutorials\/([a-z0-9-]+)\s/g,
+      ),
+    ];
+
+    return rows.find((row) => row[2] === slug)?.[1] ?? '';
+  };
+
+  const lockCourse = async (cookie: string) => {
+    const id = await subjectId(cookie, 'networking');
+
+    await request(ctx.server)
+      .post(`/admin/tutorials/subjects/${id}/edit`)
+      .set('Cookie', cookie)
+      .type('form')
+      .send({
+        title: 'Networking',
+        summary: 'x',
+        status: 'published',
+        enrolment: 'key',
+        enrolKey: 'autumn-2026',
+      })
+      .expect(302);
+
+    return id;
+  };
+
+  it('leaves an open course readable by anyone', () =>
+    request(ctx.server)
+      .get('/tutorials/networking/what-an-ip-address-actually-is')
+      .expect(200));
+
+  it('shows the enrol form and hides lesson links once a key is set', async () => {
+    const cookie = await ctx.signIn();
+    await lockCourse(cookie);
+
+    await request(ctx.server)
+      .get('/tutorials/networking')
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('Enrolment key needed');
+        expect(res.text).toContain('What an IP address actually is');
+        expect(res.text).not.toContain(
+          '/tutorials/networking/what-an-ip-address-actually-is',
+        );
+      });
+  });
+
+  it('redirects a lesson away until the reader has enrolled', async () => {
+    const cookie = await ctx.signIn();
+    await lockCourse(cookie);
+
+    await request(ctx.server)
+      .get('/tutorials/networking/what-an-ip-address-actually-is')
+      .expect(302)
+      .expect('Location', '/tutorials/networking');
+  });
+
+  it('refuses a wrong key and says so', async () => {
+    const cookie = await ctx.signIn();
+    await lockCourse(cookie);
+
+    const res = await request(ctx.server)
+      .post('/tutorials/networking/enrol')
+      .type('form')
+      .send({ key: 'wrong' })
+      .expect(302);
+
+    expect(res.headers.location).toBe('/tutorials/networking?error=1');
+    expect(res.headers['set-cookie']).toBeUndefined();
+
+    await request(ctx.server)
+      .get('/tutorials/networking?error=1')
+      .expect(200)
+      .expect((res2) => expect(res2.text).toContain('That key was not right'));
+  });
+
+  it('lets the right key through and remembers it', async () => {
+    const cookie = await ctx.signIn();
+    await lockCourse(cookie);
+
+    const enrol = await request(ctx.server)
+      .post('/tutorials/networking/enrol')
+      .type('form')
+      .send({ key: 'autumn-2026' })
+      .expect(302);
+
+    const setCookie = enrol.headers['set-cookie'] as unknown as string[];
+    expect(setCookie).toBeDefined();
+
+    const jar = setCookie[0];
+
+    await request(ctx.server)
+      .get('/tutorials/networking/what-an-ip-address-actually-is')
+      .set('Cookie', jar)
+      .expect(200)
+      .expect((res) => expect(res.text).toContain('Addressing'));
+
+    await request(ctx.server)
+      .get('/tutorials/networking')
+      .set('Cookie', jar)
+      .expect(200)
+      .expect((res) => expect(res.text).not.toContain('Enrolment key needed'));
+  });
+
+  it('marks the enrolment cookie httpOnly', async () => {
+    const cookie = await ctx.signIn();
+    await lockCourse(cookie);
+
+    const enrol = await request(ctx.server)
+      .post('/tutorials/networking/enrol')
+      .type('form')
+      .send({ key: 'autumn-2026' })
+      .expect(302);
+
+    const jar = (enrol.headers['set-cookie'] as unknown as string[])[0];
+
+    expect(jar).toContain('HttpOnly');
+  });
+
+  it('does not lock a course set to key with an empty key', async () => {
+    const cookie = await ctx.signIn();
+    const id = await subjectId(cookie, 'networking');
+
+    await request(ctx.server)
+      .post(`/admin/tutorials/subjects/${id}/edit`)
+      .set('Cookie', cookie)
+      .type('form')
+      .send({
+        title: 'Networking',
+        status: 'published',
+        enrolment: 'key',
+        enrolKey: '',
+      })
+      .expect(302);
+
+    await request(ctx.server)
+      .get('/tutorials/networking/what-an-ip-address-actually-is')
+      .expect(200);
+  });
+});

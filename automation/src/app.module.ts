@@ -16,6 +16,7 @@ import { SettingsService } from './settings/settings.service';
 import { AboutService } from './about/about.service';
 import { ProjectsService } from './projects/projects.service';
 import { TutorialsService } from './tutorials/tutorials.service';
+import { EnrolmentService } from './tutorials/enrolment.service';
 import { AuthService } from './auth/auth.service';
 import { LoginThrottleService } from './auth/login-throttle.service';
 
@@ -41,6 +42,7 @@ import { LoginThrottleService } from './auth/login-throttle.service';
     AboutService,
     ProjectsService,
     TutorialsService,
+    EnrolmentService,
     AuthService,
     LoginThrottleService,
   ],

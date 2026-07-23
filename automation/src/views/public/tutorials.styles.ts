@@ -53,6 +53,32 @@ const SUBJECT_STYLES = `
   .subj-head .progress-row { margin-top: 1.25rem; max-width: 420px; }
 `;
 
+const ENROL_STYLES = `
+  .enrol-card {
+    border: 1px solid var(--border); border-radius: 14px;
+    background: var(--surface-2); padding: 1.5rem; margin-top: 1.75rem;
+  }
+  .enrol-card h2 {
+    font-family: var(--serif); font-size: 1.3rem; margin-bottom: 0.5rem;
+  }
+  .enrol-card p { color: var(--ink-3); font-size: 0.92rem; max-width: 40em; }
+  .enrol-card form {
+    display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem;
+  }
+  .enrol-card input {
+    flex: 1; min-width: 220px; border-radius: 100px; padding-left: 1rem;
+  }
+  .enrol-error { color: var(--danger); font-weight: 600; margin-top: 0.6rem; }
+  .enrol-note { margin-top: 0.9rem; font-size: 0.79rem; color: var(--ink-3); }
+  .lesson-item.locked { opacity: 0.75; }
+  .lesson-item.locked:hover { border-color: var(--border); }
+  .locked-title { color: var(--ink-2); }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+`;
+
 const LESSON_LIST_STYLES = `
   .chapter { margin-top: 2.25rem; }
   .chapter:first-of-type { margin-top: 1.75rem; }
@@ -194,6 +220,7 @@ export const TUTORIALS_STYLES = `
 ${COMPONENT_STYLES}
 ${LAYOUT_STYLES}
 ${SUBJECT_STYLES}
+${ENROL_STYLES}
 ${LESSON_LIST_STYLES}
 ${LESSON_PAGE_STYLES}
 </style>`;

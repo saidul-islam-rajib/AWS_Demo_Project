@@ -3,6 +3,7 @@ import {
   ChapterGroup,
   DEFAULT_COMPLETION_SECONDS,
   DIFFICULTIES,
+  ENROLMENT_LABELS,
   DIFFICULTY_LABELS,
   MAX_COMPLETION_SECONDS,
   Subject,
@@ -38,7 +39,7 @@ export function tutorialsAdminPage(
         <div class="info">
           <b>${esc(subject.title)}</b>
           <span>
-            ${stat.total} published${draftCount ? ` · ${draftCount} draft` : ''}
+            ${stat.total} published${draftCount ? ` · ${draftCount} draft` : ''}${subject.enrolment === 'key' ? ' · key required' : ''}
             · ${esc(formatDuration(stat.minutes))}
             · /tutorials/${esc(subject.slug)}
           </span>
@@ -144,6 +145,29 @@ ${CSS}
             </select>
             <p class="hint">A draft subject and all its lessons stay hidden from the public site.</p>
           </div>
+
+          <div class="field">
+            <label for="enrolment">Enrolment</label>
+            <select id="enrolment" name="enrolment">
+              <option value="open" ${subject?.enrolment !== 'key' ? 'selected' : ''}>${ENROLMENT_LABELS.open}</option>
+              <option value="key" ${subject?.enrolment === 'key' ? 'selected' : ''}>${ENROLMENT_LABELS.key}</option>
+            </select>
+            <p class="hint">
+              Open courses can be read by anyone. With a key, lesson titles stay
+              visible but the lessons themselves need the key first.
+            </p>
+          </div>
+
+          <div class="field">
+            <label for="enrolKey">Enrolment key</label>
+            <input type="text" id="enrolKey" name="enrolKey" value="${v(subject?.enrolKey)}"
+                   autocomplete="off" placeholder="autumn-2026" />
+            <p class="hint">
+              Share this with your students. Anyone who has it can enrol, so it
+              identifies the course rather than the person.
+            </p>
+          </div>
+
           <button class="btn btn-primary" type="submit" style="width:100%">
             ${editing ? 'Save subject' : 'Create subject'}
           </button>

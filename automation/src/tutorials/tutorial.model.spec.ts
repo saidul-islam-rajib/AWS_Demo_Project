@@ -6,7 +6,10 @@ import {
   chaptersOf,
   groupIntoChapters,
   orderedLessons,
+  normaliseEnrolKey,
   parseCompletionSeconds,
+  parseEnrolment,
+  requiresEnrolment,
   parseOrderIds,
   Tutorial,
   formatDuration,
@@ -590,5 +593,27 @@ describe('parseCompletionSeconds', () => {
 
   it('rounds a fractional value', () => {
     expect(parseCompletionSeconds(30.6)).toBe(31);
+  });
+});
+
+describe('enrolment policy', () => {
+  it('reads only "key" as requiring a key', () => {
+    expect(parseEnrolment('key')).toBe('key');
+    expect(parseEnrolment('KEY')).toBe('key');
+    expect(parseEnrolment('open')).toBe('open');
+    expect(parseEnrolment('anything')).toBe('open');
+    expect(parseEnrolment(undefined)).toBe('open');
+  });
+
+  it('trims and caps the key', () => {
+    expect(normaliseEnrolKey('  autumn-2026 ')).toBe('autumn-2026');
+    expect(normaliseEnrolKey('x'.repeat(200))).toHaveLength(64);
+    expect(normaliseEnrolKey(undefined)).toBe('');
+  });
+
+  it('does not lock a course whose policy is key but has no key set', () => {
+    expect(requiresEnrolment({ enrolment: 'key', enrolKey: '' })).toBe(false);
+    expect(requiresEnrolment({ enrolment: 'key', enrolKey: 'k' })).toBe(true);
+    expect(requiresEnrolment({ enrolment: 'open', enrolKey: 'k' })).toBe(false);
   });
 });
