@@ -1,4 +1,4 @@
-export const AUTO_COMPLETE_DELAY_MS = 1500;
+export const AUTO_COMPLETE_DELAY_MS = 10000;
 
 export const PROGRESS_TRACKER_SCRIPT = `
 <script>
