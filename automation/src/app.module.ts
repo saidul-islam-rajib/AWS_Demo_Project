@@ -18,6 +18,7 @@ import { ProjectsService } from './projects/projects.service';
 import { TutorialsService } from './tutorials/tutorials.service';
 import { EnrolmentService } from './tutorials/enrolment.service';
 import { CertificatesService } from './tutorials/certificates.service';
+import { ProgressService } from './tutorials/progress.service';
 import { AccountsService } from './accounts/accounts.service';
 import { AccountSessionService } from './accounts/account-session.service';
 import { AccountsController } from './accounts/accounts.controller';
@@ -49,6 +50,7 @@ import { LoginThrottleService } from './auth/login-throttle.service';
     TutorialsService,
     EnrolmentService,
     CertificatesService,
+    ProgressService,
     AccountsService,
     AccountSessionService,
     AuthService,

@@ -12,7 +12,6 @@ import { CERTIFICATE_SCRIPT } from '../shared/scripts/certificate';
 export function certificateFormPage(
   subject: Subject,
   stats: SubjectStats,
-  lessonIds: string[] = [],
   suggestedName = '',
 ): string {
   const body = `
@@ -22,17 +21,12 @@ export function certificateFormPage(
       { label: 'Certificate' },
     ])}
 
-    <section class="cert-form" data-cert-form data-cert-lessons="${esc(lessonIds.join(','))}">
+    <section class="cert-form" data-cert-form>
       <h1>Your certificate</h1>
       <p class="cert-lede">
         You have finished ${esc(subject.title)} &mdash;
         ${stats.total} ${pluralise(stats.total, 'lesson')},
         ${esc(formatDuration(stats.minutes))} of reading.
-      </p>
-
-      <p class="cert-incomplete" data-cert-incomplete hidden>
-        Some lessons are still unread. You can take the certificate anyway, or
-        <a href="/tutorials/${esc(subject.slug)}">go back and finish them</a>.
       </p>
 
       <form method="post" action="/tutorials/${esc(subject.slug)}/certificate">
@@ -131,6 +125,57 @@ export function certificatePage(
   return layout({
     title: `Certificate · ${subject.title}`,
     body: body + CERTIFICATE_SCRIPT,
+    path: `/tutorials/${subject.slug}/certificate`,
+    head: CERTIFICATE_STYLES,
+    noindex: true,
+  });
+}
+
+export function certificateLockedPage(
+  subject: Subject,
+  stats: SubjectStats,
+  done: number,
+): string {
+  const left = Math.max(stats.total - done, 0);
+
+  const body = `
+    ${breadcrumbs([
+      { label: 'Tutorials', href: '/tutorials' },
+      { label: subject.title, href: `/tutorials/${subject.slug}` },
+      { label: 'Certificate' },
+    ])}
+
+    <section class="cert-form">
+      <h1>Not quite yet</h1>
+      <p class="cert-lede">
+        A certificate for ${esc(subject.title)} is issued once every lesson is
+        marked complete on your account.
+      </p>
+
+      <div class="cert-progress">
+        <span class="cert-progress-track">
+          <span class="cert-progress-fill" style="width:${stats.total ? Math.round((done / stats.total) * 100) : 0}%"></span>
+        </span>
+        <span>${done} of ${stats.total} ${pluralise(stats.total, 'lesson')} complete</span>
+      </div>
+
+      <p class="cert-hint">
+        ${
+          stats.total
+            ? `${left} ${pluralise(left, 'lesson')} to go. Progress is kept on your account, so you can finish on any device.`
+            : 'This course has no lessons yet.'
+        }
+      </p>
+
+      <a class="btn btn-primary" href="/tutorials/${esc(subject.slug)}">
+        ${done > 0 ? 'Carry on with the course' : 'Start the course'}
+      </a>
+    </section>
+  `;
+
+  return layout({
+    title: `Certificate · ${subject.title}`,
+    body,
     path: `/tutorials/${subject.slug}/certificate`,
     head: CERTIFICATE_STYLES,
     noindex: true,

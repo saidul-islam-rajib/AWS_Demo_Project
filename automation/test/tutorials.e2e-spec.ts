@@ -774,7 +774,6 @@ describe('student overview', () => {
       });
   });
 });
-
 const studentSession = async (): Promise<string> => {
   const res = await request(ctx.server)
     .post('/account/register')
@@ -789,8 +788,165 @@ const studentSession = async (): Promise<string> => {
   return (res.headers['set-cookie'] as unknown as string[])[0];
 };
 
+const lessonIdsOf = async (jar: string, slug = 'networking') => {
+  const page = await request(ctx.server)
+    .get(`/tutorials/${slug}`)
+    .set('Cookie', jar)
+    .expect(200);
+
+  return Array.from(page.text.matchAll(/data-lesson-id="([^"]+)"/g)).map(
+    (match) => match[1],
+  );
+};
+
+const markLesson = (jar: string, lessonId: string, done: boolean) =>
+  request(ctx.server)
+    .post('/tutorials/progress')
+    .set('Cookie', jar)
+    .type('form')
+    .send({ lesson: lessonId, done: done ? '1' : '0' })
+    .expect(204);
+
+const finishCourse = async (jar: string, slug = 'networking') => {
+  const ids = await lessonIdsOf(jar, slug);
+
+  for (const id of ids) {
+    await markLesson(jar, id, true);
+  }
+
+  return ids;
+};
+
+const graduate = async (): Promise<string> => {
+  const jar = await studentSession();
+  await finishCourse(jar);
+
+  return jar;
+};
+
 const referenceIn = (html: string): string =>
   /Reference<\/span>\s*<span>([^<]+)</.exec(html)?.[1] ?? '';
+
+describe('progress on the account', () => {
+  it('remembers a completed lesson across a fresh request', async () => {
+    const jar = await studentSession();
+    const [first] = await lessonIdsOf(jar);
+
+    await markLesson(jar, first, true);
+
+    const page = await request(ctx.server)
+      .get('/tutorials/networking')
+      .set('Cookie', jar)
+      .expect(200);
+
+    expect(page.text).toContain(`data-done="${first}"`);
+  });
+
+  it('takes a completion back', async () => {
+    const jar = await studentSession();
+    const [first] = await lessonIdsOf(jar);
+
+    await markLesson(jar, first, true);
+    await markLesson(jar, first, false);
+
+    const page = await request(ctx.server)
+      .get('/tutorials/networking')
+      .set('Cookie', jar)
+      .expect(200);
+
+    expect(page.text).toContain('data-done=""');
+  });
+
+  it('gives a signed-out visitor nothing to sync to', () =>
+    request(ctx.server)
+      .get('/tutorials/networking')
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('data-sync=""');
+        expect(res.text).toContain('data-done=""');
+      }));
+
+  it('points a signed-in student at the sync endpoint', async () => {
+    const jar = await studentSession();
+
+    await request(ctx.server)
+      .get('/tutorials/networking')
+      .set('Cookie', jar)
+      .expect(200)
+      .expect((res) =>
+        expect(res.text).toContain('data-sync="/tutorials/progress"'),
+      );
+  });
+
+  it("keeps one student out of another's progress", async () => {
+    const mine = await studentSession();
+    const [first] = await lessonIdsOf(mine);
+    await markLesson(mine, first, true);
+
+    const otherRes = await request(ctx.server)
+      .post('/account/register')
+      .type('form')
+      .send({
+        name: 'Someone Else',
+        email: 'other@example.com',
+        password: 'correct-horse',
+      })
+      .expect(200);
+
+    const theirs = (otherRes.headers['set-cookie'] as unknown as string[])[0];
+
+    await request(ctx.server)
+      .get('/tutorials/networking')
+      .set('Cookie', theirs)
+      .expect(200)
+      .expect((res) => expect(res.text).toContain('data-done=""'));
+  });
+
+  it('ignores progress posted without a session', () =>
+    request(ctx.server)
+      .post('/tutorials/progress')
+      .type('form')
+      .send({ lesson: 'anything', done: '1' })
+      .expect(204));
+
+  it('ignores a lesson id that does not exist', async () => {
+    const jar = await studentSession();
+
+    await markLesson(jar, 'not-a-real-lesson', true);
+
+    await request(ctx.server)
+      .get('/tutorials/networking')
+      .set('Cookie', jar)
+      .expect(200)
+      .expect((res) => expect(res.text).toContain('data-done=""'));
+  });
+
+  it('lists a part-finished course on the account page', async () => {
+    const jar = await studentSession();
+    const [first] = await lessonIdsOf(jar);
+
+    await markLesson(jar, first, true);
+
+    await request(ctx.server)
+      .get('/account')
+      .set('Cookie', jar)
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('Courses in progress');
+        expect(res.text).toContain('1/3');
+      });
+  });
+
+  it('drops a finished course out of the in-progress list', async () => {
+    const jar = await graduate();
+
+    await request(ctx.server)
+      .get('/account')
+      .set('Cookie', jar)
+      .expect(200)
+      .expect((res) => expect(res.text).not.toContain('3/3'));
+  });
+});
 
 describe('certificate', () => {
   it('sends a signed-out visitor to sign in first', () =>
@@ -801,8 +957,50 @@ describe('certificate', () => {
         expect(res.headers.location).toContain('/account/sign-in?next='),
       ));
 
-  it('offers a form prefilled with the account name', async () => {
+  it('refuses one until every lesson is complete', async () => {
     const jar = await studentSession();
+
+    await request(ctx.server)
+      .get('/tutorials/networking/certificate')
+      .set('Cookie', jar)
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('Not quite yet');
+        expect(res.text).toContain('0 of 3 lessons complete');
+        expect(res.text).not.toContain('Make my certificate');
+      });
+  });
+
+  it('counts the lessons already done while refusing', async () => {
+    const jar = await studentSession();
+    const [first] = await lessonIdsOf(jar);
+
+    await markLesson(jar, first, true);
+
+    await request(ctx.server)
+      .get('/tutorials/networking/certificate')
+      .set('Cookie', jar)
+      .expect(200)
+      .expect((res) => expect(res.text).toContain('1 of 3 lessons complete'));
+  });
+
+  it('will not issue one by posting straight at the endpoint', async () => {
+    const jar = await studentSession();
+
+    await request(ctx.server)
+      .post('/tutorials/networking/certificate')
+      .set('Cookie', jar)
+      .type('form')
+      .send({ holder: 'Saidul Islam Rajib' })
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('Not quite yet');
+        expect(res.text).not.toContain('Certificate of completion');
+      });
+  });
+
+  it('offers a form prefilled with the account name once finished', async () => {
+    const jar = await graduate();
 
     await request(ctx.server)
       .get('/tutorials/networking/certificate')
@@ -815,7 +1013,7 @@ describe('certificate', () => {
   });
 
   it('issues one with the name given', async () => {
-    const jar = await studentSession();
+    const jar = await graduate();
 
     await request(ctx.server)
       .post('/tutorials/networking/certificate')
@@ -830,7 +1028,7 @@ describe('certificate', () => {
   });
 
   it('issues the same one however many times it is asked', async () => {
-    const jar = await studentSession();
+    const jar = await graduate();
 
     const first = await request(ctx.server)
       .post('/tutorials/networking/certificate')
@@ -852,8 +1050,28 @@ describe('certificate', () => {
     expect(second.text).not.toContain('A Different Name');
   });
 
+  it('keeps a certificate after a lesson is un-marked', async () => {
+    const jar = await graduate();
+    const [first] = await lessonIdsOf(jar);
+
+    await request(ctx.server)
+      .post('/tutorials/networking/certificate')
+      .set('Cookie', jar)
+      .type('form')
+      .send({ holder: 'Saidul Islam Rajib' })
+      .expect(200);
+
+    await markLesson(jar, first, false);
+
+    await request(ctx.server)
+      .get('/tutorials/networking/certificate')
+      .set('Cookie', jar)
+      .expect(200)
+      .expect((res) => expect(res.text).toContain('Certificate of completion'));
+  });
+
   it('returns the stored certificate rather than the form on a revisit', async () => {
-    const jar = await studentSession();
+    const jar = await graduate();
 
     await request(ctx.server)
       .post('/tutorials/networking/certificate')
@@ -873,7 +1091,7 @@ describe('certificate', () => {
   });
 
   it('gives two people different references for the same course', async () => {
-    const mine = await studentSession();
+    const mine = await graduate();
 
     const first = await request(ctx.server)
       .post('/tutorials/networking/certificate')
@@ -893,6 +1111,7 @@ describe('certificate', () => {
       .expect(200);
 
     const theirs = (otherRes.headers['set-cookie'] as unknown as string[])[0];
+    await finishCourse(theirs);
 
     const second = await request(ctx.server)
       .post('/tutorials/networking/certificate')
@@ -905,7 +1124,7 @@ describe('certificate', () => {
   });
 
   it('lists the certificate on the account page', async () => {
-    const jar = await studentSession();
+    const jar = await graduate();
 
     await request(ctx.server)
       .post('/tutorials/networking/certificate')
@@ -922,7 +1141,7 @@ describe('certificate', () => {
   });
 
   it('escapes a name rather than rendering it as markup', async () => {
-    const jar = await studentSession();
+    const jar = await graduate();
 
     await request(ctx.server)
       .post('/tutorials/networking/certificate')
@@ -937,7 +1156,7 @@ describe('certificate', () => {
   });
 
   it('says plainly that it is not a formal qualification', async () => {
-    const jar = await studentSession();
+    const jar = await graduate();
 
     await request(ctx.server)
       .post('/tutorials/networking/certificate')
@@ -951,7 +1170,7 @@ describe('certificate', () => {
   });
 
   it('keeps itself out of search engines', async () => {
-    const jar = await studentSession();
+    const jar = await graduate();
 
     await request(ctx.server)
       .get('/tutorials/networking/certificate')
@@ -962,8 +1181,17 @@ describe('certificate', () => {
 });
 
 describe('certificate download', () => {
+  const issue = async (jar: string) =>
+    request(ctx.server)
+      .post('/tutorials/networking/certificate')
+      .set('Cookie', jar)
+      .type('form')
+      .send({ holder: 'Saidul Islam Rajib' })
+      .expect(200);
+
   it('serves a png as an attachment', async () => {
-    const jar = await studentSession();
+    const jar = await graduate();
+    await issue(jar);
 
     await request(ctx.server)
       .get('/tutorials/networking/certificate.png')
@@ -987,15 +1215,21 @@ describe('certificate download', () => {
         expect(res.headers.location).toContain('/account/sign-in'),
       ));
 
-  it('does not mint a second certificate when downloading', async () => {
+  it('sends someone without a certificate back to the certificate page', async () => {
     const jar = await studentSession();
 
-    const page = await request(ctx.server)
-      .post('/tutorials/networking/certificate')
+    await request(ctx.server)
+      .get('/tutorials/networking/certificate.png')
       .set('Cookie', jar)
-      .type('form')
-      .send({ holder: 'Rajib' })
-      .expect(200);
+      .expect(302)
+      .expect((res) =>
+        expect(res.headers.location).toBe('/tutorials/networking/certificate'),
+      );
+  });
+
+  it('does not mint a second certificate when downloading', async () => {
+    const jar = await graduate();
+    const page = await issue(jar);
 
     await request(ctx.server)
       .get('/tutorials/networking/certificate.png?holder=Someone')
@@ -1015,18 +1249,12 @@ describe('certificate download', () => {
   });
 
   it('offers the download from the certificate page', async () => {
-    const jar = await studentSession();
+    const jar = await graduate();
 
-    await request(ctx.server)
-      .post('/tutorials/networking/certificate')
-      .set('Cookie', jar)
-      .type('form')
-      .send({ holder: 'Saidul Islam Rajib' })
-      .expect(200)
-      .expect((res) => {
-        expect(res.text).toContain('certificate.png?holder=');
-        expect(res.text).toContain('Download image');
-      });
+    await issue(jar).then((res) => {
+      expect(res.text).toContain('certificate.png?holder=');
+      expect(res.text).toContain('Download image');
+    });
   });
 
   it('404s for an unknown course', () =>

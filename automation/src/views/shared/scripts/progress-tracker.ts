@@ -3,27 +3,78 @@ export const PROGRESS_TRACKER_SCRIPT = `
 (function () {
   var KEY = 'tutorial-progress';
 
-  function read() {
-    try {
-      var raw = window.localStorage.getItem(KEY);
-      return raw ? JSON.parse(raw) : {};
-    } catch (e) {
-      return {};
+  function localStore() {
+    function read() {
+      try {
+        var raw = window.localStorage.getItem(KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        return {};
+      }
     }
+
+    var state = read();
+
+    return {
+      isDone: function (id) {
+        return state[id] === true;
+      },
+      setDone: function (id, value) {
+        if (value) {
+          state[id] = true;
+        } else {
+          delete state[id];
+        }
+        try {
+          window.localStorage.setItem(KEY, JSON.stringify(state));
+        } catch (e) {
+          return;
+        }
+      }
+    };
   }
 
-  function write(state) {
-    try {
-      window.localStorage.setItem(KEY, JSON.stringify(state));
-    } catch (e) {
-      return;
+  function serverStore(node) {
+    var sync = node.getAttribute('data-sync') || '';
+    if (!sync) return null;
+
+    var state = {};
+    var seed = (node.getAttribute('data-done') || '').split(',');
+
+    for (var i = 0; i < seed.length; i++) {
+      if (seed[i]) state[seed[i]] = true;
     }
+
+    return {
+      isDone: function (id) {
+        return state[id] === true;
+      },
+      setDone: function (id, value) {
+        if (value) {
+          state[id] = true;
+        } else {
+          delete state[id];
+        }
+
+        if (typeof window.fetch !== 'function') return;
+
+        window.fetch(sync, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'lesson=' + encodeURIComponent(id) + '&done=' + (value ? '1' : '0')
+        }).catch(function () {
+          return;
+        });
+      }
+    };
   }
 
-  var state = read();
+  var node = document.querySelector('[data-progress-state]');
+  var store = (node && serverStore(node)) || localStore();
 
   function isDone(id) {
-    return state[id] === true;
+    return store.isDone(id);
   }
 
   function paintList() {
@@ -141,12 +192,7 @@ export const PROGRESS_TRACKER_SCRIPT = `
   }
 
   function setDone(value) {
-    if (value) {
-      state[id] = true;
-    } else {
-      delete state[id];
-    }
-    write(state);
+    store.setDone(id, value);
     sync();
     paint();
   }

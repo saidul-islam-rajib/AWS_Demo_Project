@@ -10,12 +10,15 @@ import {
 import { readingMinutes } from '../../posts/post.model';
 import { esc, layout } from '../shared/layout';
 import {
+  NO_PROGRESS_STATE,
+  ProgressState,
   badge,
   breadcrumbs,
   emptyState,
   metaSeparator,
   pluralise,
   progressBar,
+  progressState,
 } from '../shared/components';
 import { PROGRESS_TRACKER_SCRIPT } from '../shared/scripts/progress-tracker';
 import { TUTORIALS_STYLES } from './tutorials.styles';
@@ -45,6 +48,7 @@ export function tutorialsIndexPage(
   stats: Map<string, SubjectStats>,
   lessonIds: Map<string, string[]>,
   totals: { subjects: number; tutorials: number; minutes: number },
+  progress: ProgressState = NO_PROGRESS_STATE,
 ): string {
   const cards = subjects
     .map((subject) => {
@@ -86,6 +90,8 @@ export function tutorialsIndexPage(
         ? `<div class="subj-grid">${cards}</div>`
         : emptyState('No subjects published yet.')
     }
+
+    ${progressState(progress)}
   `;
 
   return layout({
@@ -103,6 +109,7 @@ export function subjectPage(
   groups: ChapterGroup[],
   stats: SubjectStats,
   access: { locked: boolean; error?: boolean } = { locked: false },
+  progress: ProgressState = NO_PROGRESS_STATE,
 ): string {
   const ids = groups.flatMap((group) => group.lessons.map((l) => l.id));
   const urls = groups.flatMap((group) =>
@@ -205,6 +212,8 @@ export function subjectPage(
         ? sections
         : emptyState('No lessons in this subject yet.', 'margin-top:2rem')
     }
+
+    ${progressState(progress)}
   `;
 
   return layout({
@@ -224,6 +233,7 @@ export function tutorialPage(
   groups: ChapterGroup[],
   nav: Neighbours,
   contentHtml: string,
+  progress: ProgressState = NO_PROGRESS_STATE,
 ): string {
   const sidebar = groups
     .filter((group) => group.lessons.length)
@@ -294,6 +304,8 @@ export function tutorialPage(
         </nav>
       </article>
     </div>
+
+    ${progressState(progress)}
   `;
 
   return layout({

@@ -30,6 +30,7 @@ import {
 import { CertificatesService } from '../tutorials/certificates.service';
 import { LoginThrottleService } from '../auth/login-throttle.service';
 import { TutorialsService } from '../tutorials/tutorials.service';
+import { ProgressService } from '../tutorials/progress.service';
 
 @Controller('account')
 export class AccountsController {
@@ -38,6 +39,7 @@ export class AccountsController {
     private readonly session: AccountSessionService,
     private readonly certificates: CertificatesService,
     private readonly tutorials: TutorialsService,
+    private readonly progress: ProgressService,
     private readonly throttle: LoginThrottleService,
   ) {}
 
@@ -98,7 +100,25 @@ export class AccountsController {
           : [];
       });
 
-    res.send(accountPage(describeAccount(account), issued));
+    const started = this.tutorials.findSubjects().flatMap((subject) => {
+      const lessonIds = this.tutorials
+        .lessons(subject.id)
+        .map((lesson) => lesson.id);
+      const done = this.progress.countOf(account.id, lessonIds);
+
+      return done > 0 && done < lessonIds.length
+        ? [
+            {
+              title: subject.title,
+              href: `/tutorials/${subject.slug}`,
+              done,
+              total: lessonIds.length,
+            },
+          ]
+        : [];
+    });
+
+    res.send(accountPage(describeAccount(account), issued, started));
   }
 
   @Get('register')
@@ -198,15 +218,15 @@ export class AccountsController {
 
   @Get('recover')
   @Header('Content-Type', 'text/html')
-  recoverForm(): string {
-    return recoverPage();
+  recoverForm(@Query('next') next?: string): string {
+    return recoverPage({ next });
   }
 
   @Post('recover')
   @HttpCode(200)
   @Header('Content-Type', 'text/html')
   recover(
-    @Body() body: RecoveryInput,
+    @Body() body: RecoveryInput & { next?: string },
     @Req() req: Request,
     @Res() res: Response,
   ): void {
@@ -214,7 +234,12 @@ export class AccountsController {
 
     if (problem) {
       res.send(
-        recoverPage({ error: problem, email: body.email, code: body.code }),
+        recoverPage({
+          error: problem,
+          email: body.email,
+          code: body.code,
+          next: body.next,
+        }),
       );
       return;
     }
@@ -226,6 +251,7 @@ export class AccountsController {
         recoverPage({
           error: 'Too many attempts. Try again shortly.',
           email: body.email,
+          next: body.next,
         }),
       );
       return;
@@ -240,13 +266,14 @@ export class AccountsController {
         recoverPage({
           error: 'That email and recovery code did not match.',
           email: body.email,
+          next: body.next,
         }),
       );
       return;
     }
 
     this.throttle.recordSuccess(key);
-    res.send(recoveryCodePage(replacement));
+    res.send(recoveryCodePage(replacement, this.safeNext(body.next)));
   }
 
   @Post('sign-out')

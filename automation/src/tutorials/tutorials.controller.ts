@@ -20,8 +20,10 @@ import {
 } from '../views/public/tutorials.page';
 import {
   certificateFormPage,
+  certificateLockedPage,
   certificatePage,
 } from '../views/public/certificate.page';
+import { NO_PROGRESS_STATE, ProgressState } from '../views/shared/components';
 import { getSettings } from '../settings/settings.store';
 import {
   certificateContact,
@@ -37,6 +39,9 @@ import { ACCOUNT_PATHS } from '../views/public/account.pages';
 import type { Account } from '../accounts/account.model';
 import { Subject, SubjectStats, requiresEnrolment } from './tutorial.model';
 import { EnrolmentService } from './enrolment.service';
+import { ProgressService } from './progress.service';
+
+const PROGRESS_PATH = '/tutorials/progress';
 
 @Controller('tutorials')
 export class TutorialsController {
@@ -44,6 +49,7 @@ export class TutorialsController {
     private readonly tutorials: TutorialsService,
     private readonly enrolment: EnrolmentService,
     private readonly certificates: CertificatesService,
+    private readonly progress: ProgressService,
     private readonly accounts: AccountsService,
     private readonly session: AccountSessionService,
   ) {}
@@ -62,6 +68,35 @@ export class TutorialsController {
     res.redirect(`${ACCOUNT_PATHS.signIn}?next=${next}`);
   }
 
+  private progressState(req: Request): ProgressState {
+    const account = this.currentAccount(req);
+
+    if (!account) return NO_PROGRESS_STATE;
+
+    return {
+      done: this.progress.completed(account.id),
+      sync: PROGRESS_PATH,
+    };
+  }
+
+  private hasFinished(accountId: string, subjectId: string): boolean {
+    return this.progress.hasFinished(
+      accountId,
+      this.tutorials.lessons(subjectId).map((lesson) => lesson.id),
+    );
+  }
+
+  private lockedCertificate(accountId: string, subject: Subject): string {
+    return certificateLockedPage(
+      subject,
+      this.tutorials.stats(subject.id),
+      this.progress.countOf(
+        accountId,
+        this.tutorials.lessons(subject.id).map((lesson) => lesson.id),
+      ),
+    );
+  }
+
   private enrolled(req: Request, subject: Subject): boolean {
     const cookies = (req.cookies ?? {}) as Record<string, string>;
 
@@ -71,8 +106,30 @@ export class TutorialsController {
     );
   }
 
+  @Post('progress')
+  @HttpCode(204)
+  recordProgress(
+    @Body('lesson') lessonId: string,
+    @Body('done') done: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): void {
+    const account = this.currentAccount(req);
+    const known = this.tutorials
+      .allTutorials()
+      .some((lesson) => lesson.id === lessonId);
+
+    if (!account || !known) {
+      res.status(204).end();
+      return;
+    }
+
+    this.progress.set(account.id, lessonId, done === '1');
+    res.status(204).end();
+  }
+
   @Get()
-  index(@Res() res: Response): void {
+  index(@Req() req: Request, @Res() res: Response): void {
     const subjects = this.tutorials.findSubjects();
 
     const stats = new Map<string, SubjectStats>();
@@ -89,7 +146,13 @@ export class TutorialsController {
     res
       .type('html')
       .send(
-        tutorialsIndexPage(subjects, stats, lessonIds, this.tutorials.totals()),
+        tutorialsIndexPage(
+          subjects,
+          stats,
+          lessonIds,
+          this.tutorials.totals(),
+          this.progressState(req),
+        ),
       );
   }
 
@@ -119,6 +182,7 @@ export class TutorialsController {
           locked: !this.enrolled(req, subject),
           error: req.query.error !== undefined,
         },
+        this.progressState(req),
       ),
     );
   }
@@ -188,6 +252,11 @@ export class TutorialsController {
 
     const existing = this.certificates.find(account.id, subject.id);
 
+    if (!existing && !this.hasFinished(account.id, subject.id)) {
+      res.send(this.lockedCertificate(account.id, subject));
+      return;
+    }
+
     if (existing) {
       res.send(
         certificatePage(
@@ -207,7 +276,6 @@ export class TutorialsController {
       certificateFormPage(
         subject,
         this.tutorials.stats(subject.id),
-        this.tutorials.lessons(subject.id).map((lesson) => lesson.id),
         account.name,
       ),
     );
@@ -242,6 +310,14 @@ export class TutorialsController {
 
     if (!account) {
       this.signInFirst(res, subject.slug);
+      return;
+    }
+
+    if (
+      !this.certificates.find(account.id, subject.id) &&
+      !this.hasFinished(account.id, subject.id)
+    ) {
+      res.send(this.lockedCertificate(account.id, subject));
       return;
     }
 
@@ -293,11 +369,12 @@ export class TutorialsController {
       return;
     }
 
-    const record = this.certificates.issue(
-      account.id,
-      subject.id,
-      certificateHolder(holder || account.name),
-    );
+    const record = this.certificates.find(account.id, subject.id);
+
+    if (!record) {
+      res.redirect(`/tutorials/${subject.slug}/certificate`);
+      return;
+    }
 
     const stats = this.tutorials.stats(subject.id);
     const name = record.holder;
@@ -307,7 +384,7 @@ export class TutorialsController {
       contact: certificateContact(contact) || account.email,
       course: subject.title,
       detail: `${stats.total} ${stats.total === 1 ? 'lesson' : 'lessons'} · ${formatDuration(stats.minutes)} of reading`,
-      issued: new Date().toLocaleDateString('en-GB', {
+      issued: new Date(record.issuedAt).toLocaleDateString('en-GB', {
         day: 'numeric',
         month: 'long',
         year: 'numeric',
@@ -367,6 +444,7 @@ export class TutorialsController {
         this.tutorials.chapterGroups(subject.id),
         this.tutorials.neighbours(subject.id, tutorial.id),
         renderMarkdown(tutorial.content),
+        this.progressState(req),
       ),
     );
   }

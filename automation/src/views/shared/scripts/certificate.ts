@@ -32,29 +32,6 @@ export const CERTIFICATE_SCRIPT = `
     });
   }
 
-  var form = document.querySelector('[data-cert-form]');
-  var warning = document.querySelector('[data-cert-incomplete]');
-
-  if (form && warning) {
-    try {
-      var progress = JSON.parse(
-        window.localStorage.getItem('tutorial-progress') || '{}',
-      );
-      var ids = (form.getAttribute('data-cert-lessons') || '')
-        .split(',')
-        .filter(Boolean);
-
-      var done = 0;
-      for (var j = 0; j < ids.length; j++) {
-        if (progress[ids[j]] === true) done++;
-      }
-
-      warning.hidden = ids.length === 0 || done === ids.length;
-    } catch (e) {
-      warning.hidden = true;
-    }
-  }
-
   var print = document.querySelector('[data-cert-print]');
 
   if (print) {

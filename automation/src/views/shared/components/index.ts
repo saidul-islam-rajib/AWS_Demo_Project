@@ -25,6 +25,19 @@ export function statusPill(status: string): string {
     : '<span class="pill pub">Published</span>';
 }
 
+export interface ProgressState {
+  done: string[];
+  sync: string;
+}
+
+export const NO_PROGRESS_STATE: ProgressState = { done: [], sync: '' };
+
+export function progressState(state: ProgressState): string {
+  return `<div data-progress-state hidden
+    data-done="${esc(state.done.join(','))}"
+    data-sync="${esc(state.sync)}"></div>`;
+}
+
 export function progressBar(ids: string[]): string {
   return `<div class="progress-row" data-progress-for="${esc(ids.join(','))}">
     <span class="progress-track"><span class="progress-fill"></span></span>

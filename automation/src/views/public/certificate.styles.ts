@@ -6,14 +6,19 @@ export const CERTIFICATE_STYLES = `
     letter-spacing: -0.03em; margin-bottom: 0.6rem;
   }
   .cert-lede { color: var(--ink-3); margin-bottom: 1.5rem; }
-  .cert-incomplete {
-    border: 1px solid var(--warn); color: var(--warn);
-    background: color-mix(in srgb, currentColor 8%, transparent);
-    border-radius: 10px; padding: 0.7rem 0.9rem; font-size: 0.86rem;
-    margin-bottom: 1.25rem;
+  .cert-progress {
+    display: flex; align-items: center; gap: 0.8rem;
+    font-size: 0.84rem; color: var(--ink-3); margin-bottom: 1rem;
   }
-  .cert-incomplete a { color: inherit; text-decoration: underline; }
-  .cert-incomplete[hidden] { display: none; }
+  .cert-progress-track {
+    flex: 1; height: 8px; border-radius: 100px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .cert-progress-fill {
+    display: block; height: 100%; background: var(--accent);
+  }
+  .cert-form .btn { margin-top: 1.25rem; }
   .cert-field { margin-bottom: 1.1rem; }
   .cert-field label {
     display: block; font-size: 0.85rem; margin-bottom: 0.35rem; color: var(--ink-2);
