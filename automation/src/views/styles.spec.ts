@@ -10,11 +10,18 @@ import {
 import { homePage, SIDEBAR_TAG_LIMIT } from './public/posts.pages';
 import {
   lessonEditorPage,
+  subjectEditorPage,
   subjectLessonsPage,
   tutorialsAdminPage,
 } from './admin/tutorials.page';
+import { CONDITIONAL_FIELDS_SCRIPT } from './shared/scripts/conditional-fields';
 import { PROGRESS_TRACKER_SCRIPT } from './shared/scripts/progress-tracker';
-import { Difficulty, Subject, Tutorial } from '../tutorials/tutorial.model';
+import {
+  Difficulty,
+  ENROLMENT_POLICIES,
+  Subject,
+  Tutorial,
+} from '../tutorials/tutorial.model';
 
 const subject: Subject = {
   id: 's1',
@@ -410,5 +417,52 @@ describe('completion time field', () => {
 
   it('defaults a new lesson to thirty seconds', () => {
     expect(editor()).toContain('value="30"');
+  });
+});
+
+describe('enrolment policy field', () => {
+  const editor = (s?: Subject): string => subjectEditorPage(s);
+
+  it('renders one option per policy, from the policy list', () => {
+    const html = editor();
+
+    for (const policy of ENROLMENT_POLICIES) {
+      expect(html).toContain(`value="${policy.value}"`);
+      expect(html).toContain(policy.label);
+    }
+  });
+
+  it('carries what each option reveals as data, not as a hardcoded check', () => {
+    const html = editor();
+
+    for (const policy of ENROLMENT_POLICIES) {
+      expect(html).toContain(
+        `value="${policy.value}" data-reveals="${policy.reveals}"`,
+      );
+    }
+  });
+
+  it('hides the key field for a policy that does not need one', () => {
+    expect(editor()).toContain('id="enrol-key-field" hidden');
+  });
+
+  it('shows the key field for a policy that needs one', () => {
+    const html = editor({ ...subject, enrolment: 'key', enrolKey: 'autumn' });
+
+    expect(html).toContain('id="enrol-key-field" ');
+    expect(html).not.toContain('id="enrol-key-field" hidden');
+  });
+
+  it('shows the hint belonging to the selected policy', () => {
+    expect(editor()).toContain(ENROLMENT_POLICIES[0].hint);
+    expect(editor({ ...subject, enrolment: 'key' })).toContain(
+      ENROLMENT_POLICIES[1].hint,
+    );
+  });
+
+  it('toggles purely from the data attributes', () => {
+    expect(CONDITIONAL_FIELDS_SCRIPT).toContain("getAttribute('data-reveals')");
+    expect(CONDITIONAL_FIELDS_SCRIPT).not.toContain("'key'");
+    expect(CONDITIONAL_FIELDS_SCRIPT).not.toContain('enrol');
   });
 });

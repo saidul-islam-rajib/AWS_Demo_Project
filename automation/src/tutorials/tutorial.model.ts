@@ -18,10 +18,38 @@ export const DIFFICULTY_LABELS: Record<Difficulty, string> = {
 
 export type Enrolment = 'open' | 'key';
 
-export const ENROLMENT_LABELS: Record<Enrolment, string> = {
-  open: 'Open to everyone',
-  key: 'Needs an enrolment key',
-};
+export interface EnrolmentPolicy {
+  value: Enrolment;
+  label: string;
+  hint: string;
+  reveals: string;
+}
+
+export const ENROLMENT_POLICIES: EnrolmentPolicy[] = [
+  {
+    value: 'open',
+    label: 'Open to everyone',
+    hint: 'Anyone can read every lesson.',
+    reveals: '',
+  },
+  {
+    value: 'key',
+    label: 'Needs an enrolment key',
+    hint: 'Lesson titles stay visible, but the lessons need the key first.',
+    reveals: 'enrol-key-field',
+  },
+];
+
+export function enrolmentPolicy(value: Enrolment): EnrolmentPolicy {
+  return (
+    ENROLMENT_POLICIES.find((policy) => policy.value === value) ??
+    ENROLMENT_POLICIES[0]
+  );
+}
+
+export function policyNeedsKey(value: Enrolment): boolean {
+  return enrolmentPolicy(value).reveals.length > 0;
+}
 
 export interface Subject {
   id: string;
@@ -150,7 +178,12 @@ export function suggestedCompletionSeconds(content: string): number {
 }
 
 export function parseEnrolment(value?: string): Enrolment {
-  return (value ?? '').trim().toLowerCase() === 'key' ? 'key' : 'open';
+  const candidate = (value ?? '').trim().toLowerCase();
+
+  return (
+    ENROLMENT_POLICIES.find((policy) => policy.value === candidate)?.value ??
+    ENROLMENT_POLICIES[0].value
+  );
 }
 
 export function normaliseEnrolKey(value?: string): string {
@@ -161,7 +194,7 @@ export function requiresEnrolment(subject: {
   enrolment: Enrolment;
   enrolKey: string;
 }): boolean {
-  return subject.enrolment === 'key' && subject.enrolKey.length > 0;
+  return policyNeedsKey(subject.enrolment) && subject.enrolKey.length > 0;
 }
 
 export function normaliseIcon(value?: string): string {

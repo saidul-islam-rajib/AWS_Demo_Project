@@ -3,7 +3,8 @@ import {
   ChapterGroup,
   DEFAULT_COMPLETION_SECONDS,
   DIFFICULTIES,
-  ENROLMENT_LABELS,
+  ENROLMENT_POLICIES,
+  enrolmentPolicy,
   DIFFICULTY_LABELS,
   MAX_COMPLETION_SECONDS,
   Subject,
@@ -15,6 +16,7 @@ import { readingMinutes } from '../../posts/post.model';
 import { adminNav, esc, layout } from '../shared/layout';
 import { emptyState, statusPill } from '../shared/components';
 import { SORTABLE_SCRIPT } from '../shared/scripts/sortable';
+import { CONDITIONAL_FIELDS_SCRIPT } from '../shared/scripts/conditional-fields';
 import { TUTORIALS_ADMIN_STYLES as STYLES } from './tutorials.styles';
 
 const CSS = STYLES;
@@ -108,6 +110,7 @@ export function subjectEditorPage(subject?: Subject): string {
     : '/admin/tutorials/subjects/new';
 
   const v = (value?: string) => esc(value ?? '');
+  const current = enrolmentPolicy(subject?.enrolment ?? 'open');
 
   const body = `
 ${CSS}
@@ -156,17 +159,16 @@ ${CSS}
 
           <div class="field">
             <label for="enrolment">Enrolment</label>
-            <select id="enrolment" name="enrolment">
-              <option value="open" ${subject?.enrolment !== 'key' ? 'selected' : ''}>${ENROLMENT_LABELS.open}</option>
-              <option value="key" ${subject?.enrolment === 'key' ? 'selected' : ''}>${ENROLMENT_LABELS.key}</option>
+            <select id="enrolment" name="enrolment" data-reveals>
+              ${ENROLMENT_POLICIES.map(
+                (policy) =>
+                  `<option value="${esc(policy.value)}" data-reveals="${esc(policy.reveals)}" ${policy.value === current.value ? 'selected' : ''}>${esc(policy.label)}</option>`,
+              ).join('')}
             </select>
-            <p class="hint">
-              Open courses can be read by anyone. With a key, lesson titles stay
-              visible but the lessons themselves need the key first.
-            </p>
+            <p class="hint">${esc(current.hint)}</p>
           </div>
 
-          <div class="field">
+          <div class="field" id="enrol-key-field" ${current.reveals ? '' : 'hidden'}>
             <label for="enrolKey">Enrolment key</label>
             <input type="text" id="enrolKey" name="enrolKey" value="${v(subject?.enrolKey)}"
                    autocomplete="off" placeholder="autumn-2026" />
@@ -205,7 +207,7 @@ ${CSS}
 
   return layout({
     title: editing ? 'Edit subject · Admin' : 'New subject · Admin',
-    body,
+    body: body + CONDITIONAL_FIELDS_SCRIPT,
     nav: adminNav('/admin/tutorials'),
     variant: 'admin',
     path: '/admin/tutorials',
