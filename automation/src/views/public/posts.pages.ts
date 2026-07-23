@@ -162,6 +162,20 @@ const FEED_CSS = `
     color: var(--ink-3); margin-bottom: 0.9rem;
   }
   .rail + .rail { margin-top: 2.25rem; }
+  .tutorial-hits { margin-bottom: 2rem; }
+  .tutorial-hits h2 {
+    font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-3); margin-bottom: 0.75rem;
+  }
+  .tutorial-hit {
+    display: block; padding: 0.8rem 1rem; margin-bottom: 0.5rem;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: var(--surface); transition: border-color .18s;
+  }
+  .tutorial-hit:hover { border-color: var(--accent); }
+  .tutorial-hit b { display: block; font-size: 0.98rem; color: var(--ink); }
+  .tutorial-hit span { font-size: 0.79rem; color: var(--ink-3); }
+
   .rail-more {
     display: inline-block; margin-top: 0.85rem;
     font-size: 0.8rem; color: var(--accent); font-weight: 600;
@@ -364,8 +378,9 @@ export function homePage(opts: {
   };
   query?: string;
   activeTag?: string;
+  tutorials?: { title: string; url: string; meta: string }[];
 }): string {
-  const { posts, tags, stats, query = '', activeTag } = opts;
+  const { posts, tags, stats, query = '', activeTag, tutorials = [] } = opts;
 
   const heading = activeTag
     ? `Tagged “${esc(activeTag)}”`
@@ -402,7 +417,7 @@ ${FEED_CSS}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" stroke-linecap="round" />
           </svg>
-          <input type="search" id="q" name="q" placeholder="Search posts and tags…"
+          <input type="search" id="q" name="q" placeholder="Search posts, tutorials and tags…"
                  value="${esc(query)}" aria-label="Search posts"
                  aria-autocomplete="list" aria-controls="search-results" />
           <button type="button" class="search-clear" id="search-clear" aria-label="Clear search">&times;</button>
@@ -416,9 +431,24 @@ ${FEED_CSS}
   <div class="feed-layout">
     <div>
       ${
+        tutorials.length
+          ? `<section class="tutorial-hits">
+               <h2>Tutorials</h2>
+               ${tutorials
+                 .map(
+                   (hit) => `<a class="tutorial-hit" href="${esc(hit.url)}">
+                       <b>${esc(hit.title)}</b>
+                       <span>${esc(hit.meta)}</span>
+                     </a>`,
+                 )
+                 .join('')}
+             </section>`
+          : ''
+      }
+      ${
         posts.length
           ? posts.map(card).join('')
-          : `<div class="empty"><p>No posts yet.</p></div>`
+          : `<div class="empty"><p>${tutorials.length ? 'No posts matched — see the tutorials above.' : 'No posts yet.'}</p></div>`
       }
     </div>
 

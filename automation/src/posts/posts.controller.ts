@@ -2,6 +2,7 @@ import { Controller, Get, Header, Param, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { formatDate, Post, readingMinutes } from './post.model';
 import { PostsService } from './posts.service';
+import { TutorialsService } from '../tutorials/tutorials.service';
 import { ProjectsService } from '../projects/projects.service';
 import { renderMarkdown } from './markdown';
 import {
@@ -15,6 +16,7 @@ import {
 export class PostsController {
   constructor(
     private readonly posts: PostsService,
+    private readonly tutorials: TutorialsService,
     private readonly projects: ProjectsService,
   ) {}
 
@@ -47,6 +49,13 @@ export class PostsController {
       tags: this.posts.tagCounts(),
       stats: this.feedStats(),
       query: q,
+      tutorials: q.trim()
+        ? this.tutorials.searchWithSubject(q).map(({ tutorial, subject }) => ({
+            title: tutorial.title,
+            url: `/tutorials/${subject.slug}/${tutorial.slug}`,
+            meta: `${subject.title} · ${readingMinutes(tutorial.content)} min read`,
+          }))
+        : [],
     });
   }
 
@@ -137,6 +146,16 @@ export class PostsController {
         meta: `${formatDate(p.publishedAt)} · ${readingMinutes(p.content)} min read`,
       }));
 
+    const tutorials = this.tutorials
+      .searchWithSubject(query)
+      .slice(0, 4)
+      .map(({ tutorial, subject }) => ({
+        title: tutorial.title,
+        url: `/tutorials/${subject.slug}/${tutorial.slug}`,
+        kind: 'Tutorial',
+        meta: `${subject.title} · ${readingMinutes(tutorial.content)} min read`,
+      }));
+
     const tags = this.posts
       .tagCounts()
       .filter((t) => t.tag.includes(query.toLowerCase()))
@@ -148,7 +167,7 @@ export class PostsController {
         meta: `${t.count} post${t.count === 1 ? '' : 's'}`,
       }));
 
-    return { results: [...posts, ...tags] };
+    return { results: [...posts, ...tutorials, ...tags] };
   }
 
   @Get('health')

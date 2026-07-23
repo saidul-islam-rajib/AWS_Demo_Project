@@ -219,6 +219,17 @@ export class TutorialsService {
     return searchTutorials(this.allTutorials(), query);
   }
 
+  searchWithSubject(query: string): { tutorial: Tutorial; subject: Subject }[] {
+    const bySubject = new Map(
+      this.findSubjects().map((subject) => [subject.id, subject]),
+    );
+
+    return this.search(query).flatMap((tutorial) => {
+      const subject = bySubject.get(tutorial.subjectId);
+      return subject ? [{ tutorial, subject }] : [];
+    });
+  }
+
   totals(): { subjects: number; tutorials: number; minutes: number } {
     const subjects = publishedOnly(this.subjects);
 

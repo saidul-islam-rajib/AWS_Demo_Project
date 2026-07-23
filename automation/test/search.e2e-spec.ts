@@ -157,3 +157,78 @@ describe('admin lists: search and pagination', () => {
       });
   });
 });
+
+describe('tutorials in search', () => {
+  it('returns tutorial hits from the live search', () =>
+    request(ctx.server)
+      .get('/api/search?q=DNS')
+      .expect(200)
+      .expect((res) => {
+        const hits = (res.body as SearchBody).results.filter(
+          (r) => r.kind === 'Tutorial',
+        );
+
+        expect(hits.length).toBeGreaterThan(0);
+        expect(hits[0].title).toContain('DNS');
+        expect(hits[0].url).toMatch(/^\/tutorials\/[a-z0-9-]+\/[a-z0-9-]+$/);
+        expect(hits[0].meta).toContain('min read');
+      }));
+
+  it('matches on lesson body, not just the title', () =>
+    request(ctx.server)
+      .get('/api/search?q=resolver')
+      .expect(200)
+      .expect((res) => {
+        const kinds = (res.body as SearchBody).results.map((r) => r.kind);
+        expect(kinds).toContain('Tutorial');
+      }));
+
+  it('shows tutorials on the search results page', () =>
+    request(ctx.server)
+      .get('/search?q=DNS')
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('<section class="tutorial-hits">');
+        expect(res.text).toContain('DNS: turning names into addresses');
+        expect(res.text).toContain('/tutorials/networking/');
+      }));
+
+  it('shows no tutorial section when nothing matches', () =>
+    request(ctx.server)
+      .get('/search?q=zzzznothingmatches')
+      .expect(200)
+      .expect((res) =>
+        expect(res.text).not.toContain('<section class="tutorial-hits">'),
+      ));
+
+  it('keeps a draft lesson out of search', async () => {
+    const cookie = await ctx.signIn();
+
+    const admin = await request(ctx.server)
+      .get('/admin/tutorials')
+      .set('Cookie', cookie)
+      .expect(200);
+
+    const id = /data-sort-id="([0-9a-f-]+)"/.exec(admin.text)?.[1] ?? '';
+    expect(id).toBeTruthy();
+
+    await request(ctx.server)
+      .post(`/admin/tutorials/subjects/${id}/lessons/new`)
+      .set('Cookie', cookie)
+      .type('form')
+      .send({
+        subjectId: id,
+        title: 'Secret Zebra Lesson',
+        content: 'zebra',
+        status: 'draft',
+      })
+      .expect(302);
+
+    await request(ctx.server)
+      .get('/api/search?q=zebra')
+      .expect(200)
+      .expect((res) =>
+        expect((res.body as SearchBody).results).toHaveLength(0),
+      );
+  });
+});
