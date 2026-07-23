@@ -190,6 +190,7 @@ pipeline {
                     docker run -d \
                         --name "$NEW_NAME" \
                         --restart unless-stopped \
+                        -e TRUST_PROXY=1 \
                         -p 127.0.0.1:${NEW_PORT}:${PORT} \
                         -v $DATA_VOLUME:/app/data \
                         $ENV_ARG \
@@ -223,8 +224,14 @@ pipeline {
                     fi
 
                     if [ "$(docker ps -q -f name="^${CONTAINER_NAME}$")" ]; then
-                        echo "Retiring the legacy single-container deployment on port $PORT."
-                        docker stop "$CONTAINER_NAME" > /dev/null || true
+                        if curl -fsS --max-time 10 "${PUBLIC_URL}/health" > /dev/null 2>&1; then
+                            echo "${PUBLIC_URL} is answering — retiring the legacy container on port $PORT."
+                            docker stop "$CONTAINER_NAME" > /dev/null || true
+                        else
+                            echo "WARNING: ${PUBLIC_URL} is not answering."
+                            echo "         Keeping the legacy container on port $PORT as a fallback,"
+                            echo "         so the site stays reachable. See deploy/README.md for TLS setup."
+                        fi
                     fi
 
                     echo "$NEW_PORT" > .deployed-port

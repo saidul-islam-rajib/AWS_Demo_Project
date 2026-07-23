@@ -69,14 +69,43 @@ sudo -u "$JENKINS_USER" sudo -n -l 2>/dev/null | grep -q 'reload caddy' \
 
 log "Sudo rules are in place."
 
-if command -v caddy > /dev/null 2>&1 && [ -f /etc/caddy/Caddyfile ]; then
-    if caddy validate --config /etc/caddy/Caddyfile > /dev/null 2>&1; then
-        log "Caddy config validates."
+if ! command -v caddy > /dev/null 2>&1; then
+    log "WARNING: caddy is not installed. See deploy/README.md."
+    log "Done. Deploys will use the single-container fallback on port 3000."
+    exit 0
+fi
+
+mkdir -p /var/log/caddy
+chown caddy:caddy /var/log/caddy 2> /dev/null || true
+
+CADDYFILE_SRC="$SCRIPT_DIR/../deploy/Caddyfile"
+
+if [ -f "$CADDYFILE_SRC" ] \
+    && ! grep -q 'import /etc/caddy/upstream.conf' /etc/caddy/Caddyfile 2> /dev/null; then
+
+    if [ -f /etc/caddy/Caddyfile ]; then
+        cp /etc/caddy/Caddyfile "/etc/caddy/Caddyfile.bak.$(date -u +%Y%m%d-%H%M%S)"
+        log "Backed up the existing Caddyfile."
+    fi
+
+    install -m 0644 -o root -g root "$CADDYFILE_SRC" /etc/caddy/Caddyfile
+    log "Installed /etc/caddy/Caddyfile"
+fi
+
+if caddy validate --config /etc/caddy/Caddyfile > /dev/null 2>&1; then
+    log "Caddy config validates."
+
+    systemctl restart caddy 2> /dev/null || true
+    sleep 2
+
+    if systemctl is-active --quiet caddy; then
+        log "Caddy restarted and is running."
     else
-        log "WARNING: /etc/caddy/Caddyfile does not validate. Fix it before the next deploy."
+        log "WARNING: caddy did not start. Check with: journalctl -u caddy -n 30"
     fi
 else
-    log "WARNING: caddy or /etc/caddy/Caddyfile is missing. See deploy/README.md."
+    log "WARNING: /etc/caddy/Caddyfile does not validate:"
+    caddy validate --config /etc/caddy/Caddyfile 2>&1 | tail -5
 fi
 
 log "Done. The next deploy can perform a blue/green switch."
