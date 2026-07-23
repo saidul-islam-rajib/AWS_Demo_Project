@@ -880,3 +880,69 @@ describe('certificate', () => {
       .expect(302);
   });
 });
+
+describe('certificate download', () => {
+  it('serves a png as an attachment', () =>
+    request(ctx.server)
+      .get('/tutorials/networking/certificate.png?holder=Saidul')
+      .expect(200)
+      .expect('Content-Type', /image\/png/)
+      .expect((res) => {
+        expect(res.headers['content-disposition']).toContain('attachment');
+        expect(res.headers['content-disposition']).toContain(
+          'certificate-networking.png',
+        );
+        expect((res.body as Buffer).length).toBeGreaterThan(1000);
+      }));
+
+  it('renders anonymous when no name is given', () =>
+    request(ctx.server)
+      .get('/tutorials/networking/certificate.png')
+      .expect(200)
+      .expect((res) =>
+        expect((res.body as Buffer).length).toBeGreaterThan(1000),
+      ));
+
+  it('offers the download from the certificate page', () =>
+    request(ctx.server)
+      .post('/tutorials/networking/certificate')
+      .type('form')
+      .send({ holder: 'Saidul Islam Rajib', contact: 'a@b.com' })
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('certificate.png?holder=');
+        expect(res.text).toContain('Download image');
+        expect(res.text).toContain('Saidul%20Islam%20Rajib');
+      }));
+
+  it('404s for an unknown course', () =>
+    request(ctx.server).get('/tutorials/nope/certificate.png').expect(404));
+
+  it('is gated behind enrolment like the lessons are', async () => {
+    const cookie = await ctx.signIn();
+
+    const admin = await request(ctx.server)
+      .get('/admin/tutorials')
+      .set('Cookie', cookie)
+      .expect(200);
+
+    const id = /data-sort-id="([0-9a-f-]+)"/.exec(admin.text)?.[1] ?? '';
+
+    await request(ctx.server)
+      .post(`/admin/tutorials/subjects/${id}/edit`)
+      .set('Cookie', cookie)
+      .type('form')
+      .send({
+        title: 'Networking',
+        status: 'published',
+        enrolment: 'key',
+        enrolKey: 'secret',
+      })
+      .expect(302);
+
+    await request(ctx.server)
+      .get('/tutorials/networking/certificate.png?holder=Sneaky')
+      .expect(302)
+      .expect('Location', '/tutorials/networking');
+  });
+});

@@ -86,7 +86,8 @@ export function certificatePage(
   const body = `
     <div class="cert-actions">
       <a class="btn btn-ghost" href="/tutorials/${esc(subject.slug)}">Back to the course</a>
-      <button class="btn btn-primary" type="button" data-cert-print>Print or save as PDF</button>
+      <a class="btn btn-primary" href="/tutorials/${esc(subject.slug)}/certificate.png?holder=${encodeURIComponent(holder)}&contact=${encodeURIComponent(contact)}" download>Download image</a>
+      <button class="btn btn-ghost" type="button" data-cert-print>Print</button>
     </div>
 
     <article class="cert">

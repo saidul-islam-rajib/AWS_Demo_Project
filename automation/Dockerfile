@@ -2,6 +2,10 @@
 # EBADENGINE warnings for @nestjs/core, @nestjs/cli and others.
 FROM node:20-alpine
 
+# sharp renders the certificate from SVG, and Alpine ships no fonts, so the
+# text would come out blank without these.
+RUN apk add --no-cache ttf-dejavu
+
 WORKDIR /app
 
 COPY package*.json ./

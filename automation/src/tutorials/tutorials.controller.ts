@@ -5,6 +5,7 @@ import {
   HttpCode,
   Param,
   Post,
+  Query,
   Req,
   Res,
 } from '@nestjs/common';
@@ -22,7 +23,14 @@ import {
   certificatePage,
 } from '../views/public/certificate.page';
 import { getSettings } from '../settings/settings.store';
-import { certificateContact, certificateHolder } from './tutorial.model';
+import {
+  certificateContact,
+  certificateHolder,
+  certificateReference,
+  formatDuration,
+} from './tutorial.model';
+import sharp from 'sharp';
+import { certificateSvg } from './certificate.svg';
 import { Subject, SubjectStats, requiresEnrolment } from './tutorial.model';
 import { EnrolmentService } from './enrolment.service';
 
@@ -194,6 +202,56 @@ export class TutorialsController {
         getSettings().authorName,
       ),
     );
+  }
+
+  @Get(':subject/certificate.png')
+  async certificateImage(
+    @Param('subject') slug: string,
+    @Query('holder') holder: string,
+    @Query('contact') contact: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    const subject = this.tutorials
+      .findSubjects()
+      .find((candidate) => candidate.slug === slug);
+
+    if (!subject) {
+      res.type('html').status(404).send(notFoundPage());
+      return;
+    }
+
+    if (requiresEnrolment(subject) && !this.enrolled(req, subject)) {
+      res.redirect(`/tutorials/${subject.slug}`);
+      return;
+    }
+
+    const stats = this.tutorials.stats(subject.id);
+    const name = certificateHolder(holder);
+
+    const svg = certificateSvg({
+      holder: name,
+      contact: certificateContact(contact),
+      course: subject.title,
+      detail: `${stats.total} ${stats.total === 1 ? 'lesson' : 'lessons'} · ${formatDuration(stats.minutes)} of reading`,
+      issued: new Date().toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }),
+      author: getSettings().authorName,
+      reference: certificateReference(subject.id, name),
+    });
+
+    const png = await sharp(Buffer.from(svg)).png().toBuffer();
+
+    res
+      .type('png')
+      .setHeader(
+        'Content-Disposition',
+        `attachment; filename="certificate-${subject.slug}.png"`,
+      )
+      .send(png);
   }
 
   @Get(':subject/:tutorial')
