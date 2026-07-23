@@ -25,6 +25,7 @@ import {
   signInPage,
 } from '../views/public/account.pages';
 import { CertificatesService } from '../tutorials/certificates.service';
+import { LoginThrottleService } from '../auth/login-throttle.service';
 import { TutorialsService } from '../tutorials/tutorials.service';
 
 @Controller('account')
@@ -34,7 +35,12 @@ export class AccountsController {
     private readonly session: AccountSessionService,
     private readonly certificates: CertificatesService,
     private readonly tutorials: TutorialsService,
+    private readonly throttle: LoginThrottleService,
   ) {}
+
+  private throttleKey(req: Request): string {
+    return `account:${req.ip ?? req.socket?.remoteAddress ?? 'unknown'}`;
+  }
 
   private currentId(req: Request): string {
     const cookies = (req.cookies ?? {}) as Record<string, string>;
@@ -148,11 +154,30 @@ export class AccountsController {
   @Header('Content-Type', 'text/html')
   signIn(
     @Body() body: { email?: string; password?: string; next?: string },
+    @Req() req: Request,
     @Res() res: Response,
   ): void {
+    const key = this.throttleKey(req);
+    const waitMs = this.throttle.retryAfter(key);
+
+    if (waitMs > 0) {
+      const minutes = Math.max(1, Math.ceil(waitMs / 60000));
+
+      res.send(
+        signInPage({
+          error: `Too many attempts. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`,
+          email: normaliseEmail(body.email),
+          next: body.next,
+        }),
+      );
+      return;
+    }
+
     const account = this.accounts.authenticate(body);
 
     if (!account) {
+      this.throttle.recordFailure(key);
+
       res.send(
         signInPage({
           error: 'That email and password did not match.',
@@ -163,6 +188,7 @@ export class AccountsController {
       return;
     }
 
+    this.throttle.recordSuccess(key);
     this.startSession(res, account.id);
     res.redirect(this.safeNext(body.next));
   }

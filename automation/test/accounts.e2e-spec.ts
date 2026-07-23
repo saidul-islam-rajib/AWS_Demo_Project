@@ -136,3 +136,48 @@ describe('accounts', () => {
     expect(res.headers.location).toBe('/tutorials/networking');
   });
 });
+
+describe('sign-in rate limiting', () => {
+  const attempt = (password: string) =>
+    request(ctx.server)
+      .post('/account/sign-in')
+      .type('form')
+      .send({ email: 'rajib@example.com', password });
+
+  it('locks out after repeated wrong passwords', async () => {
+    await register().expect(302);
+
+    for (let i = 0; i < 5; i += 1) {
+      await attempt('wrong').expect(200);
+    }
+
+    await attempt('wrong')
+      .expect(200)
+      .expect((res) => expect(res.text).toContain('Too many attempts'));
+  });
+
+  it('refuses the right password while locked out', async () => {
+    await register().expect(302);
+
+    for (let i = 0; i < 5; i += 1) {
+      await attempt('wrong').expect(200);
+    }
+
+    await attempt('correct-horse')
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('Too many attempts');
+        expect(res.headers['set-cookie']).toBeUndefined();
+      });
+  });
+
+  it('lets a correct password through before the limit', async () => {
+    await register().expect(302);
+
+    await attempt('wrong').expect(200);
+
+    await attempt('correct-horse')
+      .expect(302)
+      .expect((res) => expect(res.headers['set-cookie']).toBeDefined());
+  });
+});
