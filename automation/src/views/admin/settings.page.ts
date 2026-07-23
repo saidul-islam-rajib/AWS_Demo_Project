@@ -1,7 +1,15 @@
-import { SiteSettings } from '../../settings/settings.model';
+import {
+  SiteSettings,
+  hostOf,
+  siteUrlMatches,
+} from '../../settings/settings.model';
 import { adminNav, avatarMark, esc, layout } from '../shared/layout';
 
-export function settingsPage(s: SiteSettings, saved = false): string {
+export function settingsPage(
+  s: SiteSettings,
+  saved = false,
+  origin = '',
+): string {
   const linkRows = [
     ...s.footerLinks,
     { label: '', url: '' },
@@ -60,6 +68,13 @@ export function settingsPage(s: SiteSettings, saved = false): string {
     font-size: 0.83rem; color: var(--ink-3);
   }
   .preview-footer a { color: var(--accent); }
+  .url-warning {
+    margin-top: 0.5rem; padding: 0.65rem 0.8rem; border-radius: 8px;
+    font-size: 0.82rem; line-height: 1.5;
+    color: var(--warn); border: 1px solid currentColor;
+    background: color-mix(in srgb, currentColor 8%, transparent);
+  }
+  .url-warning b { color: inherit; }
 </style>
 
   ${saved ? '<div class="flash ok">Settings saved.</div>' : ''}
@@ -128,6 +143,17 @@ export function settingsPage(s: SiteSettings, saved = false): string {
             <input type="text" id="siteUrl" name="siteUrl" value="${esc(s.siteUrl)}"
                    placeholder="https://example.com" />
             <p class="hint">Used for link previews on Facebook, LinkedIn and X. Must be absolute.</p>
+            ${
+              origin && !siteUrlMatches(s.siteUrl, origin)
+                ? `<p class="url-warning">
+                     This does not match the address you are viewing right now
+                     (<b>${esc(origin)}</b>). Every link preview points at
+                     <b>${esc(hostOf(s.siteUrl) || s.siteUrl)}</b>, so Facebook and
+                     LinkedIn will fetch the wrong host and show nothing.
+                     Set it to <b>${esc(origin)}</b> and save.
+                   </p>`
+                : ''
+            }
           </div>
 
           <div class="field">

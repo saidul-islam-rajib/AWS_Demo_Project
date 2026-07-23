@@ -5,10 +5,11 @@ import {
   Header,
   Post,
   Query,
+  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
 import { SettingsService } from './settings.service';
 import { parseFooterLinks } from './settings.model';
@@ -26,6 +27,8 @@ interface SettingsForm {
   footerOwnerUrl?: string;
   footerSuffix?: string;
   showIntro?: string;
+  siteUrl?: string;
+  githubUser?: string;
   linkLabel?: string | string[];
   linkUrl?: string | string[];
 }
@@ -37,8 +40,11 @@ export class SettingsController {
 
   @Get()
   @Header('Content-Type', 'text/html')
-  form(@Query('saved') saved?: string): string {
-    return settingsPage(this.settings.get(), saved !== undefined);
+  form(@Req() req: Request, @Query('saved') saved?: string): string {
+    const host = req.get('host') ?? '';
+    const origin = host ? `${req.protocol}://${host}` : '';
+
+    return settingsPage(this.settings.get(), saved !== undefined, origin);
   }
 
   @Post()

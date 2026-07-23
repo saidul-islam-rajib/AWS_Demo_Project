@@ -52,6 +52,20 @@ export function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+export function hostOf(url: string): string {
+  const match = /^https?:\/\/([^/?#]+)/i.exec((url ?? '').trim());
+  return match ? match[1].toLowerCase() : '';
+}
+
+export function siteUrlMatches(siteUrl: string, origin: string): boolean {
+  const configured = hostOf(siteUrl);
+  const actual = hostOf(origin);
+
+  if (!configured || !actual) return true;
+
+  return configured === actual || configured === `www.${actual}`;
+}
+
 export function safeUrl(url: string): string {
   const trimmed = (url ?? '').trim();
   if (!trimmed) return '';

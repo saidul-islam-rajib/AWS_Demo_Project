@@ -8,6 +8,8 @@ import {
   initials,
   parseFooterLinks,
   safeUrl,
+  hostOf,
+  siteUrlMatches,
 } from './settings.model';
 
 describe('settings.model', () => {
@@ -153,5 +155,55 @@ describe('SettingsService', () => {
 
     expect(reloaded.siteTitle).toBe(DEFAULT_SETTINGS.siteTitle);
     expect(reloaded.footerLinks.length).toBeGreaterThan(0);
+  });
+});
+
+describe('hostOf', () => {
+  it('pulls the host out of an absolute URL', () => {
+    expect(hostOf('https://team-sober.com/admin')).toBe('team-sober.com');
+    expect(hostOf('http://16.171.254.209:3000')).toBe('16.171.254.209:3000');
+  });
+
+  it('lowercases the host', () => {
+    expect(hostOf('https://Team-Sober.COM')).toBe('team-sober.com');
+  });
+
+  it('returns nothing for a relative or empty value', () => {
+    expect(hostOf('/admin')).toBe('');
+    expect(hostOf('')).toBe('');
+  });
+});
+
+describe('siteUrlMatches', () => {
+  it('matches an identical host', () => {
+    expect(
+      siteUrlMatches('https://team-sober.com', 'https://team-sober.com'),
+    ).toBe(true);
+  });
+
+  it('accepts the www form of the same host', () => {
+    expect(
+      siteUrlMatches('https://www.team-sober.com', 'https://team-sober.com'),
+    ).toBe(true);
+  });
+
+  it('flags a stale host, which is what breaks link previews', () => {
+    expect(
+      siteUrlMatches(
+        'https://16.171.254.209.sslip.io',
+        'https://team-sober.com',
+      ),
+    ).toBe(false);
+  });
+
+  it('ignores the scheme and path', () => {
+    expect(
+      siteUrlMatches('http://team-sober.com/x', 'https://team-sober.com'),
+    ).toBe(true);
+  });
+
+  it('stays quiet when either side is unknown', () => {
+    expect(siteUrlMatches('', 'https://team-sober.com')).toBe(true);
+    expect(siteUrlMatches('https://team-sober.com', '')).toBe(true);
   });
 });

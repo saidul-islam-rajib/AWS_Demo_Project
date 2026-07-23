@@ -81,3 +81,72 @@ describe('settings', () => {
       .expect((res) => expect(res.text).not.toContain('javascript:alert'));
   });
 });
+
+describe('site URL mismatch warning', () => {
+  it('warns when the configured host is not the one being used', async () => {
+    const cookie = await ctx.signIn();
+
+    await request(ctx.server)
+      .post('/admin/settings')
+      .set('Cookie', cookie)
+      .type('form')
+      .send({ authorName: 'Rajib', siteUrl: 'https://some-old-host.example' })
+      .expect(302);
+
+    await request(ctx.server)
+      .get('/admin/settings')
+      .set('Cookie', cookie)
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('url-warning');
+        expect(res.text).toContain('some-old-host.example');
+      });
+  });
+
+  it('stays quiet once the site URL matches', async () => {
+    const cookie = await ctx.signIn();
+
+    const page = await request(ctx.server)
+      .get('/admin/settings')
+      .set('Cookie', cookie)
+      .expect(200);
+
+    const host = /name="siteUrl" value="([^"]*)"/.exec(page.text)?.[1] ?? '';
+    expect(host).toBeTruthy();
+
+    await request(ctx.server)
+      .post('/admin/settings')
+      .set('Cookie', cookie)
+      .type('form')
+      .send({ authorName: 'Rajib', siteUrl: 'http://127.0.0.1' })
+      .expect(302);
+
+    await request(ctx.server)
+      .get('/admin/settings')
+      .set('Cookie', cookie)
+      .set('Host', '127.0.0.1')
+      .expect(200)
+      .expect((res) => expect(res.text).not.toContain('url-warning">'));
+  });
+
+  it('saves a changed site URL', async () => {
+    const cookie = await ctx.signIn();
+
+    await request(ctx.server)
+      .post('/admin/settings')
+      .set('Cookie', cookie)
+      .type('form')
+      .send({ authorName: 'Rajib', siteUrl: 'https://team-sober.com' })
+      .expect(302);
+
+    await request(ctx.server)
+      .get('/admin/settings')
+      .set('Cookie', cookie)
+      .expect(200)
+      .expect((res) =>
+        expect(res.text).toContain(
+          'name="siteUrl" value="https://team-sober.com"',
+        ),
+      );
+  });
+});
