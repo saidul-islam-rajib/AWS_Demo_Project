@@ -255,6 +255,53 @@ describe('TutorialsService', () => {
       expect(nav.total).toBe(3);
     });
 
+    it('keeps lessons inside a draft subject out of the public totals', () => {
+      const hidden = service.createSubject({
+        title: 'Hidden',
+        status: 'draft',
+      });
+      makeLesson(hidden.id, 'A');
+      makeLesson(hidden.id, 'B');
+
+      const shown = makeSubject('Shown');
+      makeLesson(shown.id, 'C');
+
+      const totals = service.totals();
+
+      expect(totals.subjects).toBe(1);
+      expect(totals.tutorials).toBe(1);
+    });
+
+    it('keeps lessons inside a draft subject out of allTutorials', () => {
+      const hidden = service.createSubject({
+        title: 'Hidden',
+        status: 'draft',
+      });
+      makeLesson(hidden.id, 'Buried');
+
+      expect(service.allTutorials().map((t) => t.title)).not.toContain(
+        'Buried',
+      );
+      expect(service.allTutorials(true).map((t) => t.title)).toContain(
+        'Buried',
+      );
+    });
+
+    it('keeps lessons inside a draft subject out of search results', () => {
+      const hidden = service.createSubject({
+        title: 'Hidden',
+        status: 'draft',
+      });
+      makeLesson(hidden.id, 'Unreachable Topic');
+
+      const shown = makeSubject('Shown');
+      makeLesson(shown.id, 'Reachable Topic');
+
+      expect(service.search('topic').map((t) => t.title)).toEqual([
+        'Reachable Topic',
+      ]);
+    });
+
     it('totals only published content', () => {
       const subject = makeSubject();
       makeLesson(subject.id, 'A');

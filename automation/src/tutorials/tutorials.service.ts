@@ -200,12 +200,22 @@ export class TutorialsService {
     return neighbours(this.lessons(subjectId), tutorialId);
   }
 
+  private liveSubjectIds(): Set<string> {
+    return new Set(publishedOnly(this.subjects).map((subject) => subject.id));
+  }
+
   allTutorials(includeDrafts = false): Tutorial[] {
-    return includeDrafts ? [...this.tutorials] : publishedOnly(this.tutorials);
+    if (includeDrafts) return [...this.tutorials];
+
+    const live = this.liveSubjectIds();
+
+    return publishedOnly(this.tutorials).filter((tutorial) =>
+      live.has(tutorial.subjectId),
+    );
   }
 
   search(query: string): Tutorial[] {
-    return searchTutorials(this.tutorials, query);
+    return searchTutorials(this.allTutorials(), query);
   }
 
   totals(): { subjects: number; tutorials: number; minutes: number } {
@@ -213,7 +223,10 @@ export class TutorialsService {
 
     return {
       subjects: subjects.length,
-      tutorials: publishedOnly(this.tutorials).length,
+      tutorials: subjects.reduce(
+        (sum, subject) => sum + this.stats(subject.id).total,
+        0,
+      ),
       minutes: subjects.reduce(
         (sum, subject) => sum + this.stats(subject.id).minutes,
         0,
