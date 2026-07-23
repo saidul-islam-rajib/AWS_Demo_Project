@@ -42,6 +42,22 @@ pipeline {
          * have freed the space, so it fails in milliseconds having done
          * nothing and the disk stays full. Builds #41-#45 were that loop.
          */
+        stage('Revision') {
+            steps {
+                sh '''
+                    echo "=============================================="
+                    echo "Branch:  $(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo detached)"
+                    echo "Commit:  $(git rev-parse --short HEAD)"
+                    echo "Subject: $(git log -1 --pretty=%s)"
+                    echo "Author:  $(git log -1 --pretty='%an, %ar')"
+                    echo "=============================================="
+                    echo "Compare this against the tip of main on GitHub."
+                    echo "If they match, the build is current no matter what"
+                    echo "the Stage View changeset label says."
+                '''
+            }
+        }
+
         stage('Preflight') {
             steps {
                 sh '''
