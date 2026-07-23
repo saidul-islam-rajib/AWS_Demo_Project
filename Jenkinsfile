@@ -18,7 +18,7 @@ pipeline {
         EMAIL          = 'saidul.rajib.bd@gmail.com'
         PORT           = '3000'
         APP_DIR        = 'automation'
-        PUBLIC_URL     = 'https://16.171.254.209.sslip.io'
+        PUBLIC_URL     = 'https://team-sober.com'
         // Named volume holding posts.json, so content survives redeploys.
         DATA_VOLUME    = 'blog_data'
         // Secrets live on the host, never in this repository.

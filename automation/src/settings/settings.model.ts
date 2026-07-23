@@ -31,7 +31,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   siteTitle: 'Engineering notes',
   siteTagline:
     'Backend development, DevOps and cloud infrastructure — written up as I work through them.',
-  siteUrl: 'https://16.171.254.209.sslip.io',
+  siteUrl: 'https://team-sober.com',
   shareIntro: '',
   githubUser: '',
   showIntro: true,

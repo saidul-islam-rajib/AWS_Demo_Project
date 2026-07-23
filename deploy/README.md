@@ -68,19 +68,24 @@ refuses to run without `--yes`.
 
 ## 2. HTTPS with Caddy
 
-### Why sslip.io
+### DNS
 
-Let's Encrypt will not issue a certificate for a bare IP address, so
-`https://16.171.254.209:3000` is impossible however it is configured.
-`sslip.io` is wildcard DNS: `16.171.254.209.sslip.io` resolves to
-`16.171.254.209`. That is a real hostname, so a certificate can be issued for
-it — without registering a domain.
+Let's Encrypt will not issue a certificate for a bare IP address, so a hostname
+is a prerequisite rather than a nicety. The site uses `team-sober.com`,
+registered through Cloudflare, with two A records:
 
-> **Worth knowing:** `sslip.io` is one shared registered domain. Let's Encrypt
-> rate limits are applied per registered domain, so issuance can fail if the
-> service is busy. Test with `acme_ca https://acme-staging-v02.api.letsencrypt.org/directory`
-> in the Caddyfile global block first, and switch to production once it works.
-> A domain of your own avoids this entirely and is the better long-term answer.
+| Type | Name | Value | Proxy |
+|---|---|---|---|
+| A | `@` | `16.171.254.209` | DNS only |
+| A | `www` | `16.171.254.209` | DNS only |
+
+> **The records must be "DNS only", not proxied.** With Cloudflare's proxy
+> enabled, Cloudflare terminates TLS itself and Caddy's ACME challenge never
+> reaches this server, so certificate issuance fails.
+
+An earlier iteration used `sslip.io` wildcard DNS to avoid registering a
+domain. It worked from the server but resolved to a parking address on some
+consumer networks, which is the failure mode a real domain removes.
 
 ### Open the ports
 
@@ -135,7 +140,7 @@ jenkins ALL=(root) NOPASSWD: /usr/bin/caddy validate --config /etc/caddy/Caddyfi
 ### Point the app at its own URL
 
 Open **Admin → Settings** and set **Site URL** to
-`https://16.171.254.209.sslip.io`.
+`https://team-sober.com`.
 
 This is not cosmetic. Open Graph, the canonical link, `sitemap.xml` and
 `feed.xml` all build absolute URLs from it, so link previews stay broken until
@@ -220,9 +225,9 @@ Moving to a real database is what removes the caveat rather than shrinking it.
 ## Verifying the whole thing
 
 ```bash
-curl -I https://16.171.254.209.sslip.io/health     # 200, valid certificate
-curl -I http://16.171.254.209.sslip.io/health      # 308 redirect to HTTPS
-curl -s https://16.171.254.209.sslip.io/feed.xml | head -5
+curl -I https://team-sober.com/health     # 200, valid certificate
+curl -I http://team-sober.com/health      # 308 redirect to HTTPS
+curl -s https://team-sober.com/feed.xml | head -5
 ls -lh /opt/blog/backups/
 ```
 

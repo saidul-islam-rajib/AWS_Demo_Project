@@ -2,7 +2,7 @@
 	email saidul.rajib.bd@gmail.com
 }
 
-16.171.254.209.sslip.io {
+team-sober.com {
 	encode zstd gzip
 
 	header {
@@ -14,4 +14,8 @@
 	}
 
 	import /etc/caddy/upstream.conf
+}
+
+www.team-sober.com {
+	redir https://team-sober.com{uri} permanent
 }

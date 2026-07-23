@@ -18,15 +18,15 @@ subject; the delivery pipeline is half the point.
 
 | | |
 |---|---|
-| **Blog** | https://16.171.254.209.sslip.io/ |
-| **Admin** | https://16.171.254.209.sslip.io/admin |
-| **Feed** | https://16.171.254.209.sslip.io/feed.xml |
-| **Health** | https://16.171.254.209.sslip.io/health |
+| **Blog** | https://team-sober.com/ |
+| **Admin** | https://team-sober.com/admin |
+| **Feed** | https://team-sober.com/feed.xml |
+| **Health** | https://team-sober.com/health |
 | **Jenkins** | http://16.171.254.209:8080/ |
 | **Host** | AWS EC2 · Ubuntu · eu-north-1 |
 
-> **TLS is served by Caddy** using a `sslip.io` hostname, because Let's Encrypt will not issue a
-> certificate for a bare IP address. Setup steps are in [deploy/README.md](deploy/README.md); until
+> **TLS is served by Caddy**, which obtains and renews the Let's Encrypt certificate for
+> `team-sober.com` automatically. Setup steps are in [deploy/README.md](deploy/README.md); until
 > they are applied on the host, the pipeline falls back to plain HTTP on port 3000.
 
 ---
@@ -688,7 +688,7 @@ AWS_Demo_Project/
 Honest about what is not production-grade:
 
 - **Backups are local by default.** Archives land on the same disk as the volume they protect, which survives a bad deploy but not a lost instance. Setting `S3_BUCKET` fixes it; until then this is only half a backup strategy.
-- **TLS depends on a shared domain.** `sslip.io` is one registered domain used by everyone, and Let's Encrypt rate limits apply per registered domain — issuance can fail when it is busy. A domain of your own removes the dependency.
+- **DNS is a single point of failure.** One A record on one registrar points `team-sober.com` at one instance. There is no secondary, and no health-check-based failover.
 - **6.7 GB root volume.** Disk exhaustion has stopped the pipeline twice. Preflight cleanup and backup rotation mitigate it; a larger EBS volume solves it.
 - **Single instance.** In-memory state with file writes does not scale horizontally, and there is no redundancy — the instance remains a single point of failure. Blue/green removes deploy downtime, not host downtime.
 - **A write during the deploy window can be lost.** Both colours briefly share the volume; see [Zero-downtime deploys](#zero-downtime-deploys).
@@ -705,7 +705,7 @@ Honest about what is not production-grade:
 
 - Email: saidul.is.rajib@gmail.com
 - Portfolio: https://portfolio-rajib.vercel.app/
-- Blog: https://16.171.254.209.sslip.io/
+- Blog: https://team-sober.com/
 
 ---
 
