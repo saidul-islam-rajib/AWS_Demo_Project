@@ -52,7 +52,7 @@ export class TutorialsController {
     res.send(
       subjectPage(
         subject,
-        this.tutorials.lessons(subject.id),
+        this.tutorials.chapterGroups(subject.id),
         this.tutorials.stats(subject.id),
       ),
     );
@@ -89,7 +89,7 @@ export class TutorialsController {
       tutorialPage(
         subject,
         tutorial,
-        lessons,
+        this.tutorials.chapterGroups(subject.id),
         this.tutorials.neighbours(subject.id, tutorial.id),
         renderMarkdown(tutorial.content),
       ),

@@ -26,6 +26,7 @@ const subject: Subject = {
 const lesson: Tutorial = {
   id: 't1',
   subjectId: 's1',
+  chapterId: '',
   slug: 'ip-addresses',
   title: 'What an IP address is',
   summary: 'Addressing and subnets.',
@@ -43,7 +44,7 @@ const lessonHtml = (): string =>
   tutorialPage(
     subject,
     lesson,
-    [lesson],
+    [{ lessons: [lesson] }],
     { position: 1, total: 1 },
     '<p>body</p>',
   );
@@ -293,7 +294,10 @@ describe('script placement', () => {
           new Map([[subject.id, 0]]),
         ),
     ],
-    ['subject lessons admin', () => subjectLessonsPage(subject, [lesson])],
+    [
+      'subject lessons admin',
+      () => subjectLessonsPage(subject, [{ lessons: [lesson] }]),
+    ],
   ];
 
   it.each(pages)('%s runs its scripts after the body exists', (_n, render) => {

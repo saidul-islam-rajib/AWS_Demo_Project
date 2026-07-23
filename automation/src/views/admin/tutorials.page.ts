@@ -1,4 +1,6 @@
 import {
+  Chapter,
+  ChapterGroup,
   DIFFICULTIES,
   DIFFICULTY_LABELS,
   Subject,
@@ -179,38 +181,76 @@ ${CSS}
 
 export function subjectLessonsPage(
   subject: Subject,
-  lessons: Tutorial[],
+  groups: ChapterGroup[],
 ): string {
-  const rows = lessons
-    .map(
-      (
-        lesson,
-        index,
-      ) => `<div class="lesson-row" draggable="true" data-sort-id="${esc(lesson.id)}">
-        <span class="grip" aria-hidden="true">⠿</span>
-        <span class="num" data-sort-number>${index + 1}</span>
-        <div class="info">
-          <b>${esc(lesson.title)}</b>
-          <span>
-            ${esc(DIFFICULTY_LABELS[lesson.difficulty])}
-            · ${readingMinutes(lesson.content)} min
-            · ${lesson.views} view${lesson.views === 1 ? '' : 's'}
-          </span>
-        </div>
-        ${statusPill(lesson.status)}
-        <div class="actions">
-          <form class="inline-form" method="post" action="/admin/tutorials/lessons/${esc(lesson.id)}/move">
-            <input type="hidden" name="direction" value="up" />
-            <button class="move" type="submit" title="Move up" ${index === 0 ? 'disabled' : ''}>↑</button>
-          </form>
-          <form class="inline-form" method="post" action="/admin/tutorials/lessons/${esc(lesson.id)}/move">
-            <input type="hidden" name="direction" value="down" />
-            <button class="move" type="submit" title="Move down" ${index === lessons.length - 1 ? 'disabled' : ''}>↓</button>
-          </form>
-          <a class="btn btn-sm" href="/admin/tutorials/lessons/${esc(lesson.id)}/edit">Edit</a>
-        </div>
-      </div>`,
-    )
+  const total = groups.reduce((sum, group) => sum + group.lessons.length, 0);
+  const chapterCount = groups.filter((group) => group.chapter).length;
+
+  let position = 0;
+
+  const sections = groups
+    .map((group, index) => {
+      const rows = group.lessons
+        .map((lesson, within) => {
+          position += 1;
+
+          return `<div class="lesson-row" draggable="true" data-sort-id="${esc(lesson.id)}">
+            <span class="grip" aria-hidden="true">⠿</span>
+            <span class="num" data-sort-number>${position}</span>
+            <div class="info">
+              <b>${esc(lesson.title)}</b>
+              <span>
+                ${esc(DIFFICULTY_LABELS[lesson.difficulty])}
+                · ${readingMinutes(lesson.content)} min
+                · ${lesson.views} view${lesson.views === 1 ? '' : 's'}
+              </span>
+            </div>
+            ${statusPill(lesson.status)}
+            <div class="actions">
+              <form class="inline-form" method="post" action="/admin/tutorials/lessons/${esc(lesson.id)}/move">
+                <input type="hidden" name="direction" value="up" />
+                <button class="move" type="submit" title="Move up" ${within === 0 ? 'disabled' : ''}>↑</button>
+              </form>
+              <form class="inline-form" method="post" action="/admin/tutorials/lessons/${esc(lesson.id)}/move">
+                <input type="hidden" name="direction" value="down" />
+                <button class="move" type="submit" title="Move down" ${within === group.lessons.length - 1 ? 'disabled' : ''}>↓</button>
+              </form>
+              <a class="btn btn-sm" href="/admin/tutorials/lessons/${esc(lesson.id)}/edit">Edit</a>
+            </div>
+          </div>`;
+        })
+        .join('\n');
+
+      const head = group.chapter
+        ? `<div class="chapter-bar">
+             <div class="info">
+               <b>${esc(group.chapter.title)}</b>
+               <span>${group.lessons.length} ${group.lessons.length === 1 ? 'lesson' : 'lessons'}${group.chapter.summary ? ` · ${esc(group.chapter.summary)}` : ''}</span>
+             </div>
+             <div class="actions">
+               <form class="inline-form" method="post" action="/admin/tutorials/chapters/${esc(group.chapter.id)}/move">
+                 <input type="hidden" name="direction" value="up" />
+                 <button class="move" type="submit" title="Move chapter up" ${index === 0 ? 'disabled' : ''}>↑</button>
+               </form>
+               <form class="inline-form" method="post" action="/admin/tutorials/chapters/${esc(group.chapter.id)}/move">
+                 <input type="hidden" name="direction" value="down" />
+                 <button class="move" type="submit" title="Move chapter down" ${index === groups.length - 1 ? 'disabled' : ''}>↓</button>
+               </form>
+               <a class="btn btn-sm" href="/admin/tutorials/chapters/${esc(group.chapter.id)}/edit">Edit</a>
+             </div>
+           </div>`
+        : `<div class="chapter-bar loose">
+             <div class="info">
+               <b>Not in a chapter</b>
+               <span>${group.lessons.length} ${group.lessons.length === 1 ? 'lesson' : 'lessons'} · set one from the lesson editor</span>
+             </div>
+           </div>`;
+
+      return `<section class="chapter-block">
+        ${head}
+        ${group.lessons.length ? rows : '<p class="sort-hint" style="padding:.4rem .2rem">No lessons in this chapter yet.</p>'}
+      </section>`;
+    })
     .join('\n');
 
   const body = `
@@ -219,21 +259,22 @@ ${CSS}
     <div>
       <a class="back-link" href="/admin/tutorials">← Back to tutorials</a>
       <h1 class="page-title" style="margin-bottom:.15rem">${subject.icon ? `${esc(subject.icon)} ` : ''}${esc(subject.title)}</h1>
-      <p style="font-size:.86rem;color:var(--ink-3)">${lessons.length} lesson${lessons.length === 1 ? '' : 's'}, in the order readers see them.</p>
+      <p style="font-size:.86rem;color:var(--ink-3)">${chapterCount} ${chapterCount === 1 ? 'chapter' : 'chapters'} · ${total} ${total === 1 ? 'lesson' : 'lessons'}, in the order readers see them.</p>
     </div>
     <div class="spacer"></div>
     <a class="btn" href="/admin/tutorials/subjects/${esc(subject.id)}/edit">Edit subject</a>
+    <a class="btn" href="/admin/tutorials/subjects/${esc(subject.id)}/chapters/new">New chapter</a>
     <a class="btn btn-primary" href="/admin/tutorials/subjects/${esc(subject.id)}/lessons/new">New lesson</a>
   </div>
 
-  ${lessons.length > 1 ? '<p class="sort-hint">Drag a lesson to reorder it, or use the arrows.</p>' : ''}
+  ${total > 1 ? '<p class="sort-hint">Drag a lesson to reorder it. Use the arrows to reorder chapters.</p>' : ''}
 
   <form method="post" action="/admin/tutorials/subjects/${esc(subject.id)}/reorder" data-sortable-form>
     <input type="hidden" name="order" value="" data-sortable-order />
   </form>
 
   <div data-sortable>
-    ${lessons.length ? rows : emptyState('No lessons in this subject yet.')}
+    ${total || chapterCount ? sections : emptyState('No lessons in this subject yet.')}
   </div>
 `;
 
@@ -247,10 +288,79 @@ ${CSS}
   });
 }
 
+export function chapterEditorPage(subject: Subject, chapter?: Chapter): string {
+  const editing = Boolean(chapter);
+  const action = editing
+    ? `/admin/tutorials/chapters/${esc(chapter!.id)}/edit`
+    : `/admin/tutorials/subjects/${esc(subject.id)}/chapters/new`;
+
+  const v = (value?: string) => esc(value ?? '');
+
+  const body = `
+${CSS}
+  <div class="toolbar">
+    <div>
+      <a class="back-link" href="/admin/tutorials/subjects/${esc(subject.id)}">← Back to ${esc(subject.title)}</a>
+      <h1 class="page-title" style="margin-bottom:.15rem">${editing ? 'Edit chapter' : 'New chapter'}</h1>
+    </div>
+  </div>
+
+  <form method="post" action="${action}">
+    <div class="form-grid">
+      <div>
+        <div class="panel">
+          <h3>Chapter</h3>
+          <div class="field">
+            <label for="title">Title</label>
+            <input type="text" id="title" name="title" required value="${v(chapter?.title)}"
+                   placeholder="Addressing" />
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label for="summary">Summary</label>
+            <textarea id="summary" name="summary" rows="3"
+                      placeholder="One sentence on what this chapter covers.">${v(chapter?.summary)}</textarea>
+            <p class="hint">Shown under the chapter heading on the public page.</p>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel">
+          <h3>Save</h3>
+          <button class="btn btn-primary" type="submit" style="width:100%">
+            ${editing ? 'Save chapter' : 'Create chapter'}
+          </button>
+          ${editing ? '<p class="hint" style="margin-top:.75rem">Deleting a chapter keeps its lessons; they move out of any chapter.</p>' : ''}
+        </div>
+      </div>
+    </div>
+  </form>
+
+  ${
+    editing
+      ? `<form method="post" action="/admin/tutorials/chapters/${esc(chapter!.id)}/delete"
+              onsubmit="return confirm('Delete this chapter? Its lessons stay, but leave the chapter.')">
+          <button class="btn btn-danger" type="submit">Delete chapter</button>
+        </form>`
+      : ''
+  }
+`;
+
+  return layout({
+    title: editing ? 'Edit chapter · Admin' : 'New chapter · Admin',
+    body,
+    nav: adminNav('/admin/tutorials'),
+    variant: 'admin',
+    path: '/admin/tutorials',
+    noindex: true,
+  });
+}
+
 export function lessonEditorPage(
   subjects: Subject[],
   subject: Subject,
   lesson?: Tutorial,
+  chapters: Chapter[] = [],
 ): string {
   const editing = Boolean(lesson);
   const action = editing
@@ -258,6 +368,14 @@ export function lessonEditorPage(
     : `/admin/tutorials/subjects/${esc(subject.id)}/lessons/new`;
 
   const v = (value?: string) => esc(value ?? '');
+
+  const chapterOptions = [
+    `<option value="" ${lesson?.chapterId ? '' : 'selected'}>No chapter</option>`,
+    ...chapters.map(
+      (chapter) =>
+        `<option value="${esc(chapter.id)}" ${chapter.id === lesson?.chapterId ? 'selected' : ''}>${esc(chapter.title)}</option>`,
+    ),
+  ].join('');
 
   const options = subjects
     .map(
@@ -310,6 +428,11 @@ ${CSS}
             <label for="subjectId">Subject</label>
             <select id="subjectId" name="subjectId">${options}</select>
             <p class="hint">Moving a lesson puts it at the end of the new subject.</p>
+          </div>
+          <div class="field">
+            <label for="chapterId">Chapter</label>
+            <select id="chapterId" name="chapterId">${chapterOptions}</select>
+            <p class="hint">${chapters.length ? 'Lessons without a chapter appear first, above the chapters.' : 'This subject has no chapters yet. Create one from the subject page.'}</p>
           </div>
           <div class="field" style="margin-bottom:0">
             <label for="difficulty">Difficulty</label>

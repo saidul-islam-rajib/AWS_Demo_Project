@@ -1,5 +1,9 @@
 import {
+  Chapter,
   applyOrder,
+  chaptersOf,
+  groupIntoChapters,
+  orderedLessons,
   parseOrderIds,
   Tutorial,
   formatDuration,
@@ -21,6 +25,7 @@ function lesson(overrides: Partial<Tutorial> = {}): Tutorial {
   return {
     id: 't1',
     subjectId: 's1',
+    chapterId: '',
     slug: 'a-lesson',
     title: 'A lesson',
     summary: '',
@@ -428,5 +433,132 @@ describe('applyOrder', () => {
     applyOrder(items, ['c', 'b', 'a']);
 
     expect(items.map((i) => i.id)).toEqual(['a', 'b', 'c']);
+  });
+});
+
+function chapter(overrides: Partial<Chapter> = {}): Chapter {
+  return {
+    id: 'c1',
+    subjectId: 's1',
+    title: 'A chapter',
+    summary: '',
+    order: 1,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+describe('chaptersOf', () => {
+  it('returns only the requested subject, in order', () => {
+    const chapters = [
+      chapter({ id: 'b', order: 2, title: 'B' }),
+      chapter({ id: 'a', order: 1, title: 'A' }),
+      chapter({ id: 'x', subjectId: 's2', title: 'X' }),
+    ];
+
+    expect(chaptersOf(chapters, 's1').map((c) => c.id)).toEqual(['a', 'b']);
+  });
+});
+
+describe('groupIntoChapters', () => {
+  const chapters = [
+    chapter({ id: 'c1', order: 1, title: 'One' }),
+    chapter({ id: 'c2', order: 2, title: 'Two' }),
+  ];
+
+  it('puts each lesson under its chapter', () => {
+    const lessons = [
+      lesson({ id: 'a', chapterId: 'c1' }),
+      lesson({ id: 'b', chapterId: 'c2' }),
+    ];
+
+    const groups = groupIntoChapters(chapters, lessons);
+
+    expect(groups).toHaveLength(2);
+    expect(groups[0].chapter?.id).toBe('c1');
+    expect(groups[0].lessons.map((l) => l.id)).toEqual(['a']);
+    expect(groups[1].lessons.map((l) => l.id)).toEqual(['b']);
+  });
+
+  it('puts unassigned lessons in a leading group with no chapter', () => {
+    const lessons = [
+      lesson({ id: 'loose', chapterId: '' }),
+      lesson({ id: 'a', chapterId: 'c1' }),
+    ];
+
+    const groups = groupIntoChapters(chapters, lessons);
+
+    expect(groups[0].chapter).toBeUndefined();
+    expect(groups[0].lessons.map((l) => l.id)).toEqual(['loose']);
+  });
+
+  it('treats a lesson pointing at a deleted chapter as unassigned', () => {
+    const groups = groupIntoChapters(chapters, [
+      lesson({ id: 'orphan', chapterId: 'gone' }),
+    ]);
+
+    expect(groups[0].chapter).toBeUndefined();
+    expect(groups[0].lessons.map((l) => l.id)).toEqual(['orphan']);
+  });
+
+  it('keeps an empty chapter so the admin can still see it', () => {
+    const groups = groupIntoChapters(chapters, [
+      lesson({ id: 'a', chapterId: 'c1' }),
+    ]);
+
+    expect(groups).toHaveLength(2);
+    expect(groups[1].lessons).toEqual([]);
+  });
+
+  it('omits the loose group entirely when every lesson has a chapter', () => {
+    const groups = groupIntoChapters(chapters, [
+      lesson({ id: 'a', chapterId: 'c1' }),
+    ]);
+
+    expect(groups.every((g) => g.chapter)).toBe(true);
+  });
+});
+
+describe('orderedLessons', () => {
+  const chapters = [
+    chapter({ id: 'c1', order: 1, title: 'One' }),
+    chapter({ id: 'c2', order: 2, title: 'Two' }),
+  ];
+
+  it('reads unassigned first, then chapter by chapter', () => {
+    const lessons = [
+      lesson({ id: 'second', chapterId: 'c1', order: 1 }),
+      lesson({ id: 'third', chapterId: 'c2', order: 1 }),
+      lesson({ id: 'first', chapterId: '', order: 1 }),
+    ];
+
+    expect(orderedLessons(chapters, lessons, 's1').map((l) => l.id)).toEqual([
+      'first',
+      'second',
+      'third',
+    ]);
+  });
+
+  it('orders lessons within a chapter by their own order', () => {
+    const lessons = [
+      lesson({ id: 'b', chapterId: 'c1', order: 2 }),
+      lesson({ id: 'a', chapterId: 'c1', order: 1 }),
+    ];
+
+    expect(orderedLessons(chapters, lessons, 's1').map((l) => l.id)).toEqual([
+      'a',
+      'b',
+    ]);
+  });
+
+  it('hides drafts unless asked', () => {
+    const lessons = [
+      lesson({ id: 'live', chapterId: 'c1' }),
+      lesson({ id: 'draft', chapterId: 'c1', status: 'draft' }),
+    ];
+
+    expect(orderedLessons(chapters, lessons, 's1')).toHaveLength(1);
+    expect(orderedLessons(chapters, lessons, 's1', true)).toHaveLength(2);
   });
 });

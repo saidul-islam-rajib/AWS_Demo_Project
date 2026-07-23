@@ -379,6 +379,187 @@ describe('TutorialsService', () => {
     });
   });
 
+  describe('chapters', () => {
+    it('creates one and numbers it within the subject', () => {
+      const subject = makeSubject();
+
+      const first = service.createChapter({
+        subjectId: subject.id,
+        title: 'Addressing',
+      });
+      const second = service.createChapter({
+        subjectId: subject.id,
+        title: 'Transport',
+      });
+
+      expect(first.order).toBe(1);
+      expect(second.order).toBe(2);
+    });
+
+    it('groups lessons under their chapter, unassigned first', () => {
+      const subject = makeSubject();
+      const one = service.createChapter({
+        subjectId: subject.id,
+        title: 'One',
+      });
+
+      makeLesson(subject.id, 'Loose');
+      service.createTutorial({
+        subjectId: subject.id,
+        chapterId: one.id,
+        title: 'Inside',
+        content: 'x',
+      });
+
+      const groups = service.chapterGroups(subject.id);
+
+      expect(groups[0].chapter).toBeUndefined();
+      expect(groups[0].lessons.map((l) => l.title)).toEqual(['Loose']);
+      expect(groups[1].chapter?.id).toBe(one.id);
+      expect(groups[1].lessons.map((l) => l.title)).toEqual(['Inside']);
+    });
+
+    it('reads lessons in chapter order for prev and next', () => {
+      const subject = makeSubject();
+      const one = service.createChapter({
+        subjectId: subject.id,
+        title: 'One',
+      });
+      const two = service.createChapter({
+        subjectId: subject.id,
+        title: 'Two',
+      });
+
+      service.createTutorial({
+        subjectId: subject.id,
+        chapterId: two.id,
+        title: 'Later',
+        content: 'x',
+      });
+      service.createTutorial({
+        subjectId: subject.id,
+        chapterId: one.id,
+        title: 'Earlier',
+        content: 'x',
+      });
+
+      expect(service.lessons(subject.id).map((l) => l.title)).toEqual([
+        'Earlier',
+        'Later',
+      ]);
+    });
+
+    it('keeps lessons when a chapter is deleted', () => {
+      const subject = makeSubject();
+      const chapter = service.createChapter({
+        subjectId: subject.id,
+        title: 'Doomed',
+      });
+
+      service.createTutorial({
+        subjectId: subject.id,
+        chapterId: chapter.id,
+        title: 'Survivor',
+        content: 'x',
+      });
+
+      service.removeChapter(chapter.id);
+
+      const lessons = service.lessons(subject.id);
+
+      expect(lessons.map((l) => l.title)).toEqual(['Survivor']);
+      expect(lessons[0].chapterId).toBe('');
+    });
+
+    it('reorders chapters, which reorders the reading sequence', () => {
+      const subject = makeSubject();
+      const one = service.createChapter({
+        subjectId: subject.id,
+        title: 'One',
+      });
+      const two = service.createChapter({
+        subjectId: subject.id,
+        title: 'Two',
+      });
+
+      service.createTutorial({
+        subjectId: subject.id,
+        chapterId: one.id,
+        title: 'A',
+        content: 'x',
+      });
+      service.createTutorial({
+        subjectId: subject.id,
+        chapterId: two.id,
+        title: 'B',
+        content: 'x',
+      });
+
+      service.moveChapter(two.id, 'up');
+
+      expect(service.lessons(subject.id).map((l) => l.title)).toEqual([
+        'B',
+        'A',
+      ]);
+    });
+
+    it('ignores a chapter belonging to another subject', () => {
+      const one = makeSubject('One');
+      const two = makeSubject('Two');
+      const foreign = service.createChapter({
+        subjectId: two.id,
+        title: 'Foreign',
+      });
+
+      const lesson = service.createTutorial({
+        subjectId: one.id,
+        chapterId: foreign.id,
+        title: 'Confused',
+        content: 'x',
+      });
+
+      expect(lesson.chapterId).toBe('');
+    });
+
+    it('drag reordering stays inside its chapter', () => {
+      const subject = makeSubject();
+      const one = service.createChapter({
+        subjectId: subject.id,
+        title: 'One',
+      });
+      const two = service.createChapter({
+        subjectId: subject.id,
+        title: 'Two',
+      });
+
+      const a = service.createTutorial({
+        subjectId: subject.id,
+        chapterId: one.id,
+        title: 'A',
+        content: 'x',
+      });
+      const b = service.createTutorial({
+        subjectId: subject.id,
+        chapterId: one.id,
+        title: 'B',
+        content: 'x',
+      });
+      const z = service.createTutorial({
+        subjectId: subject.id,
+        chapterId: two.id,
+        title: 'Z',
+        content: 'x',
+      });
+
+      service.reorderTutorials(subject.id, [b.id, a.id, z.id]);
+
+      const groups = service.chapterGroups(subject.id);
+
+      expect(groups[0].lessons.map((l) => l.title)).toEqual(['B', 'A']);
+      expect(groups[1].lessons.map((l) => l.title)).toEqual(['Z']);
+    });
+  });
+
   it('persists across a restart', () => {
     const subject = makeSubject();
     makeLesson(subject.id, 'Survives');

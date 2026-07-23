@@ -89,6 +89,7 @@ const subject: Subject = {
 const lesson: Tutorial = {
   id: 't1',
   subjectId: 's1',
+  chapterId: '',
   slug: 'ip-addresses',
   title: 'What an IP address is',
   summary: 'Addressing and subnets.',
@@ -169,7 +170,7 @@ const pages: [string, () => string][] = [
   [
     'tutorial subject',
     () =>
-      subjectPage(subject, [lesson], {
+      subjectPage(subject, [{ lessons: [lesson] }], {
         ...subjectStat,
         difficulties: ['beginner'],
       }),
@@ -180,7 +181,7 @@ const pages: [string, () => string][] = [
       tutorialPage(
         subject,
         lesson,
-        [lesson],
+        [{ lessons: [lesson] }],
         { position: 1, total: 1 },
         '<p>x</p>',
       ),
@@ -196,7 +197,10 @@ const pages: [string, () => string][] = [
   ],
   ['subject editor (new)', () => subjectEditorPage()],
   ['subject editor (edit)', () => subjectEditorPage(subject)],
-  ['subject lessons', () => subjectLessonsPage(subject, [lesson])],
+  [
+    'subject lessons',
+    () => subjectLessonsPage(subject, [{ lessons: [lesson] }]),
+  ],
   ['lesson editor (new)', () => lessonEditorPage([subject], subject)],
   ['lesson editor (edit)', () => lessonEditorPage([subject], subject, lesson)],
 ];

@@ -44,6 +44,22 @@ const SUBJECT_ROW_STYLES = `
 
   .sort-hint { font-size: 0.78rem; color: var(--ink-3); margin-bottom: 0.75rem; }
 
+  .chapter-block { margin-bottom: 1.5rem; }
+  .chapter-bar {
+    display: flex; align-items: center; gap: 0.9rem;
+    padding: 0.6rem 0.9rem; margin-bottom: 0.6rem;
+    border-left: 3px solid var(--accent); background: transparent;
+  }
+  .chapter-bar.loose { border-left-color: var(--border); }
+  .chapter-bar .info { flex: 1; min-width: 0; }
+  .chapter-bar .info b {
+    display: block; font-size: 0.8rem; text-transform: uppercase;
+    letter-spacing: 0.07em; color: var(--ink);
+  }
+  .chapter-bar .info span { font-size: 0.78rem; color: var(--ink-3); }
+  .chapter-bar .actions { display: flex; gap: 0.35rem; align-items: center; }
+  .chapter-block .lesson-row { margin-left: 1.1rem; }
+
 
 `;
 

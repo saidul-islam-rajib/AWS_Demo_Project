@@ -28,9 +28,20 @@ export interface Subject {
   updatedAt: string;
 }
 
+export interface Chapter {
+  id: string;
+  subjectId: string;
+  title: string;
+  summary: string;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Tutorial {
   id: string;
   subjectId: string;
+  chapterId: string;
   slug: string;
   title: string;
   summary: string;
@@ -46,7 +57,19 @@ export interface Tutorial {
 
 export interface TutorialStore {
   subjects: Subject[];
+  chapters: Chapter[];
   tutorials: Tutorial[];
+}
+
+export interface ChapterInput {
+  subjectId: string;
+  title: string;
+  summary?: string;
+}
+
+export interface ChapterGroup {
+  chapter?: Chapter;
+  lessons: Tutorial[];
 }
 
 export interface SubjectInput {
@@ -58,6 +81,7 @@ export interface SubjectInput {
 
 export interface TutorialInput {
   subjectId: string;
+  chapterId?: string;
   title: string;
   summary?: string;
   content: string;
@@ -181,6 +205,46 @@ export function lessonsOf(
   return sortByOrder(includeDrafts ? scoped : publishedOnly(scoped));
 }
 
+export function chaptersOf(chapters: Chapter[], subjectId: string): Chapter[] {
+  return sortByOrder(chapters.filter((c) => c.subjectId === subjectId));
+}
+
+export function groupIntoChapters(
+  chapters: Chapter[],
+  lessons: Tutorial[],
+): ChapterGroup[] {
+  const known = new Set(chapters.map((c) => c.id));
+
+  const loose = lessons.filter(
+    (lesson) => !lesson.chapterId || !known.has(lesson.chapterId),
+  );
+
+  const groups: ChapterGroup[] = chapters.map((chapter) => ({
+    chapter,
+    lessons: lessons.filter((lesson) => lesson.chapterId === chapter.id),
+  }));
+
+  return loose.length ? [{ lessons: loose }, ...groups] : groups;
+}
+
+export function flattenChapters(groups: ChapterGroup[]): Tutorial[] {
+  return groups.flatMap((group) => group.lessons);
+}
+
+export function orderedLessons(
+  chapters: Chapter[],
+  tutorials: Tutorial[],
+  subjectId: string,
+  includeDrafts = false,
+): Tutorial[] {
+  return flattenChapters(
+    groupIntoChapters(
+      chaptersOf(chapters, subjectId),
+      lessonsOf(tutorials, subjectId, includeDrafts),
+    ),
+  );
+}
+
 export function subjectStats(
   tutorials: Tutorial[],
   subjectId: string,
@@ -201,7 +265,7 @@ export function subjectStats(
 }
 
 export function neighbours(lessons: Tutorial[], currentId: string): Neighbours {
-  const ordered = sortByOrder(lessons);
+  const ordered = lessons;
   const index = ordered.findIndex((lesson) => lesson.id === currentId);
 
   if (index === -1) {

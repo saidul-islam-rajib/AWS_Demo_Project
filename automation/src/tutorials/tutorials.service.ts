@@ -18,8 +18,14 @@ import {
   Tutorial,
   TutorialInput,
   TutorialStore,
+  Chapter,
+  ChapterGroup,
+  ChapterInput,
   applyOrder,
+  chaptersOf,
+  groupIntoChapters,
   lessonsOf,
+  orderedLessons,
   moveInSequence,
   neighbours,
   nextOrder,
@@ -41,6 +47,7 @@ export class TutorialsService {
   private readonly file = join(this.dataDir, 'tutorials.json');
 
   private subjects: Subject[] = [];
+  private chapters: Chapter[] = [];
   private tutorials: Tutorial[] = [];
 
   constructor() {
@@ -66,8 +73,15 @@ export class TutorialsService {
           order: subject.order ?? 0,
         }));
 
+        this.chapters = (stored.chapters ?? []).map((chapter) => ({
+          ...chapter,
+          summary: chapter.summary ?? '',
+          order: chapter.order ?? 0,
+        }));
+
         this.tutorials = (stored.tutorials ?? []).map((tutorial) => ({
           ...tutorial,
+          chapterId: tutorial.chapterId ?? '',
           summary: tutorial.summary ?? '',
           tags: tutorial.tags ?? [],
           difficulty: tutorial.difficulty ?? 'beginner',
@@ -84,6 +98,7 @@ export class TutorialsService {
 
       const seeded = seedTutorials();
       this.subjects = seeded.subjects;
+      this.chapters = seeded.chapters;
       this.tutorials = seeded.tutorials;
       this.persist();
       this.logger.log(
@@ -92,6 +107,7 @@ export class TutorialsService {
     } catch (err) {
       this.logger.error(`Could not load tutorials: ${String(err)}`);
       this.subjects = [];
+      this.chapters = [];
       this.tutorials = [];
     }
   }
@@ -101,6 +117,7 @@ export class TutorialsService {
       const tmp = `${this.file}.tmp`;
       const payload: TutorialStore = {
         subjects: this.subjects,
+        chapters: this.chapters,
         tutorials: this.tutorials,
       };
       writeFileSync(tmp, JSON.stringify(payload, null, 2), 'utf8');
@@ -120,6 +137,17 @@ export class TutorialsService {
     }
 
     return slug;
+  }
+
+  private validChapterId(
+    chapterId: string | undefined,
+    subjectId: string,
+  ): string {
+    if (!chapterId) return '';
+
+    const chapter = this.chapters.find((c) => c.id === chapterId);
+
+    return chapter && chapter.subjectId === subjectId ? chapter.id : '';
   }
 
   private uniqueTutorialSlug(
@@ -164,7 +192,105 @@ export class TutorialsService {
   }
 
   lessons(subjectId: string, includeDrafts = false): Tutorial[] {
-    return lessonsOf(this.tutorials, subjectId, includeDrafts);
+    return orderedLessons(
+      this.chapters,
+      this.tutorials,
+      subjectId,
+      includeDrafts,
+    );
+  }
+
+  subjectChapters(subjectId: string): Chapter[] {
+    return chaptersOf(this.chapters, subjectId);
+  }
+
+  chapterGroups(subjectId: string, includeDrafts = false): ChapterGroup[] {
+    return groupIntoChapters(
+      chaptersOf(this.chapters, subjectId),
+      lessonsOf(this.tutorials, subjectId, includeDrafts),
+    );
+  }
+
+  findChapterById(id: string): Chapter {
+    const chapter = this.chapters.find((c) => c.id === id);
+    if (!chapter) throw new NotFoundException(`No chapter with id "${id}"`);
+    return chapter;
+  }
+
+  createChapter(input: ChapterInput): Chapter {
+    const subject = this.findSubjectById(input.subjectId);
+    const now = new Date().toISOString();
+
+    const chapter: Chapter = {
+      id: randomUUID(),
+      subjectId: subject.id,
+      title: input.title.trim(),
+      summary: (input.summary ?? '').trim(),
+      order: nextOrder(chaptersOf(this.chapters, subject.id)),
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this.chapters.push(chapter);
+    this.persist();
+
+    return chapter;
+  }
+
+  updateChapter(id: string, input: ChapterInput): Chapter {
+    const index = this.chapters.findIndex((c) => c.id === id);
+    if (index === -1) throw new NotFoundException(`No chapter with id "${id}"`);
+
+    const updated: Chapter = {
+      ...this.chapters[index],
+      title: input.title.trim(),
+      summary: (input.summary ?? '').trim(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    this.chapters[index] = updated;
+    this.persist();
+
+    return updated;
+  }
+
+  removeChapter(id: string): string {
+    const chapter = this.findChapterById(id);
+
+    this.chapters = this.chapters.filter((c) => c.id !== id);
+
+    this.tutorials = this.tutorials.map((tutorial) =>
+      tutorial.chapterId === id ? { ...tutorial, chapterId: '' } : tutorial,
+    );
+
+    this.persist();
+
+    return chapter.subjectId;
+  }
+
+  moveChapter(id: string, direction: 'up' | 'down'): string {
+    const chapter = this.findChapterById(id);
+    const scoped = chaptersOf(this.chapters, chapter.subjectId);
+
+    this.chapters = [
+      ...this.chapters.filter((c) => c.subjectId !== chapter.subjectId),
+      ...moveInSequence(scoped, id, direction),
+    ];
+
+    this.persist();
+
+    return chapter.subjectId;
+  }
+
+  reorderChapters(subjectId: string, ids: string[]): void {
+    const scoped = chaptersOf(this.chapters, subjectId);
+
+    this.chapters = [
+      ...this.chapters.filter((c) => c.subjectId !== subjectId),
+      ...applyOrder(scoped, ids),
+    ];
+
+    this.persist();
   }
 
   stats(subjectId: string): SubjectStats {
@@ -316,10 +442,31 @@ export class TutorialsService {
 
   reorderTutorials(subjectId: string, ids: string[]): void {
     const scoped = this.tutorials.filter((t) => t.subjectId === subjectId);
+    const rank = new Map(ids.map((id, index) => [id, index]));
+
+    const byChapter = new Map<string, Tutorial[]>();
+
+    for (const lesson of scoped) {
+      const key = lesson.chapterId;
+      byChapter.set(key, [...(byChapter.get(key) ?? []), lesson]);
+    }
+
+    const reordered = [...byChapter.values()].flatMap((lessons) =>
+      applyOrder(
+        lessons,
+        [...lessons]
+          .sort(
+            (a, b) =>
+              (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+              (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER),
+          )
+          .map((lesson) => lesson.id),
+      ),
+    );
 
     this.tutorials = [
       ...this.tutorials.filter((t) => t.subjectId !== subjectId),
-      ...applyOrder(scoped, ids),
+      ...reordered,
     ];
 
     this.persist();
@@ -333,6 +480,7 @@ export class TutorialsService {
     const tutorial: Tutorial = {
       id: randomUUID(),
       subjectId: subject.id,
+      chapterId: this.validChapterId(input.chapterId, subject.id),
       slug: this.uniqueTutorialSlug(title, subject.id),
       title,
       summary: (input.summary ?? '').trim(),
@@ -367,6 +515,9 @@ export class TutorialsService {
     const updated: Tutorial = {
       ...current,
       subjectId: subject.id,
+      chapterId: movedSubject
+        ? this.validChapterId(input.chapterId, subject.id)
+        : this.validChapterId(input.chapterId ?? current.chapterId, subject.id),
       title,
       slug:
         title === current.title && !movedSubject
@@ -412,15 +563,13 @@ export class TutorialsService {
 
   moveTutorial(id: string, direction: 'up' | 'down'): string {
     const tutorial = this.findTutorialById(id);
-    const scoped = this.tutorials.filter(
-      (t) => t.subjectId === tutorial.subjectId,
-    );
 
-    const reordered = moveInSequence(scoped, id, direction);
+    const inChapter = (t: Tutorial) =>
+      t.subjectId === tutorial.subjectId && t.chapterId === tutorial.chapterId;
 
     this.tutorials = [
-      ...this.tutorials.filter((t) => t.subjectId !== tutorial.subjectId),
-      ...reordered,
+      ...this.tutorials.filter((t) => !inChapter(t)),
+      ...moveInSequence(this.tutorials.filter(inChapter), id, direction),
     ];
 
     this.persist();
@@ -453,7 +602,28 @@ function seedTutorials(): TutorialStore {
     updatedAt: now,
   };
 
+  const addressing: Chapter = {
+    id: randomUUID(),
+    subjectId: networking.id,
+    title: 'Addressing',
+    summary: 'How a machine is identified before anything can reach it.',
+    order: 1,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const transport: Chapter = {
+    id: randomUUID(),
+    subjectId: networking.id,
+    title: 'Names and transport',
+    summary: 'Turning a name into an address, then moving bytes to it.',
+    order: 2,
+    createdAt: now,
+    updatedAt: now,
+  };
+
   const lesson = (
+    chapterId: string,
     order: number,
     title: string,
     summary: string,
@@ -462,6 +632,7 @@ function seedTutorials(): TutorialStore {
   ): Tutorial => ({
     id: randomUUID(),
     subjectId: networking.id,
+    chapterId,
     slug: slugify(title),
     title,
     summary,
@@ -477,8 +648,10 @@ function seedTutorials(): TutorialStore {
 
   return {
     subjects: [networking],
+    chapters: [addressing, transport],
     tutorials: [
       lesson(
+        addressing.id,
         1,
         'What an IP address actually is',
         'Addressing, subnets and why 192.168.x.x keeps showing up on your home network.',
@@ -486,14 +659,16 @@ function seedTutorials(): TutorialStore {
         `## Addressing\n\nEvery device on a network needs a way to be found. An IP address is that identifier.\n\n### IPv4\n\nFour numbers, each 0-255, written with dots: \`192.168.1.14\`. That is 32 bits, which allows about 4.3 billion addresses — far fewer than there are devices, which is why private ranges and NAT exist.\n\n### Private ranges\n\nThree blocks are reserved for private networks and are never routed on the public internet:\n\n- \`10.0.0.0/8\`\n- \`172.16.0.0/12\`\n- \`192.168.0.0/16\`\n\nYour router hands you one of these, then translates between it and its single public address on the way out.`,
       ),
       lesson(
-        2,
+        transport.id,
+        1,
         'DNS: turning names into addresses',
         'What happens between typing a hostname and the first packet leaving your machine.',
         'beginner',
         `## The lookup\n\nComputers route on addresses, people remember names. DNS is the translation layer between the two.\n\n### The chain\n\n1. The browser checks its own cache\n2. Then the operating system cache\n3. Then the configured resolver, usually your router or a public one\n4. The resolver walks the hierarchy: root servers, then the top-level domain, then the authoritative server for the domain\n\n### Why TTL matters\n\nEvery record carries a time-to-live. A low TTL makes changes propagate quickly but increases lookup traffic. Lower it a day *before* you plan to move a service, not on the day.`,
       ),
       lesson(
-        3,
+        transport.id,
+        2,
         'TCP, UDP and what a port is for',
         'Two ways to send data, and why one of them checks its work.',
         'intermediate',

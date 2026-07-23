@@ -12,6 +12,7 @@ import type { Response } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
 import { TutorialsService } from './tutorials.service';
 import { SubjectStats, parseOrderIds } from './tutorial.model';
+import { chapterEditorPage } from '../views/admin/tutorials.page';
 import {
   lessonEditorPage,
   subjectEditorPage,
@@ -28,6 +29,7 @@ interface SubjectBody {
 
 interface LessonBody {
   subjectId?: string;
+  chapterId?: string;
   title?: string;
   summary?: string;
   content?: string;
@@ -38,6 +40,11 @@ interface LessonBody {
 
 interface MoveBody {
   direction?: string;
+}
+
+interface ChapterBody {
+  title?: string;
+  summary?: string;
 }
 
 @Controller('admin/tutorials')
@@ -88,7 +95,7 @@ export class TutorialsAdminController {
   @Header('Content-Type', 'text/html')
   subjectLessons(@Param('id') id: string): string {
     const subject = this.tutorials.findSubjectById(id);
-    return subjectLessonsPage(subject, this.tutorials.lessons(id, true));
+    return subjectLessonsPage(subject, this.tutorials.chapterGroups(id, true));
   }
 
   @Get('subjects/:id/edit')
@@ -148,11 +155,83 @@ export class TutorialsAdminController {
     res.redirect('/admin/tutorials');
   }
 
+  @Get('subjects/:id/chapters/new')
+  @Header('Content-Type', 'text/html')
+  newChapter(@Param('id') id: string): string {
+    return chapterEditorPage(this.tutorials.findSubjectById(id));
+  }
+
+  @Post('subjects/:id/chapters/new')
+  createChapter(
+    @Param('id') id: string,
+    @Body() body: ChapterBody,
+    @Res() res: Response,
+  ): void {
+    this.tutorials.createChapter({
+      subjectId: id,
+      title: body.title ?? '',
+      summary: body.summary,
+    });
+
+    res.redirect(`/admin/tutorials/subjects/${id}`);
+  }
+
+  @Get('chapters/:id/edit')
+  @Header('Content-Type', 'text/html')
+  editChapter(@Param('id') id: string): string {
+    const chapter = this.tutorials.findChapterById(id);
+
+    return chapterEditorPage(
+      this.tutorials.findSubjectById(chapter.subjectId),
+      chapter,
+    );
+  }
+
+  @Post('chapters/:id/edit')
+  updateChapter(
+    @Param('id') id: string,
+    @Body() body: ChapterBody,
+    @Res() res: Response,
+  ): void {
+    const chapter = this.tutorials.updateChapter(id, {
+      subjectId: '',
+      title: body.title ?? '',
+      summary: body.summary,
+    });
+
+    res.redirect(`/admin/tutorials/subjects/${chapter.subjectId}`);
+  }
+
+  @Post('chapters/:id/move')
+  moveChapter(
+    @Param('id') id: string,
+    @Body() body: MoveBody,
+    @Res() res: Response,
+  ): void {
+    const subjectId = this.tutorials.moveChapter(
+      id,
+      body.direction === 'up' ? 'up' : 'down',
+    );
+
+    res.redirect(`/admin/tutorials/subjects/${subjectId}`);
+  }
+
+  @Post('chapters/:id/delete')
+  deleteChapter(@Param('id') id: string, @Res() res: Response): void {
+    const subjectId = this.tutorials.removeChapter(id);
+    res.redirect(`/admin/tutorials/subjects/${subjectId}`);
+  }
+
   @Get('subjects/:id/lessons/new')
   @Header('Content-Type', 'text/html')
   newLesson(@Param('id') id: string): string {
     const subject = this.tutorials.findSubjectById(id);
-    return lessonEditorPage(this.tutorials.findSubjects(true), subject);
+    return lessonEditorPage(
+      this.tutorials.findSubjects(true),
+      subject,
+      undefined,
+      this.tutorials.subjectChapters(id),
+    );
   }
 
   @Post('subjects/:id/lessons/new')
@@ -163,6 +242,7 @@ export class TutorialsAdminController {
   ): void {
     const lesson = this.tutorials.createTutorial({
       subjectId: body.subjectId || id,
+      chapterId: body.chapterId,
       title: body.title ?? '',
       summary: body.summary,
       content: body.content ?? '',
@@ -180,7 +260,12 @@ export class TutorialsAdminController {
     const lesson = this.tutorials.findTutorialById(id);
     const subject = this.tutorials.findSubjectById(lesson.subjectId);
 
-    return lessonEditorPage(this.tutorials.findSubjects(true), subject, lesson);
+    return lessonEditorPage(
+      this.tutorials.findSubjects(true),
+      subject,
+      lesson,
+      this.tutorials.subjectChapters(subject.id),
+    );
   }
 
   @Post('lessons/:id/edit')
@@ -191,6 +276,7 @@ export class TutorialsAdminController {
   ): void {
     const lesson = this.tutorials.updateTutorial(id, {
       subjectId: body.subjectId ?? '',
+      chapterId: body.chapterId,
       title: body.title ?? '',
       summary: body.summary,
       content: body.content ?? '',

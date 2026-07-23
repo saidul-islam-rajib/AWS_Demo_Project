@@ -171,7 +171,7 @@ describe('tutorials', () => {
       .expect(404);
   });
 
-  it('reorders lessons from the admin', async () => {
+  it('reorders lessons within a chapter from the admin', async () => {
     const cookie = await ctx.signIn();
     const server = ctx.server;
     const id = await subjectIdBySlug(cookie, 'networking');
@@ -185,11 +185,12 @@ describe('tutorials', () => {
       ...page.text.matchAll(/\/admin\/tutorials\/lessons\/([0-9a-f-]+)\/move/g),
     ].map((m) => m[1]);
 
-    const second = ids[2];
-    expect(second).toBeTruthy();
+    const unique = [...new Set(ids)];
+    const last = unique[unique.length - 1];
+    expect(last).toBeTruthy();
 
     await request(server)
-      .post(`/admin/tutorials/lessons/${second}/move`)
+      .post(`/admin/tutorials/lessons/${last}/move`)
       .set('Cookie', cookie)
       .type('form')
       .send({ direction: 'up' })
@@ -199,10 +200,10 @@ describe('tutorials', () => {
       .get('/tutorials/networking')
       .expect(200)
       .expect((res) => {
-        const first = res.text.indexOf('DNS: turning names into addresses');
-        const other = res.text.indexOf('What an IP address actually is');
+        const tcp = res.text.indexOf('TCP, UDP and what a port is for');
+        const dns = res.text.indexOf('DNS: turning names into addresses');
 
-        expect(first).toBeLessThan(other);
+        expect(tcp).toBeLessThan(dns);
       });
   });
 
@@ -287,43 +288,61 @@ describe('drag reordering', () => {
     expect((await lessonIds(cookie, id)).length).toBe(3);
   });
 
-  it('persists a dragged order', async () => {
+  it('persists a dragged order within a chapter', async () => {
     const cookie = await ctx.signIn();
     const id = await subjectId(cookie, 'networking');
     const before = await lessonIds(cookie, id);
 
-    const reversed = [...before].reverse();
+    const swapped = [before[0], before[2], before[1]];
 
     await request(ctx.server)
       .post(`/admin/tutorials/subjects/${id}/reorder`)
       .set('Cookie', cookie)
       .type('form')
-      .send({ order: reversed.join(',') })
+      .send({ order: swapped.join(',') })
       .expect(302);
 
-    expect(await lessonIds(cookie, id)).toEqual(reversed);
+    expect(await lessonIds(cookie, id)).toEqual(swapped);
+  });
+
+  it('does not move a lesson out of its chapter by dragging', async () => {
+    const cookie = await ctx.signIn();
+    const id = await subjectId(cookie, 'networking');
+    const before = await lessonIds(cookie, id);
+
+    await request(ctx.server)
+      .post(`/admin/tutorials/subjects/${id}/reorder`)
+      .set('Cookie', cookie)
+      .type('form')
+      .send({ order: [...before].reverse().join(',') })
+      .expect(302);
+
+    const after = await lessonIds(cookie, id);
+
+    expect(after[0]).toBe(before[0]);
+    expect(after).toHaveLength(3);
   });
 
   it('shows the new order to readers', async () => {
     const cookie = await ctx.signIn();
     const id = await subjectId(cookie, 'networking');
-    const reversed = [...(await lessonIds(cookie, id))].reverse();
+    const before = await lessonIds(cookie, id);
 
     await request(ctx.server)
       .post(`/admin/tutorials/subjects/${id}/reorder`)
       .set('Cookie', cookie)
       .type('form')
-      .send({ order: reversed.join(',') })
+      .send({ order: [before[0], before[2], before[1]].join(',') })
       .expect(302);
 
     await request(ctx.server)
       .get('/tutorials/networking')
       .expect(200)
       .expect((res) => {
-        const first = res.text.indexOf('TCP, UDP and what a port is for');
-        const last = res.text.indexOf('What an IP address actually is');
+        const tcp = res.text.indexOf('TCP, UDP and what a port is for');
+        const dns = res.text.indexOf('DNS: turning names into addresses');
 
-        expect(first).toBeLessThan(last);
+        expect(tcp).toBeLessThan(dns);
       });
   });
 
@@ -347,4 +366,135 @@ describe('drag reordering', () => {
       .type('form')
       .send({ order: 'a,b' })
       .expect(302));
+});
+
+describe('chapters', () => {
+  const subjectId = async (cookie: string, slug: string) => {
+    const res = await request(ctx.server)
+      .get('/admin/tutorials')
+      .set('Cookie', cookie)
+      .expect(200);
+
+    const rows = [
+      ...res.text.matchAll(
+        /data-sort-id="([0-9a-f-]+)"[^]*?\/tutorials\/([a-z0-9-]+)\s/g,
+      ),
+    ];
+
+    return rows.find((row) => row[2] === slug)?.[1] ?? '';
+  };
+
+  it('shows the seeded chapters on the public subject page', () =>
+    request(ctx.server)
+      .get('/tutorials/networking')
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('Addressing');
+        expect(res.text).toContain('Names and transport');
+        expect(res.text).toContain('class="chapter-head"');
+      }));
+
+  it('groups the lesson sidebar by chapter', () =>
+    request(ctx.server)
+      .get('/tutorials/networking/dns-turning-names-into-addresses')
+      .expect(200)
+      .expect((res) => expect(res.text).toContain('side-chapter')));
+
+  it('creates a chapter from the admin', async () => {
+    const cookie = await ctx.signIn();
+    const id = await subjectId(cookie, 'networking');
+
+    await request(ctx.server)
+      .post(`/admin/tutorials/subjects/${id}/chapters/new`)
+      .set('Cookie', cookie)
+      .type('form')
+      .send({ title: 'Troubleshooting', summary: 'When it breaks.' })
+      .expect(302);
+
+    await request(ctx.server)
+      .get(`/admin/tutorials/subjects/${id}`)
+      .set('Cookie', cookie)
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('Troubleshooting');
+        expect(res.text).toContain('When it breaks.');
+      });
+  });
+
+  it('assigns a lesson to a chapter and shows it there', async () => {
+    const cookie = await ctx.signIn();
+    const id = await subjectId(cookie, 'networking');
+
+    await request(ctx.server)
+      .post(`/admin/tutorials/subjects/${id}/chapters/new`)
+      .set('Cookie', cookie)
+      .type('form')
+      .send({ title: 'Extras' })
+      .expect(302);
+
+    const page = await request(ctx.server)
+      .get(`/admin/tutorials/subjects/${id}/lessons/new`)
+      .set('Cookie', cookie)
+      .expect(200);
+
+    const chapterId =
+      /<option value="([0-9a-f-]+)"[^>]*>Extras</.exec(page.text)?.[1] ?? '';
+    expect(chapterId).toBeTruthy();
+
+    await request(ctx.server)
+      .post(`/admin/tutorials/subjects/${id}/lessons/new`)
+      .set('Cookie', cookie)
+      .type('form')
+      .send({
+        subjectId: id,
+        chapterId,
+        title: 'Packet capture',
+        content: 'tcpdump',
+      })
+      .expect(302);
+
+    await request(ctx.server)
+      .get('/tutorials/networking')
+      .expect(200)
+      .expect((res) => {
+        const chapter = res.text.indexOf('Extras');
+        const lesson = res.text.indexOf('Packet capture');
+
+        expect(chapter).toBeGreaterThan(-1);
+        expect(lesson).toBeGreaterThan(chapter);
+      });
+  });
+
+  it('keeps lessons when their chapter is deleted', async () => {
+    const cookie = await ctx.signIn();
+    const id = await subjectId(cookie, 'networking');
+
+    const page = await request(ctx.server)
+      .get(`/admin/tutorials/subjects/${id}`)
+      .set('Cookie', cookie)
+      .expect(200);
+
+    const chapterId =
+      /\/admin\/tutorials\/chapters\/([0-9a-f-]+)\/delete/.exec(
+        page.text,
+      )?.[1] ??
+      /\/admin\/tutorials\/chapters\/([0-9a-f-]+)\/edit/.exec(page.text)?.[1] ??
+      '';
+
+    expect(chapterId).toBeTruthy();
+
+    await request(ctx.server)
+      .post(`/admin/tutorials/chapters/${chapterId}/delete`)
+      .set('Cookie', cookie)
+      .expect(302);
+
+    await request(ctx.server)
+      .get('/tutorials/networking')
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('What an IP address actually is');
+        expect(res.text).toContain('DNS: turning names into addresses');
+        expect(res.text).toContain('TCP, UDP and what a port is for');
+      });
+  });
 });

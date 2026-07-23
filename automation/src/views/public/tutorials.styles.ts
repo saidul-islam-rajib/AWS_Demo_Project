@@ -54,7 +54,26 @@ const SUBJECT_STYLES = `
 `;
 
 const LESSON_LIST_STYLES = `
-  .lesson-list { list-style: none; margin: 1.75rem 0 3rem; padding: 0; }
+  .chapter { margin-top: 2.25rem; }
+  .chapter:first-of-type { margin-top: 1.75rem; }
+  .chapter-head {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.6rem;
+    padding-bottom: 0.6rem; margin-bottom: 0.9rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .chapter-head h2 {
+    font-family: var(--serif); font-size: 1.25rem; letter-spacing: -0.02em;
+  }
+  .chapter-head p {
+    flex-basis: 100%; order: 3;
+    font-size: 0.88rem; color: var(--ink-3); line-height: 1.5;
+  }
+  .chapter-count {
+    margin-left: auto; font-size: 0.76rem; color: var(--ink-3);
+    white-space: nowrap;
+  }
+
+  .lesson-list { list-style: none; margin: 0 0 1rem; padding: 0; }
   .lesson-item {
     position: relative;
     display: flex; gap: 1rem; align-items: flex-start;
@@ -112,6 +131,13 @@ const LESSON_PAGE_STYLES = `
   }
   .tut-side li a:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--accent); }
   .tut-side li a.current { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); font-weight: 600; }
+  .tut-side li.side-chapter {
+    counter-reset: none; list-style: none;
+    font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--ink-3); font-weight: 700;
+    margin: 0.9rem 0 0.35rem; padding: 0 0.5rem;
+  }
+  .tut-side li.side-chapter:first-child { margin-top: 0; }
   .tut-side li a.done::after { content: "✓"; margin-left: auto; color: var(--accent); font-size: 0.8rem; }
 
   .tut-article h1 {

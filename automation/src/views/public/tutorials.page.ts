@@ -1,4 +1,5 @@
 import {
+  ChapterGroup,
   DIFFICULTY_LABELS,
   Neighbours,
   Subject,
@@ -99,28 +100,47 @@ export function tutorialsIndexPage(
 
 export function subjectPage(
   subject: Subject,
-  lessons: Tutorial[],
+  groups: ChapterGroup[],
   stats: SubjectStats,
 ): string {
-  const ids = lessons.map((lesson) => lesson.id);
+  const ids = groups.flatMap((group) => group.lessons.map((l) => l.id));
 
-  const items = lessons
-    .map(
-      (
-        lesson,
-        index,
-      ) => `<li class="lesson-item" data-lesson-id="${esc(lesson.id)}">
-        <span class="lesson-num"><span>${index + 1}</span></span>
-        <div class="lesson-body">
-          <h3><a href="/tutorials/${esc(subject.slug)}/${esc(lesson.slug)}">${esc(lesson.title)}</a></h3>
-          ${lesson.summary ? `<p>${esc(lesson.summary)}</p>` : ''}
-          <div class="lesson-meta">
-            ${levelBadge(lesson.difficulty)}
-            <span>${readingMinutes(lesson.content)} min read</span>
-          </div>
-        </div>
-      </li>`,
-    )
+  let position = 0;
+
+  const sections = groups
+    .filter((group) => group.lessons.length)
+    .map((group) => {
+      const items = group.lessons
+        .map((lesson) => {
+          position += 1;
+
+          return `<li class="lesson-item" data-lesson-id="${esc(lesson.id)}">
+            <span class="lesson-num"><span>${position}</span></span>
+            <div class="lesson-body">
+              <h3><a href="/tutorials/${esc(subject.slug)}/${esc(lesson.slug)}">${esc(lesson.title)}</a></h3>
+              ${lesson.summary ? `<p>${esc(lesson.summary)}</p>` : ''}
+              <div class="lesson-meta">
+                ${levelBadge(lesson.difficulty)}
+                <span>${readingMinutes(lesson.content)} min read</span>
+              </div>
+            </div>
+          </li>`;
+        })
+        .join('\n');
+
+      return `<section class="chapter">
+        ${
+          group.chapter
+            ? `<header class="chapter-head">
+                 <h2>${esc(group.chapter.title)}</h2>
+                 ${group.chapter.summary ? `<p>${esc(group.chapter.summary)}</p>` : ''}
+                 <span class="chapter-count">${group.lessons.length} ${pluralise(group.lessons.length, 'lesson')}</span>
+               </header>`
+            : ''
+        }
+        <ol class="lesson-list">${items}</ol>
+      </section>`;
+    })
     .join('\n');
 
   const body = `
@@ -137,8 +157,8 @@ export function subjectPage(
     </header>
 
     ${
-      lessons.length
-        ? `<ol class="lesson-list">${items}</ol>`
+      ids.length
+        ? sections
         : emptyState('No lessons in this subject yet.', 'margin-top:2rem')
     }
   `;
@@ -157,15 +177,24 @@ export function subjectPage(
 export function tutorialPage(
   subject: Subject,
   tutorial: Tutorial,
-  lessons: Tutorial[],
+  groups: ChapterGroup[],
   nav: Neighbours,
   contentHtml: string,
 ): string {
-  const sidebar = lessons
-    .map(
-      (lesson) =>
-        `<li><a data-lesson-id="${esc(lesson.id)}" class="${lesson.id === tutorial.id ? 'current' : ''}" href="/tutorials/${esc(subject.slug)}/${esc(lesson.slug)}">${esc(lesson.title)}</a></li>`,
-    )
+  const sidebar = groups
+    .filter((group) => group.lessons.length)
+    .map((group) => {
+      const items = group.lessons
+        .map(
+          (lesson) =>
+            `<li><a data-lesson-id="${esc(lesson.id)}" class="${lesson.id === tutorial.id ? 'current' : ''}" href="/tutorials/${esc(subject.slug)}/${esc(lesson.slug)}">${esc(lesson.title)}</a></li>`,
+        )
+        .join('\n');
+
+      return group.chapter
+        ? `<li class="side-chapter">${esc(group.chapter.title)}</li>${items}`
+        : items;
+    })
     .join('\n');
 
   const previous = nav.previous
