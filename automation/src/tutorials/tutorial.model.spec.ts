@@ -6,6 +6,10 @@ import {
   chaptersOf,
   groupIntoChapters,
   orderedLessons,
+  ANONYMOUS_HOLDER,
+  certificateContact,
+  certificateHolder,
+  certificateReference,
   normaliseEnrolKey,
   parseCompletionSeconds,
   parseEnrolment,
@@ -615,5 +619,59 @@ describe('enrolment policy', () => {
     expect(requiresEnrolment({ enrolment: 'key', enrolKey: '' })).toBe(false);
     expect(requiresEnrolment({ enrolment: 'key', enrolKey: 'k' })).toBe(true);
     expect(requiresEnrolment({ enrolment: 'open', enrolKey: 'k' })).toBe(false);
+  });
+});
+
+describe('certificateHolder', () => {
+  it('keeps a normal name', () => {
+    expect(certificateHolder('Saidul Islam Rajib')).toBe('Saidul Islam Rajib');
+  });
+
+  it('collapses stray whitespace', () => {
+    expect(certificateHolder('  Saidul   Islam  ')).toBe('Saidul Islam');
+  });
+
+  it('falls back to anonymous when nothing usable is given', () => {
+    expect(certificateHolder('')).toBe(ANONYMOUS_HOLDER);
+    expect(certificateHolder('   ')).toBe(ANONYMOUS_HOLDER);
+    expect(certificateHolder(undefined)).toBe(ANONYMOUS_HOLDER);
+  });
+
+  it('caps a name that would break the layout', () => {
+    expect(certificateHolder('x'.repeat(200))).toHaveLength(80);
+  });
+});
+
+describe('certificateContact', () => {
+  it('keeps something that looks like an address', () => {
+    expect(certificateContact('a@b.com')).toBe('a@b.com');
+  });
+
+  it('drops anything that does not', () => {
+    expect(certificateContact('not-an-email')).toBe('');
+    expect(certificateContact('a@b')).toBe('');
+    expect(certificateContact('')).toBe('');
+    expect(certificateContact(undefined)).toBe('');
+  });
+});
+
+describe('certificateReference', () => {
+  it('is stable for the same holder and course', () => {
+    expect(certificateReference('s1', 'Rajib')).toBe(
+      certificateReference('s1', 'Rajib'),
+    );
+  });
+
+  it('differs between holders and between courses', () => {
+    expect(certificateReference('s1', 'Rajib')).not.toBe(
+      certificateReference('s1', 'Someone'),
+    );
+    expect(certificateReference('s1', 'Rajib')).not.toBe(
+      certificateReference('s2', 'Rajib'),
+    );
+  });
+
+  it('is short and readable', () => {
+    expect(certificateReference('s1', 'Rajib')).toMatch(/^[0-9A-Z]{7}$/);
   });
 });

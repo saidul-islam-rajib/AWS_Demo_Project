@@ -177,6 +177,33 @@ export function suggestedCompletionSeconds(content: string): number {
   );
 }
 
+export const ANONYMOUS_HOLDER = 'Anonymous';
+
+export function certificateHolder(name?: string): string {
+  const trimmed = (name ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
+
+  return trimmed || ANONYMOUS_HOLDER;
+}
+
+export function certificateContact(email?: string): string {
+  const trimmed = (email ?? '').trim().slice(0, 120);
+
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : '';
+}
+
+export function certificateReference(
+  subjectId: string,
+  holder: string,
+): string {
+  let hash = 0;
+
+  for (const char of `${subjectId}:${holder}`) {
+    hash = (hash * 31 + char.charCodeAt(0)) % 0xffffffff;
+  }
+
+  return hash.toString(36).toUpperCase().padStart(7, '0').slice(0, 7);
+}
+
 export function parseEnrolment(value?: string): Enrolment {
   const candidate = (value ?? '').trim().toLowerCase();
 

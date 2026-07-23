@@ -169,6 +169,10 @@ export function subjectPage(
                 data-resume-urls="${esc(urls.join(','))}"
                 href="${esc(urls[0])}">
                <span data-resume-label>Start the course</span>
+             </a>
+             <a class="cert-link" data-cert-when="${esc(ids.join(','))}"
+                href="/tutorials/${esc(subject.slug)}/certificate" hidden>
+               Get your certificate
              </a>`
           : ''
       }

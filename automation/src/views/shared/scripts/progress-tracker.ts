@@ -98,11 +98,29 @@ export const PROGRESS_TRACKER_SCRIPT = `
     }
   }
 
+  function paintCertificate() {
+    var link = document.querySelector('[data-cert-when]');
+    if (!link) return;
+
+    var ids = (link.getAttribute('data-cert-when') || '').split(',').filter(Boolean);
+    if (!ids.length) return;
+
+    for (var i = 0; i < ids.length; i++) {
+      if (!isDone(ids[i])) {
+        link.hidden = true;
+        return;
+      }
+    }
+
+    link.hidden = false;
+  }
+
   function paint() {
     paintList();
     paintProgress();
     paintResume();
     paintChapters();
+    paintCertificate();
   }
 
   var toggle = document.querySelector('[data-mark-done]');

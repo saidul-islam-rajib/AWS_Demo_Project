@@ -774,3 +774,109 @@ describe('student overview', () => {
       });
   });
 });
+
+describe('certificate', () => {
+  it('offers a form naming the course', () =>
+    request(ctx.server)
+      .get('/tutorials/networking/certificate')
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('Your certificate');
+        expect(res.text).toContain('Networking');
+        expect(res.text).toContain('name="holder"');
+        expect(res.text).toContain('name="contact"');
+      }));
+
+  it('issues one with the name given', () =>
+    request(ctx.server)
+      .post('/tutorials/networking/certificate')
+      .type('form')
+      .send({ holder: 'Saidul Islam Rajib', contact: 'a@b.com' })
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('Certificate of completion');
+        expect(res.text).toContain('Saidul Islam Rajib');
+        expect(res.text).toContain('a@b.com');
+        expect(res.text).toContain('Networking');
+      }));
+
+  it('falls back to Anonymous when no name is given', () =>
+    request(ctx.server)
+      .post('/tutorials/networking/certificate')
+      .type('form')
+      .send({ holder: '   ', contact: '' })
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('Anonymous');
+        expect(res.text).toContain('Certificate of completion');
+      }));
+
+  it('leaves out an address that is not one', () =>
+    request(ctx.server)
+      .post('/tutorials/networking/certificate')
+      .type('form')
+      .send({ holder: 'Rajib', contact: 'nonsense' })
+      .expect(200)
+      .expect((res) => expect(res.text).not.toContain('nonsense')));
+
+  it('escapes a name rather than rendering it as markup', () =>
+    request(ctx.server)
+      .post('/tutorials/networking/certificate')
+      .type('form')
+      .send({ holder: '<script>alert(1)</script>' })
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).not.toContain('<script>alert(1)</script>');
+        expect(res.text).toContain('&lt;script&gt;');
+      }));
+
+  it('says plainly that it is not a formal qualification', () =>
+    request(ctx.server)
+      .post('/tutorials/networking/certificate')
+      .type('form')
+      .send({ holder: 'Rajib' })
+      .expect(200)
+      .expect((res) =>
+        expect(res.text).toContain('not a formal qualification'),
+      ));
+
+  it('keeps itself out of search engines', () =>
+    request(ctx.server)
+      .get('/tutorials/networking/certificate')
+      .expect(200)
+      .expect((res) => expect(res.text).toContain('noindex')));
+
+  it('is unreachable on a locked course until enrolled', async () => {
+    const cookie = await ctx.signIn();
+
+    const admin = await request(ctx.server)
+      .get('/admin/tutorials')
+      .set('Cookie', cookie)
+      .expect(200);
+
+    const id = /data-sort-id="([0-9a-f-]+)"/.exec(admin.text)?.[1] ?? '';
+
+    await request(ctx.server)
+      .post(`/admin/tutorials/subjects/${id}/edit`)
+      .set('Cookie', cookie)
+      .type('form')
+      .send({
+        title: 'Networking',
+        status: 'published',
+        enrolment: 'key',
+        enrolKey: 'secret',
+      })
+      .expect(302);
+
+    await request(ctx.server)
+      .get('/tutorials/networking/certificate')
+      .expect(302)
+      .expect('Location', '/tutorials/networking');
+
+    await request(ctx.server)
+      .post('/tutorials/networking/certificate')
+      .type('form')
+      .send({ holder: 'Sneaky' })
+      .expect(302);
+  });
+});

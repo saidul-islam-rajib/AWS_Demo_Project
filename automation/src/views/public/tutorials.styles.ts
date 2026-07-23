@@ -60,6 +60,14 @@ const SUBJECT_STYLES = `
   .resume:hover { filter: brightness(1.08); }
   .resume.done { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
   .chapter-count.complete { color: var(--accent); font-weight: 700; }
+  .cert-link {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    margin: 1.1rem 0 0 0.6rem; padding: 0.65rem 1.2rem; border-radius: 100px;
+    border: 1px solid var(--accent); color: var(--accent);
+    font-size: 0.9rem; font-weight: 600;
+  }
+  .cert-link:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  .cert-link[hidden] { display: none; }
 `;
 
 const ENROL_STYLES = `

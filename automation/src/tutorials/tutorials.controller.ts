@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  Post,
+  Req,
+  Res,
+} from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { TutorialsService } from './tutorials.service';
 import { renderMarkdown } from '../posts/markdown';
@@ -8,6 +17,12 @@ import {
   tutorialPage,
   tutorialsIndexPage,
 } from '../views/public/tutorials.page';
+import {
+  certificateFormPage,
+  certificatePage,
+} from '../views/public/certificate.page';
+import { getSettings } from '../settings/settings.store';
+import { certificateContact, certificateHolder } from './tutorial.model';
 import { Subject, SubjectStats, requiresEnrolment } from './tutorial.model';
 import { EnrolmentService } from './enrolment.service';
 
@@ -111,6 +126,74 @@ export class TutorialsController {
     );
 
     res.redirect(`/tutorials/${subject.slug}`);
+  }
+
+  @Get(':subject/certificate')
+  certificateForm(
+    @Param('subject') slug: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): void {
+    res.type('html');
+
+    const subject = this.tutorials
+      .findSubjects()
+      .find((candidate) => candidate.slug === slug);
+
+    if (!subject) {
+      res.status(404).send(notFoundPage());
+      return;
+    }
+
+    if (requiresEnrolment(subject) && !this.enrolled(req, subject)) {
+      res.redirect(`/tutorials/${subject.slug}`);
+      return;
+    }
+
+    res.send(
+      certificateFormPage(
+        subject,
+        this.tutorials.stats(subject.id),
+        this.tutorials.lessons(subject.id).map((lesson) => lesson.id),
+      ),
+    );
+  }
+
+  @Post(':subject/certificate')
+  @HttpCode(200)
+  issueCertificate(
+    @Param('subject') slug: string,
+    @Body('holder') holder: string,
+    @Body('contact') contact: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): void {
+    res.type('html');
+
+    const subject = this.tutorials
+      .findSubjects()
+      .find((candidate) => candidate.slug === slug);
+
+    if (!subject) {
+      res.status(404).send(notFoundPage());
+      return;
+    }
+
+    if (requiresEnrolment(subject) && !this.enrolled(req, subject)) {
+      res.redirect(`/tutorials/${subject.slug}`);
+      return;
+    }
+
+    res.send(
+      certificatePage(
+        subject,
+        this.tutorials.stats(subject.id),
+        certificateHolder(holder),
+        certificateContact(contact),
+        new Date(),
+        getSettings().authorName,
+      ),
+    );
   }
 
   @Get(':subject/:tutorial')
