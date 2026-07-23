@@ -9,6 +9,7 @@ import {
 import { readingMinutes } from '../../posts/post.model';
 import { adminNav, esc, layout } from '../shared/layout';
 import { emptyState, statusPill } from '../shared/components';
+import { SORTABLE_SCRIPT } from '../shared/scripts/sortable';
 import { TUTORIALS_ADMIN_STYLES as STYLES } from './tutorials.styles';
 
 const CSS = STYLES;
@@ -27,7 +28,8 @@ export function tutorialsAdminPage(
       };
       const draftCount = drafts.get(subject.id) ?? 0;
 
-      return `<div class="subj-row">
+      return `<div class="subj-row" draggable="true" data-sort-id="${esc(subject.id)}">
+        <span class="grip" aria-hidden="true">⠿</span>
         <span class="icon">${subject.icon ? esc(subject.icon) : '📘'}</span>
         <div class="info">
           <b>${esc(subject.title)}</b>
@@ -59,13 +61,21 @@ ${CSS}
   <div class="toolbar">
     <div>
       <h1 class="page-title" style="margin-bottom:.15rem">Tutorials</h1>
-      <p style="font-size:.86rem;color:var(--ink-3)">Subjects hold ordered lessons. Drag order is set with the arrows.</p>
+      <p style="font-size:.86rem;color:var(--ink-3)">Subjects hold ordered lessons.</p>
     </div>
     <div class="spacer"></div>
     <a class="btn btn-primary" href="/admin/tutorials/subjects/new">New subject</a>
   </div>
 
-  ${subjects.length ? rows : emptyState('No subjects yet. Create one to start adding lessons.')}
+  ${subjects.length > 1 ? '<p class="sort-hint">Drag a subject to reorder it, or use the arrows.</p>' : ''}
+
+  <form method="post" action="/admin/tutorials/reorder" data-sortable-form>
+    <input type="hidden" name="order" value="" data-sortable-order />
+  </form>
+
+  <div data-sortable>
+    ${subjects.length ? rows : emptyState('No subjects yet. Create one to start adding lessons.')}
+  </div>
 `;
 
   return layout({
@@ -75,6 +85,7 @@ ${CSS}
     variant: 'admin',
     path: '/admin/tutorials',
     noindex: true,
+    head: SORTABLE_SCRIPT,
   });
 }
 
@@ -173,8 +184,12 @@ export function subjectLessonsPage(
 ): string {
   const rows = lessons
     .map(
-      (lesson, index) => `<div class="lesson-row">
-        <span class="num">${index + 1}</span>
+      (
+        lesson,
+        index,
+      ) => `<div class="lesson-row" draggable="true" data-sort-id="${esc(lesson.id)}">
+        <span class="grip" aria-hidden="true">⠿</span>
+        <span class="num" data-sort-number>${index + 1}</span>
         <div class="info">
           <b>${esc(lesson.title)}</b>
           <span>
@@ -212,7 +227,15 @@ ${CSS}
     <a class="btn btn-primary" href="/admin/tutorials/subjects/${esc(subject.id)}/lessons/new">New lesson</a>
   </div>
 
-  ${lessons.length ? rows : emptyState('No lessons in this subject yet.')}
+  ${lessons.length > 1 ? '<p class="sort-hint">Drag a lesson to reorder it, or use the arrows.</p>' : ''}
+
+  <form method="post" action="/admin/tutorials/subjects/${esc(subject.id)}/reorder" data-sortable-form>
+    <input type="hidden" name="order" value="" data-sortable-order />
+  </form>
+
+  <div data-sortable>
+    ${lessons.length ? rows : emptyState('No lessons in this subject yet.')}
+  </div>
 `;
 
   return layout({
@@ -222,6 +245,7 @@ ${CSS}
     variant: 'admin',
     path: '/admin/tutorials',
     noindex: true,
+    head: SORTABLE_SCRIPT,
   });
 }
 

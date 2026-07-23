@@ -18,6 +18,7 @@ import {
   Tutorial,
   TutorialInput,
   TutorialStore,
+  applyOrder,
   lessonsOf,
   moveInSequence,
   neighbours,
@@ -294,6 +295,22 @@ export class TutorialsService {
 
   moveSubject(id: string, direction: 'up' | 'down'): void {
     this.subjects = moveInSequence(this.subjects, id, direction);
+    this.persist();
+  }
+
+  reorderSubjects(ids: string[]): void {
+    this.subjects = applyOrder(this.subjects, ids);
+    this.persist();
+  }
+
+  reorderTutorials(subjectId: string, ids: string[]): void {
+    const scoped = this.tutorials.filter((t) => t.subjectId === subjectId);
+
+    this.tutorials = [
+      ...this.tutorials.filter((t) => t.subjectId !== subjectId),
+      ...applyOrder(scoped, ids),
+    ];
+
     this.persist();
   }
 

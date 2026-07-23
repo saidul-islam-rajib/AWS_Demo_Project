@@ -31,6 +31,19 @@ const SUBJECT_ROW_STYLES = `
   .lesson-row .info span { font-size: 0.78rem; color: var(--ink-3); }
   .lesson-row .actions { display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center; }
 
+  [data-sort-id] { cursor: grab; }
+  [data-sort-id]:active { cursor: grabbing; }
+  [data-sort-id].dragging { opacity: 0.45; border-style: dashed; border-color: var(--accent); }
+  [data-sort-id] a, [data-sort-id] button { cursor: pointer; }
+
+  .grip {
+    flex: none; color: var(--ink-3); font-size: 1rem; line-height: 1;
+    letter-spacing: -2px; user-select: none;
+  }
+  .grip:hover { color: var(--accent); }
+
+  .sort-hint { font-size: 0.78rem; color: var(--ink-3); margin-bottom: 0.75rem; }
+
 
 `;
 

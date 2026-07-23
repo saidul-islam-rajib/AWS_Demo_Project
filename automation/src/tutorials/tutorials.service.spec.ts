@@ -98,6 +98,20 @@ describe('TutorialsService', () => {
       expect(a.id).toBeDefined();
     });
 
+    it('reorders subjects from a dragged sequence', () => {
+      const a = makeSubject('A');
+      const b = makeSubject('B');
+      const c = makeSubject('C');
+
+      service.reorderSubjects([c.id, a.id, b.id]);
+
+      expect(service.findSubjects().map((s) => s.title)).toEqual([
+        'C',
+        'A',
+        'B',
+      ]);
+    });
+
     it('deletes its lessons with it', () => {
       const subject = makeSubject();
       makeLesson(subject.id);
@@ -161,6 +175,52 @@ describe('TutorialsService', () => {
 
       expect(service.lessons(one.id).map((l) => l.title)).toEqual(['B', 'A']);
       expect(service.lessons(two.id).map((l) => l.title)).toEqual(['Z']);
+    });
+
+    it('reorders lessons from a dragged sequence', () => {
+      const subject = makeSubject();
+      const a = makeLesson(subject.id, 'A');
+      const b = makeLesson(subject.id, 'B');
+      const c = makeLesson(subject.id, 'C');
+
+      service.reorderTutorials(subject.id, [c.id, a.id, b.id]);
+
+      expect(service.lessons(subject.id).map((l) => l.title)).toEqual([
+        'C',
+        'A',
+        'B',
+      ]);
+      expect(service.lessons(subject.id).map((l) => l.order)).toEqual([
+        1, 2, 3,
+      ]);
+    });
+
+    it('reordering one subject leaves another untouched', () => {
+      const one = makeSubject('One');
+      const two = makeSubject('Two');
+
+      const a = makeLesson(one.id, 'A');
+      const b = makeLesson(one.id, 'B');
+      makeLesson(two.id, 'X');
+      makeLesson(two.id, 'Y');
+
+      service.reorderTutorials(one.id, [b.id, a.id]);
+
+      expect(service.lessons(one.id).map((l) => l.title)).toEqual(['B', 'A']);
+      expect(service.lessons(two.id).map((l) => l.title)).toEqual(['X', 'Y']);
+    });
+
+    it('ignores ids from another subject when reordering', () => {
+      const one = makeSubject('One');
+      const two = makeSubject('Two');
+
+      const a = makeLesson(one.id, 'A');
+      const foreign = makeLesson(two.id, 'Foreign');
+
+      service.reorderTutorials(one.id, [foreign.id, a.id]);
+
+      expect(service.lessons(one.id).map((l) => l.title)).toEqual(['A']);
+      expect(service.lessons(two.id).map((l) => l.title)).toEqual(['Foreign']);
     });
 
     it('closes the gap in ordering when a lesson is deleted', () => {

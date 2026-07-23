@@ -11,7 +11,7 @@ import {
 import type { Response } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
 import { TutorialsService } from './tutorials.service';
-import { SubjectStats } from './tutorial.model';
+import { SubjectStats, parseOrderIds } from './tutorial.model';
 import {
   lessonEditorPage,
   subjectEditorPage,
@@ -110,6 +110,25 @@ export class TutorialsAdminController {
       status: body.status as never,
     });
 
+    res.redirect(`/admin/tutorials/subjects/${id}`);
+  }
+
+  @Post('reorder')
+  reorderSubjects(
+    @Body() body: { order?: string },
+    @Res() res: Response,
+  ): void {
+    this.tutorials.reorderSubjects(parseOrderIds(body.order));
+    res.redirect('/admin/tutorials');
+  }
+
+  @Post('subjects/:id/reorder')
+  reorderLessons(
+    @Param('id') id: string,
+    @Body() body: { order?: string },
+    @Res() res: Response,
+  ): void {
+    this.tutorials.reorderTutorials(id, parseOrderIds(body.order));
     res.redirect(`/admin/tutorials/subjects/${id}`);
   }
 

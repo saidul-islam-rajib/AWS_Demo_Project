@@ -244,3 +244,107 @@ describe('tutorials', () => {
       .expect((res) => expect(res.text).toContain('noindex'));
   });
 });
+
+describe('drag reordering', () => {
+  const lessonIds = async (cookie: string, subjectId: string) => {
+    const res = await request(ctx.server)
+      .get(`/admin/tutorials/subjects/${subjectId}`)
+      .set('Cookie', cookie)
+      .expect(200);
+
+    return [...res.text.matchAll(/data-sort-id="([0-9a-f-]+)"/g)].map(
+      (m) => m[1],
+    );
+  };
+
+  const subjectId = async (cookie: string, slug: string) => {
+    const res = await request(ctx.server)
+      .get('/admin/tutorials')
+      .set('Cookie', cookie)
+      .expect(200);
+
+    const rows = [
+      ...res.text.matchAll(
+        /data-sort-id="([0-9a-f-]+)"[^]*?\/tutorials\/([a-z0-9-]+)\s/g,
+      ),
+    ];
+
+    return rows.find((row) => row[2] === slug)?.[1] ?? '';
+  };
+
+  it('marks each row as draggable with a stable id', async () => {
+    const cookie = await ctx.signIn();
+    const id = await subjectId(cookie, 'networking');
+
+    const res = await request(ctx.server)
+      .get(`/admin/tutorials/subjects/${id}`)
+      .set('Cookie', cookie)
+      .expect(200);
+
+    expect(res.text).toContain('draggable="true"');
+    expect(res.text).toContain('data-sortable');
+    expect(res.text).toContain('data-sortable-order');
+    expect((await lessonIds(cookie, id)).length).toBe(3);
+  });
+
+  it('persists a dragged order', async () => {
+    const cookie = await ctx.signIn();
+    const id = await subjectId(cookie, 'networking');
+    const before = await lessonIds(cookie, id);
+
+    const reversed = [...before].reverse();
+
+    await request(ctx.server)
+      .post(`/admin/tutorials/subjects/${id}/reorder`)
+      .set('Cookie', cookie)
+      .type('form')
+      .send({ order: reversed.join(',') })
+      .expect(302);
+
+    expect(await lessonIds(cookie, id)).toEqual(reversed);
+  });
+
+  it('shows the new order to readers', async () => {
+    const cookie = await ctx.signIn();
+    const id = await subjectId(cookie, 'networking');
+    const reversed = [...(await lessonIds(cookie, id))].reverse();
+
+    await request(ctx.server)
+      .post(`/admin/tutorials/subjects/${id}/reorder`)
+      .set('Cookie', cookie)
+      .type('form')
+      .send({ order: reversed.join(',') })
+      .expect(302);
+
+    await request(ctx.server)
+      .get('/tutorials/networking')
+      .expect(200)
+      .expect((res) => {
+        const first = res.text.indexOf('TCP, UDP and what a port is for');
+        const last = res.text.indexOf('What an IP address actually is');
+
+        expect(first).toBeLessThan(last);
+      });
+  });
+
+  it('survives a garbled order without losing lessons', async () => {
+    const cookie = await ctx.signIn();
+    const id = await subjectId(cookie, 'networking');
+
+    await request(ctx.server)
+      .post(`/admin/tutorials/subjects/${id}/reorder`)
+      .set('Cookie', cookie)
+      .type('form')
+      .send({ order: 'not-a-real-id,,   ,' })
+      .expect(302);
+
+    expect((await lessonIds(cookie, id)).length).toBe(3);
+  });
+
+  it('requires a session', () =>
+    request(ctx.server)
+      .post('/admin/tutorials/reorder')
+      .type('form')
+      .send({ order: 'a,b' })
+      .expect(302));
+});

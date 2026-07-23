@@ -1,4 +1,6 @@
 import {
+  applyOrder,
+  parseOrderIds,
   Tutorial,
   formatDuration,
   lessonsOf,
@@ -361,5 +363,70 @@ describe('searchTutorials', () => {
 
   it('returns nothing for an empty query', () => {
     expect(searchTutorials(tutorials, '   ')).toEqual([]);
+  });
+});
+
+describe('parseOrderIds', () => {
+  it('splits a comma separated list', () => {
+    expect(parseOrderIds('a,b,c')).toEqual(['a', 'b', 'c']);
+  });
+
+  it('trims whitespace and drops empties', () => {
+    expect(parseOrderIds(' a , ,b,, c ')).toEqual(['a', 'b', 'c']);
+  });
+
+  it('returns nothing for missing or empty input', () => {
+    expect(parseOrderIds(undefined)).toEqual([]);
+    expect(parseOrderIds('')).toEqual([]);
+    expect(parseOrderIds('   ')).toEqual([]);
+  });
+});
+
+describe('applyOrder', () => {
+  const items = [
+    { id: 'a', order: 1, title: 'A' },
+    { id: 'b', order: 2, title: 'B' },
+    { id: 'c', order: 3, title: 'C' },
+  ];
+
+  it('reorders to the given sequence', () => {
+    expect(applyOrder(items, ['c', 'a', 'b']).map((i) => i.id)).toEqual([
+      'c',
+      'a',
+      'b',
+    ]);
+  });
+
+  it('renumbers order to 1..n', () => {
+    expect(applyOrder(items, ['c', 'a', 'b']).map((i) => i.order)).toEqual([
+      1, 2, 3,
+    ]);
+  });
+
+  it('ignores ids that do not exist', () => {
+    expect(
+      applyOrder(items, ['c', 'ghost', 'a', 'b']).map((i) => i.id),
+    ).toEqual(['c', 'a', 'b']);
+  });
+
+  it('appends items the list left out, keeping their relative order', () => {
+    expect(applyOrder(items, ['c']).map((i) => i.id)).toEqual(['c', 'a', 'b']);
+  });
+
+  it('leaves the sequence unchanged for an empty list', () => {
+    expect(applyOrder(items, []).map((i) => i.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('never drops or duplicates an item', () => {
+    const result = applyOrder(items, ['b', 'b', 'c']);
+
+    expect(result).toHaveLength(3);
+    expect(new Set(result.map((i) => i.id)).size).toBe(3);
+  });
+
+  it('does not mutate the input', () => {
+    applyOrder(items, ['c', 'b', 'a']);
+
+    expect(items.map((i) => i.id)).toEqual(['a', 'b', 'c']);
   });
 });

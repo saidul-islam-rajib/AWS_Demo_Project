@@ -138,6 +138,34 @@ export function moveInSequence<
   return sortByOrder(swapped);
 }
 
+export function applyOrder<
+  T extends { id: string; order: number; title: string },
+>(items: T[], ids: string[]): T[] {
+  const remaining = new Map(items.map((item) => [item.id, item]));
+  const ordered: T[] = [];
+
+  for (const id of ids) {
+    const item = remaining.get(id);
+    if (item) {
+      ordered.push(item);
+      remaining.delete(id);
+    }
+  }
+
+  for (const leftover of sortByOrder([...remaining.values()])) {
+    ordered.push(leftover);
+  }
+
+  return ordered.map((item, index) => ({ ...item, order: index + 1 }));
+}
+
+export function parseOrderIds(value?: string): string[] {
+  return (value ?? '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
+}
+
 export function publishedOnly<T extends { status: TutorialStatus }>(
   items: T[],
 ): T[] {
