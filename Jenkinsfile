@@ -35,10 +35,10 @@ pipeline {
 
         BACKUP_DIR     = '/opt/blog/backups'
         S3_BUCKET      = ''
-        // The root volume is 6.7GB and shared with Jenkins, Docker images and
-        // the data volume, so archives are kept shallow. Raise this once they
-        // are copied to S3 and these stop being the only copies.
-        BACKUP_KEEP    = '5'
+        // Each archive is close to the size of the data volume, so five of
+        // them would be most of the free space on a 6.7GB root. Two is enough
+        // to roll back a bad deploy; depth belongs in S3, not on this disk.
+        BACKUP_KEEP    = '2'
     }
 
     stages {
