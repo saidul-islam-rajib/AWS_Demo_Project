@@ -35,6 +35,10 @@ pipeline {
 
         BACKUP_DIR     = '/opt/blog/backups'
         S3_BUCKET      = ''
+        // The root volume is 6.7GB and shared with Jenkins, Docker images and
+        // the data volume, so archives are kept shallow. Raise this once they
+        // are copied to S3 and these stop being the only copies.
+        BACKUP_KEEP    = '5'
     }
 
     stages {
@@ -120,6 +124,7 @@ pipeline {
 
                     set +e
                     BACKUP_DIR="$BACKUP_DIR" S3_BUCKET="$S3_BUCKET" \
+                        BACKUP_KEEP="$BACKUP_KEEP" \
                         DATA_VOLUME="$DATA_VOLUME" sh scripts/backup.sh
                     rc=$?
                     set -e
