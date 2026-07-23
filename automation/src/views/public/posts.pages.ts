@@ -10,6 +10,8 @@ import {
 import { avatarMark, esc, IMAGE_SKELETON, layout } from '../shared/layout';
 import { getSettings } from '../../settings/settings.store';
 
+export const SIDEBAR_TAG_LIMIT = 20;
+
 const FEED_CSS = `
 <style>
   .hero {
@@ -160,6 +162,11 @@ const FEED_CSS = `
     color: var(--ink-3); margin-bottom: 0.9rem;
   }
   .rail + .rail { margin-top: 2.25rem; }
+  .rail-more {
+    display: inline-block; margin-top: 0.85rem;
+    font-size: 0.8rem; color: var(--accent); font-weight: 600;
+  }
+  .rail-more:hover { text-decoration: underline; }
   .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
   .stat {
     background: var(--surface-2); border: 1px solid var(--border);
@@ -443,6 +450,7 @@ ${FEED_CSS}
           ${
             tags.length
               ? tags
+                  .slice(0, SIDEBAR_TAG_LIMIT)
                   .map(
                     ({ tag, count }) =>
                       `<a class="tag" href="/tag/${esc(tag)}">${esc(tag)} <span style="opacity:.6">${count}</span></a>`,
@@ -451,6 +459,11 @@ ${FEED_CSS}
               : '<span class="hint">No tags yet.</span>'
           }
         </div>
+        ${
+          tags.length > SIDEBAR_TAG_LIMIT
+            ? `<a class="rail-more" href="/tags">See all ${tags.length} tags →</a>`
+            : ''
+        }
       </div>
     </aside>
   </div>`;

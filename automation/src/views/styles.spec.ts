@@ -3,6 +3,7 @@ import { join } from 'path';
 import { TUTORIALS_STYLES } from './public/tutorials.styles';
 import { TUTORIALS_ADMIN_STYLES } from './admin/tutorials.styles';
 import { tutorialPage, tutorialsIndexPage } from './public/tutorials.page';
+import { homePage, SIDEBAR_TAG_LIMIT } from './public/posts.pages';
 import {
   AUTO_COMPLETE_DELAY_MS,
   PROGRESS_TRACKER_SCRIPT,
@@ -198,5 +199,69 @@ describe('difficulty range', () => {
 
   it('shows nothing when a subject has no lessons', () => {
     expect(indexHtml([])).not.toContain('class="level');
+  });
+});
+
+describe('home sidebar tag list', () => {
+  const homeWith = (count: number): string => {
+    const tags = Array.from({ length: count }, (_, i) => ({
+      tag: `tag-${String(i).padStart(2, '0')}`,
+      count: count - i,
+    }));
+
+    return homePage({
+      posts: [],
+      tags,
+      stats: {
+        published: 1,
+        tags: count,
+        words: 10,
+        readingMinutes: 1,
+      },
+    });
+  };
+
+  const tagLinks = (html: string): string[] => {
+    const side = html.slice(html.indexOf('Browse tags'));
+    return [...side.matchAll(/class="tag" href="\/tag\/([^"]+)"/g)].map(
+      (m) => m[1],
+    );
+  };
+
+  it(`shows at most ${SIDEBAR_TAG_LIMIT} tags`, () => {
+    expect(tagLinks(homeWith(63))).toHaveLength(SIDEBAR_TAG_LIMIT);
+  });
+
+  it('shows the most used tags, not an arbitrary slice', () => {
+    const shown = tagLinks(homeWith(63));
+
+    expect(shown[0]).toBe('tag-00');
+    expect(shown).not.toContain('tag-62');
+  });
+
+  it('links to the tags page with the full count when truncated', () => {
+    expect(homeWith(63)).toContain('See all 63 tags →');
+    expect(homeWith(63)).toContain('class="rail-more" href="/tags"');
+  });
+
+  it('shows every tag and no link when the list is short', () => {
+    const html = homeWith(5);
+
+    expect(tagLinks(html)).toHaveLength(5);
+    expect(html).not.toContain('class="rail-more" href');
+  });
+
+  it('shows no link at exactly the limit', () => {
+    const html = homeWith(SIDEBAR_TAG_LIMIT);
+
+    expect(tagLinks(html)).toHaveLength(SIDEBAR_TAG_LIMIT);
+    expect(html).not.toContain('class="rail-more" href');
+  });
+
+  it('handles having no tags at all', () => {
+    const html = homeWith(0);
+
+    expect(html).toContain('No tags yet.');
+    expect(html).not.toContain('class="rail-more" href');
   });
 });
