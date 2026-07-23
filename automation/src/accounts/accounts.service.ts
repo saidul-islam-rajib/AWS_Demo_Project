@@ -1,83 +1,26 @@
-import { Injectable, Logger } from '@nestjs/common';
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  renameSync,
-  writeFileSync,
-} from 'fs';
-import { join } from 'path';
+import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import {
-  Account,
-  AccountStore,
-  CredentialsInput,
-  RecoveryInput,
-  RegisterInput,
-  normaliseEmail,
-  normaliseName,
-  normaliseRecoveryCode,
-} from './account.model';
+import { JsonCollection } from '../shared/persistence/json-collection';
+import { Account } from './account.model';
+import { CredentialsInput, RecoveryInput, RegisterInput } from './account.dto';
+import { normaliseEmail, normaliseName } from './account.rules';
+import { normaliseRecoveryCode } from './recovery-code';
 import { newCode, seal, sealMatches } from './secret';
 
 @Injectable()
 export class AccountsService {
-  private readonly logger = new Logger(AccountsService.name);
-  private readonly dataDir =
-    process.env.DATA_DIR ?? join(process.cwd(), 'data');
-  private readonly file = join(this.dataDir, 'accounts.json');
+  private readonly store = new JsonCollection<Account>({
+    file: 'accounts.json',
+    key: 'accounts',
+    label: 'account(s)',
+  });
 
-  private accounts: Account[] = [];
-
-  constructor() {
-    this.load();
-  }
-
-  private load(): void {
-    try {
-      if (!existsSync(this.dataDir)) {
-        mkdirSync(this.dataDir, { recursive: true });
-      }
-
-      if (!existsSync(this.file)) {
-        this.accounts = [];
-        return;
-      }
-
-      const stored = JSON.parse(
-        readFileSync(this.file, 'utf8'),
-      ) as Partial<AccountStore>;
-
-      this.accounts = stored.accounts ?? [];
-      this.logger.log(`Loaded ${this.accounts.length} account(s)`);
-    } catch (err) {
-      this.logger.error(`Could not load accounts: ${String(err)}`);
-      this.accounts = [];
-    }
-  }
-
-  private persist(): void {
-    try {
-      const tmp = `${this.file}.tmp`;
-      const payload: AccountStore = { accounts: this.accounts };
-
-      writeFileSync(tmp, JSON.stringify(payload, null, 2), 'utf8');
-      renameSync(tmp, this.file);
-    } catch (err) {
-      this.logger.error(`Could not save accounts: ${String(err)}`);
-    }
-  }
-
-  /**
-   * Replaces the code on an account and returns the new one. The caller is
-   * the only chance anybody has to see it, here and everywhere else.
-   */
   private issueRecoveryCode(account: Account): string {
     const code = newCode();
 
     account.recovery = seal(code);
     account.recoveryIssuedAt = new Date().toISOString();
-    this.persist();
+    this.store.persist();
 
     return code;
   }
@@ -85,11 +28,11 @@ export class AccountsService {
   findByEmail(email?: string): Account | undefined {
     const wanted = normaliseEmail(email);
 
-    return this.accounts.find((account) => account.email === wanted);
+    return this.store.find((account) => account.email === wanted);
   }
 
   findById(id?: string): Account | undefined {
-    return id ? this.accounts.find((account) => account.id === id) : undefined;
+    return id ? this.store.find((account) => account.id === id) : undefined;
   }
 
   taken(email?: string): boolean {
@@ -100,7 +43,7 @@ export class AccountsService {
     const now = new Date().toISOString();
     const code = newCode();
 
-    const account: Account = {
+    const account = this.store.add({
       id: randomUUID(),
       name: normaliseName(input.name),
       email: normaliseEmail(input.email),
@@ -108,10 +51,7 @@ export class AccountsService {
       recovery: seal(code),
       createdAt: now,
       recoveryIssuedAt: now,
-    };
-
-    this.accounts.push(account);
-    this.persist();
+    });
 
     return { account, code };
   }
@@ -129,11 +69,6 @@ export class AccountsService {
     return this.issueRecoveryCode(account);
   }
 
-  /**
-   * Swaps the recovery code for somebody who still knows their password —
-   * the case where a lost code costs nobody anything, so long as they can
-   * replace it before they need it.
-   */
   rotateRecovery(id: string, password?: string): string {
     const account = this.findById(id);
     if (!account) return '';
@@ -143,11 +78,6 @@ export class AccountsService {
       : '';
   }
 
-  /**
-   * Sets a password without checking anything. Whoever calls this has already
-   * established the person is who they say they are — today, by spending a
-   * reset the owner issued to them.
-   */
   resetPassword(id: string, password: string): string {
     const account = this.findById(id);
     if (!account) return '';
@@ -169,7 +99,7 @@ export class AccountsService {
   list(query = ''): Account[] {
     const wanted = query.trim().toLowerCase();
 
-    return this.accounts
+    return this.store
       .filter(
         (account) =>
           !wanted ||
@@ -179,17 +109,7 @@ export class AccountsService {
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
-  rename(id: string, name: string): Account | undefined {
-    const account = this.findById(id);
-    if (!account) return undefined;
-
-    account.name = normaliseName(name) || account.name;
-    this.persist();
-
-    return account;
-  }
-
   get count(): number {
-    return this.accounts.length;
+    return this.store.size;
   }
 }

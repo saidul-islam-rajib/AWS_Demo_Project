@@ -3,9 +3,6 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { AccountsService } from './accounts.service';
 import {
-  MIN_PASSWORD_LENGTH,
-  RECOVERY_GROUPS,
-  RECOVERY_GROUP_LENGTH,
   formatRecoveryCode,
   normaliseEmail,
   normaliseName,
@@ -13,6 +10,10 @@ import {
   validEmail,
   validPassword,
 } from './account.model';
+import { RecoveryPolicy } from '../shared/config/policies';
+
+const MIN_PASSWORD_LENGTH = RecoveryPolicy.minPasswordLength;
+const RECOVERY_CODE_LENGTH = RecoveryPolicy.codeLength;
 
 describe('account.model', () => {
   it('trims and collapses a name', () => {
@@ -169,7 +170,7 @@ describe('recovery codes', () => {
   it('hands out a code of the declared shape', () => {
     const { code } = create();
 
-    expect(code).toHaveLength(RECOVERY_GROUPS * RECOVERY_GROUP_LENGTH);
+    expect(code).toHaveLength(RECOVERY_CODE_LENGTH);
     expect(code).toMatch(/^[A-Z0-9]+$/);
   });
 
@@ -236,7 +237,7 @@ describe('recovery codes', () => {
     expect(
       service.recover({
         email: 'rajib@example.com',
-        code: 'W'.repeat(RECOVERY_GROUPS * RECOVERY_GROUP_LENGTH),
+        code: 'W'.repeat(RECOVERY_CODE_LENGTH),
         password: 'a-new-password',
       }),
     ).toBe('');
@@ -253,7 +254,7 @@ describe('recovery codes', () => {
     expect(
       service.recover({
         email: 'nobody@example.com',
-        code: 'X'.repeat(RECOVERY_GROUPS * RECOVERY_GROUP_LENGTH),
+        code: 'X'.repeat(RECOVERY_CODE_LENGTH),
         password: 'a-new-password',
       }),
     ).toBe('');

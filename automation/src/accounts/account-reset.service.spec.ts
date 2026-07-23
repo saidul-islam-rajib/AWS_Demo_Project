@@ -2,14 +2,12 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { AccountResetService } from './account-reset.service';
-import {
-  RECOVERY_CODE_LENGTH,
-  RESET_LINK_MINUTES,
-  formatRecoveryCode,
-  resetState,
-} from './account.model';
+import { formatRecoveryCode, resetState } from './account.model';
+import { ResetState } from './reset-state';
+import { RecoveryPolicy } from '../shared/config/policies';
 
-const AFTER_EXPIRY = RESET_LINK_MINUTES * 60_000 + 1000;
+const RECOVERY_CODE_LENGTH = RecoveryPolicy.codeLength;
+const AFTER_EXPIRY = RecoveryPolicy.resetLinkMs + 1000;
 
 describe('AccountResetService', () => {
   let dir: string;
@@ -100,8 +98,10 @@ describe('AccountResetService', () => {
 
     const [reset] = service.history('account-1');
 
-    expect(resetState(reset)).toBe('live');
-    expect(resetState(reset, Date.now() + AFTER_EXPIRY)).toBe('expired');
+    expect(resetState(reset)).toBe(ResetState.Live);
+    expect(resetState(reset, Date.now() + AFTER_EXPIRY)).toBe(
+      ResetState.Expired,
+    );
   });
 
   it('cancels the previous code when another is issued', () => {
@@ -119,7 +119,9 @@ describe('AccountResetService', () => {
     expect(service.history('account-1')).toHaveLength(2);
     expect(service.live('account-1')).toBeDefined();
     expect(
-      service.history('account-1').filter((r) => resetState(r) === 'live'),
+      service
+        .history('account-1')
+        .filter((r) => resetState(r) === ResetState.Live),
     ).toHaveLength(1);
   });
 
@@ -128,7 +130,9 @@ describe('AccountResetService', () => {
 
     expect(service.revoke('account-1')).toBe(true);
     expect(service.consume('account-1', code)).toBe(false);
-    expect(resetState(service.history('account-1')[0])).toBe('revoked');
+    expect(resetState(service.history('account-1')[0])).toBe(
+      ResetState.Revoked,
+    );
   });
 
   it('has nothing to revoke once a code is spent', () => {
@@ -140,7 +144,7 @@ describe('AccountResetService', () => {
   it('records that a spent code was used', () => {
     service.consume('account-1', issue());
 
-    expect(resetState(service.history('account-1')[0])).toBe('used');
+    expect(resetState(service.history('account-1')[0])).toBe(ResetState.Used);
   });
 
   it('lists the accounts with a code still waiting', () => {

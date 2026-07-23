@@ -1,13 +1,13 @@
-import {
-  LOCKOUT_MS,
-  LoginThrottleService,
-  MAX_ATTEMPTS,
-  WINDOW_MS,
-} from './login-throttle.service';
+import { LoginThrottleService } from './login-throttle.service';
+import { SecurityPolicy } from '../shared/config/policies';
 
 describe('LoginThrottleService', () => {
   let throttle: LoginThrottleService;
   const IP = '203.0.113.9';
+
+  const MAX_ATTEMPTS = SecurityPolicy.maxLoginAttempts;
+  const LOCKOUT_MS = SecurityPolicy.lockoutMs;
+  const WINDOW_MS = SecurityPolicy.windowMs;
 
   const now = 1_700_000_000_000;
 

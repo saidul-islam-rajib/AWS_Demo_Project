@@ -1,19 +1,34 @@
 import {
   Account,
   AccountReset,
-  RESET_LINK_MINUTES,
-  RESET_STATE_LABELS,
-  formatDay,
-  formatMoment,
-  formatRecoveryCode,
   resetState,
 } from '../../accounts/account.model';
+import { describeResetState } from '../../accounts/reset-state';
+import { AccountAdminRoutes } from '../../accounts/account.routes';
+import { ACCOUNT_ADMIN_BUNDLE } from '../../accounts/account.assets';
+import { formatRecoveryCode } from '../../accounts/recovery-code';
+import { RecoveryPolicy } from '../../shared/config/policies';
+import { formatDay, formatMoment } from '../../shared/format/dates';
+import { css, js } from '../../shared/assets/asset.store';
+import { UI_BUNDLE } from '../../shared/assets/assets.bootstrap';
+import { SafeHtml, html, join, toHtml, when } from '../../shared/view/html';
+import {
+  Column,
+  codeBlock,
+  linkButton,
+  panel,
+  pill,
+  submitButton,
+  table,
+  toolbar,
+} from '../../shared/view/components';
 import { initials } from '../../settings/settings.model';
-import { adminNav, esc, layout } from '../shared/layout';
-import { COPY_CODE_SCRIPT } from '../shared/scripts/copy-code';
-import { ACCOUNTS_ADMIN_STYLES as CSS } from './accounts.styles';
+import { adminNav, layout } from '../shared/layout';
 
-const MAX_NOTE_LENGTH = 300;
+const NOTE_MAX = 300;
+
+const STYLES = [css(UI_BUNDLE), css(ACCOUNT_ADMIN_BUNDLE)];
+const SCRIPTS = [js(UI_BUNDLE)];
 
 export interface AccountRow {
   account: Account;
@@ -42,10 +57,20 @@ export interface AccountDetailState {
   flash?: string;
 }
 
-function stateBadge(reset: AccountReset): string {
-  const state = resetState(reset);
+function statePill(reset: AccountReset): SafeHtml {
+  return pill(describeResetState(resetState(reset)));
+}
 
-  return `<span class="state state-${state}">${esc(RESET_STATE_LABELS[state])}</span>`;
+function render(title: string, body: SafeHtml, path: string): string {
+  return layout({
+    title,
+    body: toHtml(body),
+    nav: adminNav(path),
+    variant: 'admin',
+    styles: STYLES,
+    scripts: SCRIPTS,
+    noindex: true,
+  });
 }
 
 export function accountsAdminPage({
@@ -53,65 +78,78 @@ export function accountsAdminPage({
   query = '',
   total = rows.length,
 }: AccountsListState): string {
-  const body = `
-${CSS}
-  <div class="toolbar">
-    <div>
-      <a class="back-link" href="/admin">← Back to dashboard</a>
-      <h1 class="page-title" style="margin-bottom:.15rem">Accounts</h1>
-      <p class="subtitle">
-        ${total} account${total === 1 ? '' : 's'} · issue a reset link to
-        somebody who has lost their password and their recovery code
-      </p>
-    </div>
-  </div>
+  const columns: Column<AccountRow>[] = [
+    {
+      header: 'Learner',
+      cell: ({ account }) =>
+        html`<span class="t">${account.name}</span>
+          <span class="s">${account.email}</span>`,
+    },
+    {
+      header: 'Joined',
+      cell: ({ account }) =>
+        html`<span class="s">${formatDay(account.createdAt)}</span>`,
+    },
+    {
+      header: 'Recovery code',
+      cell: ({ account }) =>
+        html`<span class="s"
+          >${formatDay(account.recoveryIssuedAt ?? account.createdAt)}</span
+        >`,
+    },
+    {
+      header: 'Certificates',
+      cell: ({ certificates }) =>
+        html`<span class="s">${certificates || '—'}</span>`,
+    },
+    {
+      header: '',
+      align: 'end',
+      cell: ({ account, liveReset }) =>
+        html`${when(liveReset, () =>
+          pill({ label: 'Reset waiting', tone: 'warn' }),
+        )}
+        ${linkButton({
+          href: AccountAdminRoutes.detail.path({ id: account.id }),
+          label: 'Help them in',
+          variant: 'ghost',
+          attrs: { class: 'btn btn-ghost btn-sm' },
+        })}`,
+    },
+  ];
 
-  <form class="admin-search" action="/admin/accounts" method="get" role="search">
-    <input type="search" name="q" value="${esc(query)}"
-           placeholder="Search by name or email…" aria-label="Search accounts" />
-    <button class="btn" type="submit">Search</button>
-    ${query ? '<a class="btn btn-ghost" href="/admin/accounts">Clear</a>' : ''}
-  </form>
+  const body = html`${toolbar({
+    title: 'Accounts',
+    subtitle: `${total} account${total === 1 ? '' : 's'} · issue a reset link to somebody who has lost their password and their recovery code`,
+    back: { href: '/admin', label: '← Back to dashboard' },
+  })}
 
-  ${
-    rows.length
-      ? `<div class="acct-table-wrap"><table>
-    <thead><tr>
-      <th>Learner</th><th>Joined</th><th>Recovery code</th><th>Certificates</th><th class="col-actions"></th>
-    </tr></thead>
-    <tbody>
-      ${rows
-        .map(
-          ({ account, certificates, liveReset }) => `<tr>
-        <td>
-          <span class="t">${esc(account.name)}</span>
-          <span class="s">${esc(account.email)}</span>
-        </td>
-        <td class="s">${esc(formatDay(account.createdAt))}</td>
-        <td class="s">${esc(formatDay(account.recoveryIssuedAt ?? account.createdAt))}</td>
-        <td class="s">${certificates || '—'}</td>
-        <td class="col-actions">
-          ${liveReset ? '<span class="state state-live">Reset waiting</span> ' : ''}
-          <a class="btn btn-ghost btn-sm" href="/admin/accounts/${esc(account.id)}">Help them in</a>
-        </td>
-      </tr>`,
-        )
-        .join('')}
-    </tbody>
-  </table></div>`
-      : `<div class="empty">
-      <p>${query ? `Nothing matches “${esc(query)}”.` : 'Nobody has registered yet.'}</p>
-      ${query ? '<p style="margin-top:1.25rem"><a class="btn btn-ghost" href="/admin/accounts">Clear search</a></p>' : ''}
-    </div>`
-  }`;
+    <form
+      class="acct-search"
+      action="${AccountAdminRoutes.list.template}"
+      method="get"
+      role="search"
+    >
+      <input
+        type="search"
+        name="q"
+        value="${query}"
+        placeholder="Search by name or email…"
+        aria-label="Search accounts"
+      />
+      ${submitButton({ label: 'Search' })}
+      ${when(query, () => linkButton({ href: AccountAdminRoutes.list.template, label: 'Clear', variant: 'ghost' }))}
+    </form>
 
-  return layout({
-    title: 'Accounts — admin',
-    body,
-    nav: adminNav('/admin/accounts'),
-    variant: 'admin',
-    noindex: true,
-  });
+    ${table({
+      columns,
+      rows,
+      empty: query
+        ? `Nothing matches “${query}”.`
+        : 'Nobody has registered yet.',
+    })}`;
+
+  return render('Accounts — admin', body, AccountAdminRoutes.list.template);
 }
 
 export function accountDetailPage({
@@ -123,143 +161,153 @@ export function accountDetailPage({
   error,
   flash,
 }: AccountDetailState): string {
-  const body = `
-${CSS}
-  <div class="toolbar">
-    <div>
-      <a class="back-link" href="/admin/accounts">← Back to accounts</a>
-      <h1 class="page-title" style="margin-bottom:.15rem">Account recovery</h1>
-      <p class="subtitle">Give somebody a way back in without ever seeing their password.</p>
-    </div>
-  </div>
-
-  ${flash ? `<div class="flash ok">${esc(flash)}</div>` : ''}
-  ${error ? `<div class="flash err">${esc(error)}</div>` : ''}
-
-  <div class="form-grid">
-    <div>
-      ${
-        issued
-          ? `<div class="issued">
-        <h3>Reset code issued</h3>
-        <p>
-          Read this out or paste it to ${esc(account.name)} now — it is shown
-          once and is not stored anywhere it can be read back. It works for one
-          password change and expires in ${RESET_LINK_MINUTES} minutes.
-        </p>
-
-        <p class="code" id="issued-code">${esc(formatRecoveryCode(issued.code))}</p>
-        <p class="copy-row">
-          <button type="button" class="copy-btn" data-copy="issued-code">Copy code</button>
-          <button type="button" class="copy-btn" data-copy="issued-link">Copy link</button>
-        </p>
-
-        <p class="link" id="issued-link">${esc(issued.url)}</p>
-        <p>
-          Send it only to ${esc(account.email)} or to the person you have
-          already identified. Anyone holding this code can take the account.
-        </p>
-      </div>`
-          : ''
-      }
-
-      <div class="panel">
-        <h3>${live ? 'Replace the outstanding reset' : 'Issue a reset'}</h3>
-
-        ${
-          live
-            ? `<p class="hint" style="margin-bottom:.9rem">
-          A code issued ${esc(formatMoment(live.issuedAt))} is still waiting to be
-          used, and expires ${esc(formatMoment(live.expiresAt))}. Issuing another
-          cancels it.
-        </p>`
-            : ''
-        }
-
-        <form method="post" action="/admin/accounts/${esc(account.id)}/reset">
-          <div class="field">
-            <label for="note">How did you check this is really them?</label>
-            <input type="text" id="note" name="note" required
-                   maxlength="${MAX_NOTE_LENGTH}"
-                   placeholder="Replied from the address on the account, named their course and enrolment date" />
-            <p class="hint">
-              Kept with the account so there is a record of why the reset was
-              given. Write what you verified, not what you were told.
-            </p>
-          </div>
-
-          <button class="btn" type="submit">Issue a one-time reset code</button>
-        </form>
-      </div>
-
-      ${
-        live
-          ? `<form method="post" action="/admin/accounts/${esc(account.id)}/revoke"
-              onsubmit="return confirm('Cancel the outstanding reset code?')">
-        <button class="btn btn-danger btn-sm" type="submit">Cancel the outstanding code</button>
-      </form>`
-          : ''
-      }
-
-      <h3 class="section-label" style="margin-top:1.75rem">Reset history</h3>
-      ${
-        history.length
-          ? `<ul class="trail">
-        ${history
-          .map(
-            (reset) => `<li>
-          <div class="top">
-            <b>Issued ${esc(formatMoment(reset.issuedAt))}</b>
-            ${stateBadge(reset)}
-          </div>
-          <p class="note">${esc(reset.note)}</p>
-          ${reset.usedAt ? `<p class="when">Used ${esc(formatMoment(reset.usedAt))}</p>` : ''}
-          ${reset.revokedAt ? `<p class="when">Cancelled ${esc(formatMoment(reset.revokedAt))}</p>` : ''}
-        </li>`,
-          )
-          .join('')}
-      </ul>`
-          : '<p class="subtitle">No reset has ever been issued for this account.</p>'
-      }
-    </div>
-
-    <aside>
-      <div class="panel">
-        <div class="who">
-          <span class="avatar">${esc(initials(account.name))}</span>
-          <div>
-            <b>${esc(account.name)}</b>
-            <span>${esc(account.email)}</span>
-          </div>
+  const issuePanel = panel({
+    title: live ? 'Replace the outstanding reset' : 'Issue a reset',
+    body: html`${when(
+      live,
+      () =>
+        html`<p class="ui-hint" style="margin-bottom:.9rem">
+            A code issued ${formatMoment(live!.issuedAt)} is still waiting to be
+            used, and expires ${formatMoment(live!.expiresAt)}. Issuing another
+            cancels it.
+          </p>`,
+    )}
+      <form
+        method="post"
+        action="${AccountAdminRoutes.issueReset.path({ id: account.id })}"
+      >
+        <div class="ui-field">
+          <label for="reset-note">How did you check this is really them?</label>
+          <input
+            type="text"
+            id="reset-note"
+            name="note"
+            required
+            maxlength="${NOTE_MAX}"
+            placeholder="Replied from the address on the account, named their course and enrolment date"
+          />
+          <p class="ui-hint">
+            Kept with the account so there is a record of why the reset was
+            given. Write what you verified, not what you were told.
+          </p>
         </div>
-
-        <ul class="facts">
-          <li><span>Joined</span>${esc(formatDay(account.createdAt))}</li>
-          <li><span>Recovery code from</span>${esc(formatDay(account.recoveryIssuedAt ?? account.createdAt))}</li>
-          <li><span>Certificates</span>${certificates}</li>
-        </ul>
-      </div>
-
-      <div class="panel">
-        <h3>What this does not do</h3>
-        <p class="hint">
-          You cannot read anybody's password or recovery code back to them —
-          both are stored one-way, on purpose. A reset code is a fresh way in,
-          and the learner picks the new password themselves.
-        </p>
-        <p class="hint" style="margin-top:.7rem">
-          Their progress and certificates stay exactly as they are.
-        </p>
-      </div>
-    </aside>
-  </div>
-${COPY_CODE_SCRIPT}`;
-
-  return layout({
-    title: `${account.name} — accounts`,
-    body,
-    nav: adminNav('/admin/accounts'),
-    variant: 'admin',
-    noindex: true,
+        ${submitButton({ label: 'Issue a one-time reset code' })}
+      </form>`,
   });
+
+  const issuedPanel = when(issued, () =>
+    panel({
+      tone: 'accent',
+      title: 'Reset code issued',
+      body: html`<p class="ui-hint">
+          Read this out or paste it to ${account.name} now — it is shown once
+          and is not stored anywhere it can be read back. It works for one
+          password change and expires in ${RecoveryPolicy.resetLinkMinutes}
+          minutes.
+        </p>
+        ${codeBlock({ id: 'issued-code', value: formatRecoveryCode(issued!.code), copyLabel: 'Copy code' })}
+        <p class="ui-copy-row">
+          <button type="button" class="ui-copy" data-copy="issued-link">
+            Copy link
+          </button>
+        </p>
+        <p class="issued-link" id="issued-link">${issued!.url}</p>
+        <p class="ui-hint">
+          Send it only to ${account.email} or to the person you have already
+          identified. Anyone holding this code can take the account.
+        </p>`,
+    }),
+  );
+
+  const trail = when(
+    history.length,
+    () =>
+      html`<ul class="trail">
+        ${join(
+          history.map(
+            (reset) =>
+              html`<li>
+                <div class="top">
+                  <b>Issued ${formatMoment(reset.issuedAt)}</b>
+                  ${statePill(reset)}
+                </div>
+                <p class="note">${reset.note}</p>
+                ${when(reset.usedAt, () => html`<p class="when">Used ${formatMoment(reset.usedAt)}</p>`)}
+                ${when(reset.revokedAt, () => html`<p class="when">Cancelled ${formatMoment(reset.revokedAt)}</p>`)}
+              </li>`,
+          ),
+        )}
+      </ul>`,
+  );
+
+  const body = html`${toolbar({
+    title: 'Account recovery',
+    subtitle: 'Give somebody a way back in without ever seeing their password.',
+    back: {
+      href: AccountAdminRoutes.list.template,
+      label: '← Back to accounts',
+    },
+  })}
+    ${when(flash, () => html`<div class="flash ok">${flash}</div>`)}
+    ${when(error, () => html`<div class="flash err">${error}</div>`)}
+
+    <div class="acct-grid">
+      <div>
+        ${issuedPanel} ${issuePanel}
+        ${when(
+          live,
+          () =>
+            html`<form
+              method="post"
+              action="${AccountAdminRoutes.revokeReset.path({ id: account.id })}"
+              onsubmit="return confirm('Cancel the outstanding reset code?')"
+            >
+              ${submitButton({ label: 'Cancel the outstanding code', variant: 'danger', attrs: { class: 'btn btn-danger btn-sm' } })}
+            </form>`,
+        )}
+
+        <h3 class="section-label" style="margin-top:1.75rem">Reset history</h3>
+        ${
+          history.length
+            ? trail
+            : html`<p class="ui-toolbar__sub">
+                No reset has ever been issued for this account.
+              </p>`
+        }
+      </div>
+
+      <aside>
+        ${panel({
+          body: html`<div class="who">
+              <span class="avatar">${initials(account.name)}</span>
+              <div><b>${account.name}</b><span>${account.email}</span></div>
+            </div>
+            <ul class="facts">
+              <li><span>Joined</span>${formatDay(account.createdAt)}</li>
+              <li>
+                <span>Recovery code from</span
+                >${formatDay(account.recoveryIssuedAt ?? account.createdAt)}
+              </li>
+              <li><span>Certificates</span>${certificates}</li>
+            </ul>`,
+        })}
+        ${panel({
+          title: 'What this does not do',
+          body: html`<p class="ui-hint">
+              You cannot read anybody's password or recovery code back to them —
+              both are stored one-way, on purpose. A reset code is a fresh way
+              in, and the learner picks the new password themselves.
+            </p>
+            <p class="ui-hint" style="margin-top:.7rem">
+              Their progress and certificates stay exactly as they are.
+            </p>`,
+        })}
+      </aside>
+    </div>`;
+
+  return render(
+    `${account.name} — accounts`,
+    body,
+    AccountAdminRoutes.list.template,
+  );
 }

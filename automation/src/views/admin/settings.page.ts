@@ -3,12 +3,16 @@ import {
   hostOf,
   siteUrlMatches,
 } from '../../settings/settings.model';
+import { ConfigValues } from '../../shared/config/config.schema';
+import { toHtml } from '../../shared/view/html';
 import { adminNav, avatarMark, esc, layout } from '../shared/layout';
+import { CONFIG_SECTION_CSS, configSection } from './config.section';
 
 export function settingsPage(
   s: SiteSettings,
   saved = false,
   origin = '',
+  config?: ConfigValues,
 ): string {
   const linkRows = [
     ...s.footerLinks,
@@ -75,6 +79,13 @@ export function settingsPage(
     background: color-mix(in srgb, currentColor 8%, transparent);
   }
   .url-warning b { color: inherit; }
+${CONFIG_SECTION_CSS}
+  .config-block { margin-top: 2rem; }
+  .config-block > h2 {
+    font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-3); font-weight: 700; margin-bottom: 0.4rem;
+  }
+  .config-block > p.lead { font-size: 0.86rem; color: var(--ink-3); margin-bottom: 1.1rem; }
 </style>
 
   ${saved ? '<div class="flash ok">Settings saved.</div>' : ''}
@@ -271,6 +282,19 @@ export function settingsPage(
       </aside>
     </div>
   </form>
+
+  ${
+    config
+      ? `<div class="config-block">
+    <h2>Platform configuration</h2>
+    <p class="lead">
+      Operational limits, saved separately from your profile. Changes take
+      effect immediately, with no redeploy.
+    </p>
+    ${toHtml(configSection(config))}
+  </div>`
+      : ''
+  }
 
 <script>
 (function () {

@@ -35,7 +35,7 @@ import { certificateSvg } from './certificate.svg';
 import { CertificatesService } from './certificates.service';
 import { AccountsService } from '../accounts/accounts.service';
 import { AccountSessionService } from '../accounts/account-session.service';
-import { ACCOUNT_PATHS } from '../views/public/account.pages';
+import { AccountRoutes, accountUrl } from '../accounts/account.routes';
 import type { Account } from '../accounts/account.model';
 import { Subject, SubjectStats, requiresEnrolment } from './tutorial.model';
 import { EnrolmentService } from './enrolment.service';
@@ -63,9 +63,9 @@ export class TutorialsController {
   }
 
   private signInFirst(res: Response, slug: string): void {
-    const next = encodeURIComponent(`/tutorials/${slug}/certificate`);
+    const next = `/tutorials/${slug}/certificate`;
 
-    res.redirect(`${ACCOUNT_PATHS.signIn}?next=${next}`);
+    res.redirect(accountUrl(AccountRoutes.signIn.template, { next }));
   }
 
   private progressState(req: Request): ProgressState {

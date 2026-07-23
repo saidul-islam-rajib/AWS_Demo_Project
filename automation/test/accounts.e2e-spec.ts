@@ -18,11 +18,10 @@ const sessionFrom = (res: request.Response): string =>
   (res.headers['set-cookie'] as unknown as string[])[0];
 
 const codeFrom = (html: string): string =>
-  /id="recovery-code" class="recovery-code">([^<]+)</.exec(html)?.[1].trim() ??
-  '';
+  /id="recovery-code"[^>]*>([^<]+)</.exec(html)?.[1].trim() ?? '';
 
 const issuedCodeFrom = (html: string): string =>
-  /class="code" id="issued-code">([^<]+)</.exec(html)?.[1].trim() ?? '';
+  /id="issued-code"[^>]*>([^<]+)</.exec(html)?.[1].trim() ?? '';
 
 describe('accounts', () => {
   it('serves a register form', () =>

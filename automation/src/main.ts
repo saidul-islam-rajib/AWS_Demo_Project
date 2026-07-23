@@ -21,7 +21,11 @@ async function bootstrap() {
   app.use(cookieParser());
 
   app.use((req: Request, res: Response, next: NextFunction) => {
-    if (req.path.startsWith('/uploads') || req.path.startsWith('/img')) {
+    if (
+      req.path.startsWith('/uploads') ||
+      req.path.startsWith('/img') ||
+      req.path.startsWith('/assets')
+    ) {
       next();
       return;
     }

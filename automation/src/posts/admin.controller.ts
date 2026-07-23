@@ -22,8 +22,7 @@ import {
   editorPage,
   loginPage,
 } from '../views/admin/posts.pages';
-
-const PAGE_SIZE = 10;
+import { ContentPolicy } from '../shared/config/policies';
 
 function clientKey(req: Request): string {
   return req.ip ?? req.socket?.remoteAddress ?? 'unknown';
@@ -135,8 +134,9 @@ export class AdminController {
       flash = { kind: 'ok', text: messages[ok] };
     }
 
+    const pageSize = ContentPolicy.adminPageSize;
     const matched = this.posts.searchAll(q);
-    const pageCount = Math.max(1, Math.ceil(matched.length / PAGE_SIZE));
+    const pageCount = Math.max(1, Math.ceil(matched.length / pageSize));
 
     const parsed = Number.parseInt(pageParam ?? '1', 10);
     const page = Math.min(
@@ -144,10 +144,10 @@ export class AdminController {
       pageCount,
     );
 
-    const start = (page - 1) * PAGE_SIZE;
+    const start = (page - 1) * pageSize;
 
     return dashboardPage({
-      posts: matched.slice(start, start + PAGE_SIZE),
+      posts: matched.slice(start, start + pageSize),
       stats: this.posts.stats(),
       tags: this.posts.tagCounts(),
       flash,

@@ -18,12 +18,31 @@ interface LayoutOptions {
   ogType?: 'website' | 'article' | 'profile';
   publishedAt?: string;
   head?: string;
+  styles?: AssetRef[];
+  scripts?: AssetRef[];
   noindex?: boolean;
 }
 
 import { initials } from '../../settings/settings.model';
 import { getSettings } from '../../settings/settings.store';
+import { AssetRef, assetHref } from '../../shared/assets/asset.store';
 import { CARD_HEIGHT, CARD_WIDTH } from '../../uploads/images.service';
+
+function styleLinks(refs: AssetRef[] = []): string {
+  return refs
+    .map((ref) => assetHref(ref))
+    .filter(Boolean)
+    .map((href) => `<link rel="stylesheet" href="${esc(href)}" />`)
+    .join('\n');
+}
+
+function scriptTags(refs: AssetRef[] = []): string {
+  return refs
+    .map((ref) => assetHref(ref))
+    .filter(Boolean)
+    .map((href) => `<script src="${esc(href)}" defer></script>`)
+    .join('\n');
+}
 
 export function avatarMark(
   avatarUrl: string,
@@ -122,6 +141,8 @@ export function layout({
   ogType = 'website',
   publishedAt,
   head = '',
+  styles = [],
+  scripts = [],
   noindex = false,
 }: LayoutOptions): string {
   const s = getSettings();
@@ -209,6 +230,7 @@ ${
 <meta name="twitter:title" content="${esc(title)}" />
 <meta name="twitter:description" content="${esc(summary)}" />
 ${previewUrl ? `<meta name="twitter:image" content="${esc(previewUrl)}" />` : ''}
+${styleLinks(styles)}
 ${head}
 <style>
   :root {
@@ -546,6 +568,7 @@ ${body}
   syncLock();
 })();
 </script>
+${scriptTags(scripts)}
 </body>
 </html>`;
 }

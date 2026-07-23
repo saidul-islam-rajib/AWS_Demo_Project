@@ -13,17 +13,23 @@ import type { Request, Response } from 'express';
 import { AccountsService } from './accounts.service';
 import { AccountSessionService } from './account-session.service';
 import { AccountResetService } from './account-reset.service';
-import type { Account, RecoveryInput, RegisterInput } from './account.model';
+import { AccountRoutes } from './account.routes';
+import { Account } from './account.model';
+import type {
+  NextTarget,
+  RecoveryInput,
+  RegisterInput,
+  RotateInput,
+} from './account.dto';
+import { describeAccount } from './account.dto';
 import {
-  describeAccount,
   normaliseEmail,
   recoveryProblem,
   registrationProblem,
   resetProblem,
   rotationProblem,
-} from './account.model';
+} from './account.rules';
 import {
-  ACCOUNT_PATHS,
   accountPage,
   recoverPage,
   recoveryCodePage,
@@ -61,7 +67,7 @@ export class AccountsController {
   private safeNext(next?: string): string {
     return next && next.startsWith('/') && !next.startsWith('//')
       ? next
-      : ACCOUNT_PATHS.home;
+      : AccountRoutes.home.template;
   }
 
   private startSession(res: Response, accountId: string): void {
@@ -74,7 +80,7 @@ export class AccountsController {
   }
 
   private homePage(account: Account, error?: string): string {
-    const issued = this.certificates
+    const certificates = this.certificates
       .forAccount(account.id)
       .flatMap((record) => {
         const subject = this.tutorials
@@ -96,7 +102,7 @@ export class AccountsController {
           : [];
       });
 
-    const started = this.tutorials.findSubjects().flatMap((subject) => {
+    const courses = this.tutorials.findSubjects().flatMap((subject) => {
       const lessonIds = this.tutorials
         .lessons(subject.id)
         .map((lesson) => lesson.id);
@@ -116,8 +122,8 @@ export class AccountsController {
 
     return accountPage({
       account: describeAccount(account),
-      certificates: issued,
-      courses: started,
+      certificates,
+      courses,
       recoveryIssuedAt: account.recoveryIssuedAt,
       error,
     });
@@ -129,7 +135,7 @@ export class AccountsController {
     const account = this.accounts.findById(this.currentId(req));
 
     if (!account) {
-      res.redirect(ACCOUNT_PATHS.signIn);
+      res.redirect(AccountRoutes.signIn.template);
       return;
     }
 
@@ -146,7 +152,7 @@ export class AccountsController {
   @HttpCode(200)
   @Header('Content-Type', 'text/html')
   register(
-    @Body() body: RegisterInput & { next?: string },
+    @Body() body: RegisterInput & NextTarget,
     @Res() res: Response,
   ): void {
     const problem = registrationProblem(body);
@@ -178,7 +184,7 @@ export class AccountsController {
     const { account, code } = this.accounts.register(body);
 
     this.startSession(res, account.id);
-    res.send(recoveryCodePage(code, this.safeNext(body.next)));
+    res.send(recoveryCodePage(code, this.safeNext(body.next), 'register'));
   }
 
   @Get('sign-in')
@@ -241,7 +247,7 @@ export class AccountsController {
   @HttpCode(200)
   @Header('Content-Type', 'text/html')
   recover(
-    @Body() body: RecoveryInput & { next?: string },
+    @Body() body: RecoveryInput & NextTarget,
     @Req() req: Request,
     @Res() res: Response,
   ): void {
@@ -290,9 +296,6 @@ export class AccountsController {
     const account = this.accounts.findByEmail(body.email);
 
     this.throttle.recordSuccess(key);
-
-    // They have proved the account is theirs, so make them sign in again for
-    // nobody's benefit but ours.
     if (account) this.startSession(res, account.id);
 
     res.send(
@@ -300,23 +303,18 @@ export class AccountsController {
     );
   }
 
-  /**
-   * Swapping a recovery code while signed in. This is the cheap path, and the
-   * one most people need: they still have their password, they have just lost
-   * the piece of paper. Nobody has to be involved.
-   */
   @Post('recovery')
   @HttpCode(200)
   @Header('Content-Type', 'text/html')
   rotateRecovery(
-    @Body() body: { password?: string },
+    @Body() body: RotateInput,
     @Req() req: Request,
     @Res() res: Response,
   ): void {
     const account = this.accounts.findById(this.currentId(req));
 
     if (!account) {
-      res.redirect(ACCOUNT_PATHS.signIn);
+      res.redirect(AccountRoutes.signIn.template);
       return;
     }
 
@@ -343,7 +341,7 @@ export class AccountsController {
     }
 
     this.throttle.recordSuccess(key);
-    res.send(recoveryCodePage(code, ACCOUNT_PATHS.home, 'rotate'));
+    res.send(recoveryCodePage(code, AccountRoutes.home.template, 'rotate'));
   }
 
   @Get('reset')
@@ -355,16 +353,11 @@ export class AccountsController {
     return resetPage({ code, next });
   }
 
-  /**
-   * Spends a reset the owner issued by hand, for somebody who has lost both
-   * their password and their recovery code. The code alone is not enough:
-   * it only opens the account it was cut for, and only for one password.
-   */
   @Post('reset')
   @HttpCode(200)
   @Header('Content-Type', 'text/html')
   reset(
-    @Body() body: RecoveryInput & { next?: string },
+    @Body() body: RecoveryInput & NextTarget,
     @Req() req: Request,
     @Res() res: Response,
   ): void {

@@ -14,7 +14,10 @@ import type { Response } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
 import { AccountsService } from './accounts.service';
 import { AccountResetService } from './account-reset.service';
-import { Account, formatRecoveryCode } from './account.model';
+import { Account } from './account.model';
+import type { IssueResetInput } from './account.dto';
+import { formatRecoveryCode } from './recovery-code';
+import { AccountAdminRoutes, accountUrl } from './account.routes';
 import { CertificatesService } from '../tutorials/certificates.service';
 import { getSettings } from '../settings/settings.store';
 import {
@@ -36,11 +39,7 @@ export class AccountsAdminController {
     private readonly certificates: CertificatesService,
   ) {}
 
-  /**
-   * The code has to travel to the learner somehow, and a link they can click
-   * beats twenty characters read down a phone line. Both are offered.
-   */
-  private resetUrl(code: string): string {
+  private resetLink(code: string): string {
     const base = (getSettings().siteUrl || '').replace(/\/+$/, '');
 
     return `${base}/account/reset?code=${formatRecoveryCode(code)}`;
@@ -86,29 +85,25 @@ export class AccountsAdminController {
     const account = this.accounts.findById(id);
 
     if (!account) {
-      res.redirect('/admin/accounts');
+      res.redirect(AccountAdminRoutes.list.template);
       return;
     }
 
     res.send(this.detail(account, { flash: ok ? FLASHES[ok] : undefined }));
   }
 
-  /**
-   * Rendered rather than redirected: a code that only exists once should not
-   * end up in a URL, browser history or a server log on the way back.
-   */
   @Post(':id/reset')
   @HttpCode(200)
   @Header('Content-Type', 'text/html')
   issue(
     @Param('id') id: string,
-    @Body() body: { note?: string },
+    @Body() body: IssueResetInput,
     @Res() res: Response,
   ): void {
     const account = this.accounts.findById(id);
 
     if (!account) {
-      res.redirect('/admin/accounts');
+      res.redirect(AccountAdminRoutes.list.template);
       return;
     }
 
@@ -126,13 +121,15 @@ export class AccountsAdminController {
     const code = this.resets.issue(account.id, note);
 
     res.send(
-      this.detail(account, { issued: { code, url: this.resetUrl(code) } }),
+      this.detail(account, { issued: { code, url: this.resetLink(code) } }),
     );
   }
 
   @Post(':id/revoke')
   revoke(@Param('id') id: string, @Res() res: Response): void {
     this.resets.revoke(id);
-    res.redirect(`/admin/accounts/${id}?ok=revoked`);
+    res.redirect(
+      accountUrl(AccountAdminRoutes.detail.path({ id }), { ok: 'revoked' }),
+    );
   }
 }

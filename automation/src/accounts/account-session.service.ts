@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
-
-const SESSION_DAYS = 30;
+import { SecurityPolicy } from '../shared/config/policies';
 
 @Injectable()
 export class AccountSessionService {
@@ -10,10 +9,8 @@ export class AccountSessionService {
   private readonly secret =
     process.env.SESSION_SECRET ?? randomBytes(32).toString('hex');
 
-  private readonly maxAgeMs = 1000 * 60 * 60 * 24 * SESSION_DAYS;
-
   get cookieMaxAge(): number {
-    return this.maxAgeMs;
+    return SecurityPolicy.sessionMs;
   }
 
   private sign(value: string): string {
@@ -21,7 +18,7 @@ export class AccountSessionService {
   }
 
   issue(accountId: string): string {
-    const expiry = Date.now() + this.maxAgeMs;
+    const expiry = Date.now() + SecurityPolicy.sessionMs;
     const payload = `${accountId}.${expiry}`;
 
     return `${payload}.${this.sign(payload)}`;
