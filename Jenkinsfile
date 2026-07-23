@@ -10,6 +10,11 @@ pipeline {
         // slow build becomes a stuck one.
         disableConcurrentBuilds()
         timeout(time: 20, unit: 'MINUTES')
+        // A single push can arrive as several triggers: the webhook, a retry
+        // of it, and SCM polling. Each queues its own build behind
+        // disableConcurrentBuilds, so one push became builds #67, #68 and #69
+        // rebuilding the same commit. Waiting here collapses them into one.
+        quietPeriod(45)
     }
 
     environment {
@@ -34,14 +39,6 @@ pipeline {
 
     stages {
 
-        /*
-         * Reclaim space before the build needs it.
-         *
-         * Cleanup used to run only in post, which is too late: once the disk
-         * is full, a build cannot get far enough to reach the step that would
-         * have freed the space, so it fails in milliseconds having done
-         * nothing and the disk stays full. Builds #41-#45 were that loop.
-         */
         stage('Revision') {
             steps {
                 sh '''
@@ -58,6 +55,14 @@ pipeline {
             }
         }
 
+        /*
+         * Reclaim space before the build needs it.
+         *
+         * Cleanup used to run only in post, which is too late: once the disk
+         * is full, a build cannot get far enough to reach the step that would
+         * have freed the space, so it fails in milliseconds having done
+         * nothing and the disk stays full. Builds #41-#45 were that loop.
+         */
         stage('Preflight') {
             steps {
                 sh '''
@@ -90,6 +95,7 @@ pipeline {
         }
 
         stage('Build') {
+            options { timeout(time: 10, unit: 'MINUTES') }
             steps {
                 dir("${APP_DIR}") {
                     sh 'docker build -t $IMAGE_NAME:$BUILD_NUMBER -t $IMAGE_NAME:latest .'
@@ -98,6 +104,7 @@ pipeline {
         }
 
         stage('Test') {
+            options { timeout(time: 8, unit: 'MINUTES') }
             steps {
                 sh 'docker run --rm $IMAGE_NAME:$BUILD_NUMBER npm test'
             }
@@ -128,6 +135,7 @@ pipeline {
         }
 
         stage('Deploy') {
+            options { timeout(time: 6, unit: 'MINUTES') }
             steps {
                 sh '''
                     docker volume create $DATA_VOLUME > /dev/null
