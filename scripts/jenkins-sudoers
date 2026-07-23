@@ -1,0 +1,5 @@
+jenkins ALL=(root) NOPASSWD: /usr/bin/tee /etc/caddy/upstream.conf
+jenkins ALL=(root) NOPASSWD: /usr/bin/systemctl reload caddy
+jenkins ALL=(root) NOPASSWD: /bin/systemctl reload caddy
+jenkins ALL=(root) NOPASSWD: /usr/bin/caddy validate --config /etc/caddy/Caddyfile
+jenkins ALL=(root) NOPASSWD: /usr/local/bin/caddy validate --config /etc/caddy/Caddyfile

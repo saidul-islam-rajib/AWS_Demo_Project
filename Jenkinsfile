@@ -139,8 +139,8 @@ pipeline {
                         echo "WARNING: $ENV_FILE not found — admin sign-in will be disabled."
                     fi
 
-                    if ! command -v caddy > /dev/null 2>&1; then
-                        echo "Caddy not installed — deploying single-container on $PORT."
+                    if ! sh scripts/switch-upstream.sh --check; then
+                        echo "Deploying single-container on $PORT instead."
                         echo "This path has brief downtime. See deploy/README.md to set up TLS."
 
                         docker stop $CONTAINER_NAME || true
@@ -210,6 +210,11 @@ pipeline {
                     if [ "$(docker ps -q -f name="^${OLD_NAME}$")" ]; then
                         echo "Stopping $OLD_COLOR."
                         docker stop "$OLD_NAME" > /dev/null || true
+                    fi
+
+                    if [ "$(docker ps -q -f name="^${CONTAINER_NAME}$")" ]; then
+                        echo "Retiring the legacy single-container deployment on port $PORT."
+                        docker stop "$CONTAINER_NAME" > /dev/null || true
                     fi
 
                     echo "$NEW_PORT" > .deployed-port
