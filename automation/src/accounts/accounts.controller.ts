@@ -12,19 +12,29 @@ import {
 import type { Request, Response } from 'express';
 import { AccountsService } from './accounts.service';
 import { AccountSessionService } from './account-session.service';
-import type { RecoveryInput, RegisterInput } from './account.model';
+import { AccountResetService } from './account-reset.service';
+import { AccountRoutes } from './account.routes';
+import { Account } from './account.model';
+import type {
+  NextTarget,
+  RecoveryInput,
+  RegisterInput,
+  RotateInput,
+} from './account.dto';
+import { describeAccount } from './account.dto';
 import {
-  describeAccount,
   normaliseEmail,
   recoveryProblem,
   registrationProblem,
-} from './account.model';
+  resetProblem,
+  rotationProblem,
+} from './account.rules';
 import {
-  ACCOUNT_PATHS,
   accountPage,
   recoverPage,
   recoveryCodePage,
   registerPage,
+  resetPage,
   signInPage,
 } from '../views/public/account.pages';
 import { CertificatesService } from '../tutorials/certificates.service';
@@ -37,6 +47,7 @@ export class AccountsController {
   constructor(
     private readonly accounts: AccountsService,
     private readonly session: AccountSessionService,
+    private readonly resets: AccountResetService,
     private readonly certificates: CertificatesService,
     private readonly tutorials: TutorialsService,
     private readonly progress: ProgressService,
@@ -56,7 +67,7 @@ export class AccountsController {
   private safeNext(next?: string): string {
     return next && next.startsWith('/') && !next.startsWith('//')
       ? next
-      : ACCOUNT_PATHS.home;
+      : AccountRoutes.home.template;
   }
 
   private startSession(res: Response, accountId: string): void {
@@ -68,17 +79,8 @@ export class AccountsController {
     });
   }
 
-  @Get()
-  @Header('Content-Type', 'text/html')
-  home(@Req() req: Request, @Res() res: Response): void {
-    const account = this.accounts.findById(this.currentId(req));
-
-    if (!account) {
-      res.redirect(ACCOUNT_PATHS.signIn);
-      return;
-    }
-
-    const issued = this.certificates
+  private homePage(account: Account, error?: string): string {
+    const certificates = this.certificates
       .forAccount(account.id)
       .flatMap((record) => {
         const subject = this.tutorials
@@ -100,7 +102,7 @@ export class AccountsController {
           : [];
       });
 
-    const started = this.tutorials.findSubjects().flatMap((subject) => {
+    const courses = this.tutorials.findSubjects().flatMap((subject) => {
       const lessonIds = this.tutorials
         .lessons(subject.id)
         .map((lesson) => lesson.id);
@@ -118,7 +120,26 @@ export class AccountsController {
         : [];
     });
 
-    res.send(accountPage(describeAccount(account), issued, started));
+    return accountPage({
+      account: describeAccount(account),
+      certificates,
+      courses,
+      recoveryIssuedAt: account.recoveryIssuedAt,
+      error,
+    });
+  }
+
+  @Get()
+  @Header('Content-Type', 'text/html')
+  home(@Req() req: Request, @Res() res: Response): void {
+    const account = this.accounts.findById(this.currentId(req));
+
+    if (!account) {
+      res.redirect(AccountRoutes.signIn.template);
+      return;
+    }
+
+    res.send(this.homePage(account));
   }
 
   @Get('register')
@@ -131,7 +152,7 @@ export class AccountsController {
   @HttpCode(200)
   @Header('Content-Type', 'text/html')
   register(
-    @Body() body: RegisterInput & { next?: string },
+    @Body() body: RegisterInput & NextTarget,
     @Res() res: Response,
   ): void {
     const problem = registrationProblem(body);
@@ -163,7 +184,7 @@ export class AccountsController {
     const { account, code } = this.accounts.register(body);
 
     this.startSession(res, account.id);
-    res.send(recoveryCodePage(code, this.safeNext(body.next)));
+    res.send(recoveryCodePage(code, this.safeNext(body.next), 'register'));
   }
 
   @Get('sign-in')
@@ -226,7 +247,7 @@ export class AccountsController {
   @HttpCode(200)
   @Header('Content-Type', 'text/html')
   recover(
-    @Body() body: RecoveryInput & { next?: string },
+    @Body() body: RecoveryInput & NextTarget,
     @Req() req: Request,
     @Res() res: Response,
   ): void {
@@ -272,8 +293,123 @@ export class AccountsController {
       return;
     }
 
+    const account = this.accounts.findByEmail(body.email);
+
     this.throttle.recordSuccess(key);
-    res.send(recoveryCodePage(replacement, this.safeNext(body.next)));
+    if (account) this.startSession(res, account.id);
+
+    res.send(
+      recoveryCodePage(replacement, this.safeNext(body.next), 'recover'),
+    );
+  }
+
+  @Post('recovery')
+  @HttpCode(200)
+  @Header('Content-Type', 'text/html')
+  rotateRecovery(
+    @Body() body: RotateInput,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): void {
+    const account = this.accounts.findById(this.currentId(req));
+
+    if (!account) {
+      res.redirect(AccountRoutes.signIn.template);
+      return;
+    }
+
+    const problem = rotationProblem(body);
+
+    if (problem) {
+      res.send(this.homePage(account, problem));
+      return;
+    }
+
+    const key = this.throttleKey(req);
+
+    if (this.throttle.retryAfter(key) > 0) {
+      res.send(this.homePage(account, 'Too many attempts. Try again shortly.'));
+      return;
+    }
+
+    const code = this.accounts.rotateRecovery(account.id, body.password);
+
+    if (!code) {
+      this.throttle.recordFailure(key);
+      res.send(this.homePage(account, 'That password did not match.'));
+      return;
+    }
+
+    this.throttle.recordSuccess(key);
+    res.send(recoveryCodePage(code, AccountRoutes.home.template, 'rotate'));
+  }
+
+  @Get('reset')
+  @Header('Content-Type', 'text/html')
+  resetForm(
+    @Query('code') code?: string,
+    @Query('next') next?: string,
+  ): string {
+    return resetPage({ code, next });
+  }
+
+  @Post('reset')
+  @HttpCode(200)
+  @Header('Content-Type', 'text/html')
+  reset(
+    @Body() body: RecoveryInput & NextTarget,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): void {
+    const problem = resetProblem(body);
+
+    if (problem) {
+      res.send(
+        resetPage({
+          error: problem,
+          email: body.email,
+          code: body.code,
+          next: body.next,
+        }),
+      );
+      return;
+    }
+
+    const key = this.throttleKey(req);
+
+    if (this.throttle.retryAfter(key) > 0) {
+      res.send(
+        resetPage({
+          error: 'Too many attempts. Try again shortly.',
+          email: body.email,
+          next: body.next,
+        }),
+      );
+      return;
+    }
+
+    const account = this.accounts.findByEmail(body.email);
+    const spent = account ? this.resets.consume(account.id, body.code) : false;
+
+    if (!account || !spent) {
+      this.throttle.recordFailure(key);
+
+      res.send(
+        resetPage({
+          error:
+            'That email and reset code did not match, or the code has expired.',
+          email: body.email,
+          next: body.next,
+        }),
+      );
+      return;
+    }
+
+    const code = this.accounts.resetPassword(account.id, body.password ?? '');
+
+    this.throttle.recordSuccess(key);
+    this.startSession(res, account.id);
+    res.send(recoveryCodePage(code, this.safeNext(body.next), 'recover'));
   }
 
   @Post('sign-out')

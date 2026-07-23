@@ -17,6 +17,12 @@ const register = (extra: Record<string, string> = {}) =>
 const sessionFrom = (res: request.Response): string =>
   (res.headers['set-cookie'] as unknown as string[])[0];
 
+const codeFrom = (html: string): string =>
+  /id="recovery-code"[^>]*>([^<]+)</.exec(html)?.[1].trim() ?? '';
+
+const issuedCodeFrom = (html: string): string =>
+  /id="issued-code"[^>]*>([^<]+)</.exec(html)?.[1].trim() ?? '';
+
 describe('accounts', () => {
   it('serves a register form', () =>
     request(ctx.server)
@@ -184,9 +190,6 @@ describe('sign-in rate limiting', () => {
 });
 
 describe('password recovery', () => {
-  const codeFrom = (html: string): string =>
-    /class="recovery-code">([^<]+)</.exec(html)?.[1].trim() ?? '';
-
   it('serves a recovery form', () =>
     request(ctx.server)
       .get('/account/recover')
@@ -304,4 +307,339 @@ describe('password recovery', () => {
       })
       .expect(200)
       .expect((res) => expect(res.text).toContain('at least')));
+
+  it('signs the learner in rather than making them do it again', async () => {
+    const code = codeFrom((await register().expect(200)).text);
+
+    const res = await request(ctx.server)
+      .post('/account/recover')
+      .type('form')
+      .send({ email: 'rajib@example.com', code, password: 'a-new-password' })
+      .expect(200);
+
+    expect(sessionFrom(res)).toContain('account_session');
+  });
+
+  it('tells somebody who has lost the code too where to turn', () =>
+    request(ctx.server)
+      .get('/account/recover')
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('Lost the code as well?');
+        expect(res.text).toContain('one-time reset link');
+      }));
+});
+
+describe('swapping a lost recovery code', () => {
+  it('offers the swap on the account page', async () => {
+    const jar = sessionFrom(await register().expect(200));
+
+    await request(ctx.server)
+      .get('/account')
+      .set('Cookie', jar)
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('Recovery code');
+        expect(res.text).toContain('action="/account/recovery"');
+      });
+  });
+
+  it('shows a new code once the password is confirmed', async () => {
+    const first = await register().expect(200);
+    const jar = sessionFrom(first);
+
+    const res = await request(ctx.server)
+      .post('/account/recovery')
+      .set('Cookie', jar)
+      .type('form')
+      .send({ password: 'correct-horse' })
+      .expect(200);
+
+    expect(codeFrom(res.text)).toBeTruthy();
+    expect(codeFrom(res.text)).not.toBe(codeFrom(first.text));
+  });
+
+  it('retires the code it replaces', async () => {
+    const first = await register().expect(200);
+    const old = codeFrom(first.text);
+
+    await request(ctx.server)
+      .post('/account/recovery')
+      .set('Cookie', sessionFrom(first))
+      .type('form')
+      .send({ password: 'correct-horse' })
+      .expect(200);
+
+    await request(ctx.server)
+      .post('/account/recover')
+      .type('form')
+      .send({ email: 'rajib@example.com', code: old, password: 'no-thank-you' })
+      .expect(200)
+      .expect((res) => expect(res.text).toContain('did not match'));
+  });
+
+  it('refuses the wrong password without issuing anything', async () => {
+    const jar = sessionFrom(await register().expect(200));
+
+    await request(ctx.server)
+      .post('/account/recovery')
+      .set('Cookie', jar)
+      .type('form')
+      .send({ password: 'wrong' })
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('did not match');
+        expect(codeFrom(res.text)).toBe('');
+      });
+  });
+
+  it('sends a signed-out visitor to sign in instead', () =>
+    request(ctx.server)
+      .post('/account/recovery')
+      .type('form')
+      .send({ password: 'correct-horse' })
+      .expect(302)
+      .expect('Location', '/account/sign-in'));
+});
+
+describe('resets the owner issues by hand', () => {
+  const accountId = async (admin: string): Promise<string> => {
+    const res = await request(ctx.server)
+      .get('/admin/accounts')
+      .set('Cookie', admin)
+      .expect(200);
+
+    return /href="\/admin\/accounts\/([^"]+)"/.exec(res.text)?.[1] ?? '';
+  };
+
+  const issue = async (
+    admin: string,
+    note = 'Replied from the address on the account',
+  ): Promise<string> => {
+    const id = await accountId(admin);
+
+    const res = await request(ctx.server)
+      .post(`/admin/accounts/${id}/reset`)
+      .set('Cookie', admin)
+      .type('form')
+      .send({ note })
+      .expect(200);
+
+    return issuedCodeFrom(res.text);
+  };
+
+  it('keeps the account list behind the admin sign-in', () =>
+    request(ctx.server)
+      .get('/admin/accounts')
+      .expect(302)
+      .expect('Location', '/login'));
+
+  it('lists the learners who have registered', async () => {
+    await register().expect(200);
+    const admin = await ctx.signIn();
+
+    await request(ctx.server)
+      .get('/admin/accounts')
+      .set('Cookie', admin)
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('Saidul Islam Rajib');
+        expect(res.text).toContain('rajib@example.com');
+      });
+  });
+
+  it('finds an account by part of the email', async () => {
+    await register().expect(200);
+    const admin = await ctx.signIn();
+
+    await request(ctx.server)
+      .get('/admin/accounts?q=nobody')
+      .set('Cookie', admin)
+      .expect(200)
+      .expect((res) => expect(res.text).not.toContain('rajib@example.com'));
+  });
+
+  it('will not issue a reset without a record of the check', async () => {
+    await register().expect(200);
+    const admin = await ctx.signIn();
+
+    const id = await accountId(admin);
+
+    await request(ctx.server)
+      .post(`/admin/accounts/${id}/reset`)
+      .set('Cookie', admin)
+      .type('form')
+      .send({ note: '   ' })
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('how you checked');
+        expect(issuedCodeFrom(res.text)).toBe('');
+      });
+  });
+
+  it('shows the code once, with a link the learner can follow', async () => {
+    await register().expect(200);
+    const admin = await ctx.signIn();
+
+    const id = await accountId(admin);
+
+    const issued = await request(ctx.server)
+      .post(`/admin/accounts/${id}/reset`)
+      .set('Cookie', admin)
+      .type('form')
+      .send({ note: 'Replied from the address on the account' })
+      .expect(200);
+
+    expect(issuedCodeFrom(issued.text)).toBeTruthy();
+    expect(issued.text).toContain('/account/reset?code=');
+
+    await request(ctx.server)
+      .get(`/admin/accounts/${id}`)
+      .set('Cookie', admin)
+      .expect(200)
+      .expect((res) => {
+        expect(issuedCodeFrom(res.text)).toBe('');
+        expect(res.text).toContain('Replied from the address on the account');
+      });
+  });
+
+  it('sets a new password, signs the learner in and replaces their code', async () => {
+    await register().expect(200);
+    const code = await issue(await ctx.signIn());
+
+    const res = await request(ctx.server)
+      .post('/account/reset')
+      .type('form')
+      .send({
+        email: 'rajib@example.com',
+        code,
+        password: 'chosen-by-the-learner',
+      })
+      .expect(200);
+
+    expect(res.text).toContain('Save your recovery code');
+    expect(codeFrom(res.text)).toBeTruthy();
+    expect(sessionFrom(res)).toContain('account_session');
+
+    await request(ctx.server)
+      .post('/account/sign-in')
+      .type('form')
+      .send({ email: 'rajib@example.com', password: 'chosen-by-the-learner' })
+      .expect(302);
+  });
+
+  it('prefills the code from the link', async () => {
+    await register().expect(200);
+    const code = await issue(await ctx.signIn());
+
+    await request(ctx.server)
+      .get(`/account/reset?code=${code}`)
+      .expect(200)
+      .expect((res) => expect(res.text).toContain(`value="${code}"`));
+  });
+
+  it('will not spend the same code twice', async () => {
+    await register().expect(200);
+    const code = await issue(await ctx.signIn());
+
+    const spend = (password: string) =>
+      request(ctx.server)
+        .post('/account/reset')
+        .type('form')
+        .send({ email: 'rajib@example.com', code, password });
+
+    await spend('chosen-by-the-learner').expect(200);
+
+    await spend('a-second-go')
+      .expect(200)
+      .expect((res) => expect(res.text).toContain('did not match'));
+  });
+
+  it('will not open an account the code was not cut for', async () => {
+    await register().expect(200);
+    const code = await issue(await ctx.signIn());
+
+    await register({ email: 'other@example.com' }).expect(200);
+
+    await request(ctx.server)
+      .post('/account/reset')
+      .type('form')
+      .send({ email: 'other@example.com', code, password: 'not-my-code' })
+      .expect(200)
+      .expect((res) => expect(res.text).toContain('did not match'));
+  });
+
+  it('leaves the old password working until the code is spent', async () => {
+    await register().expect(200);
+    await issue(await ctx.signIn());
+
+    await request(ctx.server)
+      .post('/account/sign-in')
+      .type('form')
+      .send({ email: 'rajib@example.com', password: 'correct-horse' })
+      .expect(302);
+  });
+
+  it('cancels an outstanding code on request', async () => {
+    await register().expect(200);
+    const admin = await ctx.signIn();
+
+    const code = await issue(admin);
+    const id = await accountId(admin);
+
+    await request(ctx.server)
+      .post(`/admin/accounts/${id}/revoke`)
+      .set('Cookie', admin)
+      .expect(302)
+      .expect('Location', `/admin/accounts/${id}?ok=revoked`);
+
+    await request(ctx.server)
+      .post('/account/reset')
+      .type('form')
+      .send({ email: 'rajib@example.com', code, password: 'too-late-now' })
+      .expect(200)
+      .expect((res) => expect(res.text).toContain('did not match'));
+  });
+
+  it('cancels the earlier code when a second is issued', async () => {
+    await register().expect(200);
+    const admin = await ctx.signIn();
+
+    const first = await issue(admin);
+    await issue(admin, 'Called back on the number we had');
+
+    await request(ctx.server)
+      .post('/account/reset')
+      .type('form')
+      .send({ email: 'rajib@example.com', code: first, password: 'stale-code' })
+      .expect(200)
+      .expect((res) => expect(res.text).toContain('did not match'));
+  });
+
+  it('does not reveal whether an address has an account', async () => {
+    await register().expect(200);
+
+    const unknown = await request(ctx.server)
+      .post('/account/reset')
+      .type('form')
+      .send({
+        email: 'nobody@example.com',
+        code: 'AAAAA-AAAAA-AAAAA-AAAAA',
+        password: 'a-brand-new-password',
+      })
+      .expect(200);
+
+    const known = await request(ctx.server)
+      .post('/account/reset')
+      .type('form')
+      .send({
+        email: 'rajib@example.com',
+        code: 'AAAAA-AAAAA-AAAAA-AAAAA',
+        password: 'a-brand-new-password',
+      })
+      .expect(200);
+
+    expect(unknown.text).toContain('did not match');
+    expect(known.text).toContain('did not match');
+  });
 });

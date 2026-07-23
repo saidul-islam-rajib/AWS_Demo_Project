@@ -110,6 +110,23 @@ also why the security trade-offs below are documented honestly rather than quiet
 - Photo gallery with multiple images per entry, an inline slider, and a full-size modal
 - Entirely editable from the admin — nothing hardcoded
 
+### Learner accounts and recovery
+- Accounts for learners, so progress and certificates follow the person rather than the browser
+- Passwords **and** recovery codes are stored as salted scrypt digests — neither can be read back by anybody, the site owner included
+- **Three ways back in**, so a lost code never costs a learner their account:
+
+| They have lost | Route | Who is involved |
+|---|---|---|
+| The recovery code | `/account` → *Recovery code* → confirm password | Nobody. A new code is issued on the spot and the old one dies |
+| The password | `/account/recover` → email + recovery code | Nobody. They set a new password and get a fresh code |
+| Both | Owner issues a one-time reset at `/admin/accounts` | The owner, who verifies them out of band first |
+
+- An admin-issued reset is a code in the same format, valid **once** and for **60 minutes**, tied to
+  one account, revocable, and superseded the moment another is issued. It is displayed a single
+  time — it is sealed at rest like everything else, so it cannot be looked up afterwards.
+- Issuing one **requires a written note of how the person was verified**, kept with the account as
+  an audit trail. The learner picks their own new password; the owner never sees it.
+
 ### Reading experience
 - Live search across posts, tags and projects
 - Light and dark themes following the system setting
@@ -352,6 +369,10 @@ npm run start:dev
 Open **http://localhost:3000**. The store seeds itself with starter posts and projects on first
 run; sign in at `/login`. Data is written to `automation/data/` unless `DATA_DIR` says otherwise.
 
+> New here, or sign-in not working? **[DEVELOPMENT.md](DEVELOPMENT.md)** covers running the app,
+> setting/seeing/clearing the admin password across PowerShell, Git Bash and cmd, and a
+> troubleshooting table for every sign-in error.
+
 ### Option B — Docker
 
 Run from `automation/`, which is the build context.
@@ -422,6 +443,26 @@ Everything else is configured from **Admin → Settings** rather than in code: a
 bio, avatar, site title, tagline, site URL, GitHub username, sharing intro, and footer links.
 
 `Site URL` matters — Open Graph requires absolute URLs, so link previews depend on it being correct.
+
+### Platform configuration
+
+Operational limits also live under **Admin → Settings**, in a *Platform configuration* block, and
+apply the moment they are saved — no redeploy. They are defined by a schema
+([`shared/config/config.schema.ts`](automation/src/shared/config/config.schema.ts)); the admin form
+renders itself from that schema and every value is validated and clamped to its range on save, so
+there is no field-by-field form code to keep in step. Typed policy facades
+([`shared/config/policies.ts`](automation/src/shared/config/policies.ts)) read the values, so
+consumers depend on intent (`RecoveryPolicy.resetLinkMinutes`) rather than string keys.
+
+| Group | Controls |
+|---|---|
+| **Security & rate limiting** | Failed-attempt threshold, lockout length, attempt window, learner session length |
+| **Account recovery** | Reset link lifetime, reset history depth, recovery code shape, minimum password length |
+| **Content limits** | Admin listing page size, home sidebar tag limit |
+| **Support & contact** | Where a locked-out or stuck learner is sent, and its link text |
+
+Adding a new setting is one entry in the schema — it then appears in the admin form, is persisted
+and validated, and is reachable through a policy getter, with nothing else to wire.
 
 ---
 
@@ -574,7 +615,8 @@ write, and one address being locked never affects another.
 - **Rate limiting is in-memory and per instance.** Locks are cleared by a restart. Behind the proxy,
   `TRUST_PROXY=1` **must** be set — otherwise every visitor arrives as Caddy's address and shares
   one bucket, so five failures from anyone locks out everyone.
-- **Single shared password.** No user accounts, no rotation, no audit trail.
+- **Single shared admin password.** The admin side has one password, no rotation. Learner accounts
+  are separate and do have recovery, rotation and an audit trail for owner-issued resets.
 - **HTTPS depends on host setup.** The certificate, the security headers and the `secure` cookie
   flag all require the steps in [deploy/README.md](deploy/README.md) to have been applied. Until
   then the app serves plain HTTP on port 3000 and the admin password crosses the network in the
@@ -670,6 +712,14 @@ AWS_Demo_Project/
     ├── src/
     │   ├── main.ts           bootstrap, middleware, static mounts
     │   ├── app.module.ts
+    │   ├── shared/           cross-cutting foundation (see below)
+    │   │   ├── view/         auto-escaping html`` kernel + UI components
+    │   │   ├── assets/       fingerprinted, immutably-cached CSS/JS pipeline
+    │   │   ├── routing/      typed route registry + URL builders
+    │   │   ├── config/       schema-driven platform configuration + policies
+    │   │   ├── persistence/  generic JSON-file collection
+    │   │   └── format/       shared date formatting
+    │   ├── accounts/         learner accounts, recovery, owner-issued resets
     │   ├── posts/            posts + admin editor + /health
     │   ├── projects/         portfolio + taxonomies
     │   ├── about/            timeline, skills, gallery
@@ -680,6 +730,28 @@ AWS_Demo_Project/
     │   └── views/            HTML generation
     └── test/                 end-to-end suite
 ```
+
+### Shared foundation
+
+`shared/` holds the reusable primitives feature modules build on, so the same concern is solved once:
+
+- **View kernel** — an auto-escaping `` html`` `` tagged template returning a typed `SafeHtml`.
+  Interpolations are escaped by default and nested `SafeHtml` is trusted, so pages cannot forget to
+  escape and there are no hand-rolled `esc()` calls. On top of it sits a small component library
+  (`pill`, `banner`, `field`, `panel`, `table`, `toolbar`, `codeBlock`) — status pills come from an
+  enum-keyed descriptor registry, not `status === 'draft' ? … : …` ternaries.
+- **Asset pipeline** — CSS and JS are served as real files at content-hashed URLs
+  (`/assets/css/ui.<hash>.css`) with a one-year immutable cache, instead of inlined into every page.
+  A bundle's URL changes only when its bytes do. No page carries inline `<style>` or `<script>` for
+  these.
+- **Route registry** — routes are declared once as typed builders (`AccountAdminRoutes.detail.path({ id })`);
+  controllers and views reference them instead of repeating string paths.
+- **Config** — schema-driven, described above.
+- **Persistence** — one `JsonCollection<T>` replaces the load/persist/atomic-write block that was
+  copied across every store.
+
+The `accounts/` module is built entirely on these; the other feature modules adopt them
+incrementally.
 
 ---
 

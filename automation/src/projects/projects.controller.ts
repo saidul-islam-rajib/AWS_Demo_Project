@@ -25,8 +25,7 @@ import {
   projectEditorPage,
   projectsAdminPage,
 } from '../views/admin/projects.page';
-
-const ADMIN_PAGE_SIZE = 10;
+import { ContentPolicy } from '../shared/config/policies';
 
 @Controller()
 export class ProjectsController {
@@ -169,8 +168,9 @@ export class ProjectsController {
       flash = { kind: 'ok', text: messages[ok] };
     }
 
+    const pageSize = ContentPolicy.adminPageSize;
     const all = this.projects.search(q);
-    const pageCount = Math.max(1, Math.ceil(all.length / ADMIN_PAGE_SIZE));
+    const pageCount = Math.max(1, Math.ceil(all.length / pageSize));
 
     const parsed = Number.parseInt(pageParam ?? '1', 10);
     const page = Math.min(
@@ -178,10 +178,10 @@ export class ProjectsController {
       pageCount,
     );
 
-    const start = (page - 1) * ADMIN_PAGE_SIZE;
+    const start = (page - 1) * pageSize;
 
     return projectsAdminPage({
-      projects: all.slice(start, start + ADMIN_PAGE_SIZE),
+      projects: all.slice(start, start + pageSize),
       githubUser: this.settings.get().githubUser,
       flash,
       page,

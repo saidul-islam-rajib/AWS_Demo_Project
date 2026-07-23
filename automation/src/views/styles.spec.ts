@@ -3,11 +3,19 @@ import { join } from 'path';
 import { TUTORIALS_STYLES } from './public/tutorials.styles';
 import { TUTORIALS_ADMIN_STYLES } from './admin/tutorials.styles';
 import {
+  ACCOUNT_ADMIN_CSS,
+  ACCOUNT_PUBLIC_CSS,
+} from '../accounts/account.assets';
+import { UI_COMPONENTS_CSS } from '../shared/view/ui.assets';
+import {
   subjectPage,
   tutorialPage,
   tutorialsIndexPage,
 } from './public/tutorials.page';
-import { homePage, SIDEBAR_TAG_LIMIT } from './public/posts.pages';
+import { homePage } from './public/posts.pages';
+import { ContentPolicy } from '../shared/config/policies';
+
+const SIDEBAR_TAG_LIMIT = ContentPolicy.sidebarTagLimit;
 import {
   lessonEditorPage,
   subjectEditorPage,
@@ -95,6 +103,14 @@ const sheets: [string, string][] = [
   ['admin tutorials', TUTORIALS_ADMIN_STYLES],
 ];
 
+const bundles: [string, string][] = [
+  ['ui components', UI_COMPONENTS_CSS],
+  ['public accounts', ACCOUNT_PUBLIC_CSS],
+  ['admin accounts', ACCOUNT_ADMIN_CSS],
+];
+
+const allCss: [string, string][] = [...sheets, ...bundles];
+
 describe('stylesheet integrity', () => {
   it('finds the custom properties the layout defines', () => {
     expect(DEFINED.has('--ink')).toBe(true);
@@ -102,14 +118,14 @@ describe('stylesheet integrity', () => {
     expect(DEFINED.size).toBeGreaterThan(10);
   });
 
-  it.each(sheets)('%s references only defined custom properties', (_n, css) => {
+  it.each(allCss)('%s references only defined custom properties', (_n, css) => {
     const used = [...css.matchAll(/var\((--[a-z0-9-]+)\)/g)].map((m) => m[1]);
     const unknown = [...new Set(used)].filter((name) => !DEFINED.has(name));
 
     expect(unknown).toEqual([]);
   });
 
-  it.each(sheets)('%s has balanced braces', (_n, css) => {
+  it.each(allCss)('%s has balanced braces', (_n, css) => {
     const opens = (css.match(/\{/g) ?? []).length;
     const closes = (css.match(/\}/g) ?? []).length;
 

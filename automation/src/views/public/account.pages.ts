@@ -3,25 +3,38 @@ import {
   AccountBenefit,
   AccountStep,
   AccountView,
-  MIN_PASSWORD_LENGTH,
   MAX_EMAIL_LENGTH,
   MAX_NAME_LENGTH,
-  RECOVERY_GROUPS,
-  RECOVERY_GROUP_LENGTH,
   REGISTRATION_STEPS,
+  formatDay,
   formatRecoveryCode,
+  recoveryCodeShape,
 } from '../../accounts/account.model';
+import { AccountRoutes, accountUrl } from '../../accounts/account.routes';
+import { ACCOUNT_BUNDLE } from '../../accounts/account.assets';
+import { RecoveryPolicy, SupportPolicy } from '../../shared/config/policies';
+import { css, js } from '../../shared/assets/asset.store';
+import { UI_BUNDLE } from '../../shared/assets/assets.bootstrap';
+import {
+  Renderable,
+  SafeHtml,
+  html,
+  join,
+  toHtml,
+  when,
+} from '../../shared/view/html';
+import {
+  banner,
+  codeBlock,
+  field,
+  linkButton,
+  submitButton,
+} from '../../shared/view/components';
 import { initials } from '../../settings/settings.model';
-import { esc, layout } from '../shared/layout';
-import { ACCOUNT_STYLES } from './account.styles';
+import { layout } from '../shared/layout';
 
-export const ACCOUNT_PATHS = {
-  register: '/account/register',
-  signIn: '/account/sign-in',
-  signOut: '/account/sign-out',
-  recover: '/account/recover',
-  home: '/account',
-} as const;
+const STYLES = [css(UI_BUNDLE), css(ACCOUNT_BUNDLE)];
+const SCRIPTS = [js(UI_BUNDLE)];
 
 interface FormState {
   error?: string;
@@ -32,38 +45,33 @@ interface FormState {
 
 interface Panel {
   heading: string;
-  markup: string;
+  markup: SafeHtml;
 }
 
-function exampleRecoveryShape(): string {
-  return Array.from({ length: RECOVERY_GROUPS }, () =>
-    'X'.repeat(RECOVERY_GROUP_LENGTH),
-  ).join('-');
-}
-
-function nextField(next?: string): string {
-  return next ? `<input type="hidden" name="next" value="${esc(next)}" />` : '';
+function nextField(next?: string): SafeHtml {
+  return when(
+    next,
+    () => html`<input type="hidden" name="next" value="${next}" />`,
+  );
 }
 
 function withNext(path: string, next?: string): string {
-  return next ? `${path}?next=${encodeURIComponent(next)}` : path;
+  return accountUrl(path, { next });
 }
 
 function benefitPanel(benefits: AccountBenefit[]): Panel {
   return {
     heading: 'What an account gives you',
-    markup: `<ul class="account-perks">
-      ${benefits
-        .map(
-          (benefit) => `<li class="account-perk">
-            <span class="perk-icon" aria-hidden="true">${esc(benefit.icon)}</span>
-            <div>
-              <b>${esc(benefit.title)}</b>
-              <span>${esc(benefit.detail)}</span>
-            </div>
-          </li>`,
-        )
-        .join('\n')}
+    markup: html`<ul class="account-perks">
+      ${join(
+        benefits.map(
+          (benefit) =>
+            html`<li class="account-perk">
+              <span class="perk-icon" aria-hidden="true">${benefit.icon}</span>
+              <div><b>${benefit.title}</b><span>${benefit.detail}</span></div>
+            </li>`,
+        ),
+      )}
     </ul>`,
   };
 }
@@ -71,39 +79,45 @@ function benefitPanel(benefits: AccountBenefit[]): Panel {
 function stepPanel(steps: AccountStep[]): Panel {
   return {
     heading: 'How it works',
-    markup: `<ol class="account-steps">
-      ${steps
-        .map(
-          (step) => `<li class="account-step">
-            <div>
-              <b>${esc(step.title)}</b>
-              <span>${esc(step.detail)}</span>
-            </div>
-          </li>`,
-        )
-        .join('\n')}
+    markup: html`<ol class="account-steps">
+      ${join(
+        steps.map(
+          (step) =>
+            html`<li class="account-step">
+              <div><b>${step.title}</b><span>${step.detail}</span></div>
+            </li>`,
+        ),
+      )}
     </ol>`,
   };
 }
 
-function shell(main: string, panel?: Panel): string {
-  if (!panel) return `<section class="account-shell solo">${main}</section>`;
+function shell(main: Renderable, panel?: Panel): SafeHtml {
+  if (!panel)
+    return html`<section class="account-shell solo">${main}</section>`;
 
-  return `<section class="account-shell">
+  return html`<section class="account-shell">
     ${main}
     <aside class="account-aside">
-      <h2>${esc(panel.heading)}</h2>
+      <h2>${panel.heading}</h2>
       ${panel.markup}
     </aside>
   </section>`;
 }
 
-function errorBanner(error?: string): string {
-  return error ? `<p class="account-error" role="alert">${esc(error)}</p>` : '';
+function page(title: string, body: SafeHtml, path: string): string {
+  return layout({
+    title,
+    body: toHtml(body),
+    path,
+    styles: STYLES,
+    scripts: SCRIPTS,
+    noindex: true,
+  });
 }
 
 export function registerPage(state: FormState = {}): string {
-  const main = `<div class="account-main">
+  const main = html`<div class="account-main">
     <p class="account-eyebrow">Free account</p>
     <h1>Create an account</h1>
     <p class="account-lede">
@@ -111,197 +125,262 @@ export function registerPage(state: FormState = {}): string {
       certificates are then tied to you rather than to this browser.
     </p>
 
-    ${errorBanner(state.error)}
+    ${when(state.error, () => banner({ kind: 'error', message: state.error }))}
 
-    <form method="post" action="${ACCOUNT_PATHS.register}">
+    <form method="post" action="${AccountRoutes.register.template}">
       ${nextField(state.next)}
-
-      <div class="account-field">
-        <label for="name">Name</label>
-        <input type="text" id="name" name="name" required autocomplete="name"
-               maxlength="${MAX_NAME_LENGTH}" value="${esc(state.name ?? '')}"
-               placeholder="The name on your certificates" />
-      </div>
-
-      <div class="account-field">
-        <label for="email">Email</label>
-        <input type="email" id="email" name="email" required autocomplete="email"
-               maxlength="${MAX_EMAIL_LENGTH}" value="${esc(state.email ?? '')}"
-               placeholder="you@example.com" />
-        <p class="account-hint">Used to sign in. Nothing is ever sent to it.</p>
-      </div>
-
-      <div class="account-field">
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" required
-               autocomplete="new-password" minlength="${MIN_PASSWORD_LENGTH}"
-               placeholder="At least ${MIN_PASSWORD_LENGTH} characters" />
-      </div>
-
-      <button class="btn btn-primary" type="submit">Create account</button>
+      ${field({
+        name: 'name',
+        label: 'Name',
+        required: true,
+        autocomplete: 'name',
+        value: state.name,
+        placeholder: 'The name on your certificates',
+        attrs: { maxlength: MAX_NAME_LENGTH },
+      })}
+      ${field({
+        name: 'email',
+        label: 'Email',
+        type: 'email',
+        required: true,
+        autocomplete: 'email',
+        value: state.email,
+        placeholder: 'you@example.com',
+        hint: 'Used to sign in. Nothing is ever sent to it.',
+        attrs: { maxlength: MAX_EMAIL_LENGTH },
+      })}
+      ${field({
+        name: 'password',
+        label: 'Password',
+        type: 'password',
+        required: true,
+        autocomplete: 'new-password',
+        placeholder: `At least ${RecoveryPolicy.minPasswordLength} characters`,
+        attrs: { minlength: RecoveryPolicy.minPasswordLength },
+      })}
+      ${submitButton({ label: 'Create account' })}
     </form>
 
     <p class="account-alt">
       Already have one?
-      <a href="${esc(withNext(ACCOUNT_PATHS.signIn, state.next))}">Sign in instead</a>
+      <a href="${withNext(AccountRoutes.signIn.template, state.next)}"
+        >Sign in instead</a
+      >
     </p>
   </div>`;
 
-  return layout({
-    title: 'Create an account',
-    body: shell(main, stepPanel(REGISTRATION_STEPS)),
-    path: ACCOUNT_PATHS.register,
-    head: ACCOUNT_STYLES,
-    noindex: true,
-  });
+  return page(
+    'Create an account',
+    shell(main, stepPanel(REGISTRATION_STEPS)),
+    AccountRoutes.register.template,
+  );
 }
 
 export function signInPage(state: FormState = {}): string {
-  const main = `<div class="account-main">
+  const main = html`<div class="account-main">
     <p class="account-eyebrow">Welcome back</p>
     <h1>Sign in</h1>
     <p class="account-lede">
       Pick up where you left off. You stay signed in on this device.
     </p>
 
-    ${errorBanner(state.error)}
+    ${when(state.error, () => banner({ kind: 'error', message: state.error }))}
 
-    <form method="post" action="${ACCOUNT_PATHS.signIn}">
+    <form method="post" action="${AccountRoutes.signIn.template}">
       ${nextField(state.next)}
-
-      <div class="account-field">
-        <label for="email">Email</label>
-        <input type="email" id="email" name="email" required autocomplete="email"
-               maxlength="${MAX_EMAIL_LENGTH}" value="${esc(state.email ?? '')}"
-               placeholder="you@example.com" />
-      </div>
-
-      <div class="account-field">
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" required
-               autocomplete="current-password" placeholder="Your password" />
-      </div>
-
-      <button class="btn btn-primary" type="submit">Sign in</button>
+      ${field({
+        name: 'email',
+        label: 'Email',
+        type: 'email',
+        required: true,
+        autocomplete: 'email',
+        value: state.email,
+        placeholder: 'you@example.com',
+        attrs: { maxlength: MAX_EMAIL_LENGTH },
+      })}
+      ${field({
+        name: 'password',
+        label: 'Password',
+        type: 'password',
+        required: true,
+        autocomplete: 'current-password',
+        placeholder: 'Your password',
+      })}
+      ${submitButton({ label: 'Sign in' })}
     </form>
 
     <p class="account-alt account-alt-row">
-      <span>
-        No account yet?
-        <a href="${esc(withNext(ACCOUNT_PATHS.register, state.next))}">Create one</a>
+      <span
+        >No account yet?
+        <a href="${withNext(AccountRoutes.register.template, state.next)}"
+          >Create one</a
+        >
       </span>
-      <a href="${esc(withNext(ACCOUNT_PATHS.recover, state.next))}">Lost your password?</a>
+      <a href="${withNext(AccountRoutes.recover.template, state.next)}"
+        >Lost your password?</a
+      >
     </p>
   </div>`;
 
-  return layout({
-    title: 'Sign in',
-    body: shell(main, benefitPanel(ACCOUNT_BENEFITS)),
-    path: ACCOUNT_PATHS.signIn,
-    head: ACCOUNT_STYLES,
-    noindex: true,
-  });
+  return page(
+    'Sign in',
+    shell(main, benefitPanel(ACCOUNT_BENEFITS)),
+    AccountRoutes.signIn.template,
+  );
 }
 
-export function accountPage(
-  account: AccountView,
-  certificates: { course: string; href: string; issued: string }[],
-  courses: { title: string; href: string; done: number; total: number }[] = [],
-): string {
-  const rows = certificates
-    .map(
-      (certificate) => `<a class="account-cert" href="${esc(certificate.href)}">
+export interface AccountPageState {
+  account: AccountView;
+  certificates: { course: string; href: string; issued: string }[];
+  courses?: { title: string; href: string; done: number; total: number }[];
+  recoveryIssuedAt?: string;
+  error?: string;
+}
+
+export function accountPage({
+  account,
+  certificates,
+  courses = [],
+  recoveryIssuedAt,
+  error,
+}: AccountPageState): string {
+  const issued = formatDay(recoveryIssuedAt);
+
+  const certRows = certificates.map(
+    (certificate) =>
+      html`<a class="account-cert" href="${certificate.href}">
         <span class="account-cert-mark" aria-hidden="true">★</span>
         <div>
-          <b>${esc(certificate.course)}</b>
-          <span>Issued ${esc(certificate.issued)}</span>
+          <b>${certificate.course}</b><span>Issued ${certificate.issued}</span>
         </div>
       </a>`,
-    )
-    .join('\n');
+  );
 
-  const started = courses
-    .map(
-      (course) => `<a class="account-cert" href="${esc(course.href)}">
-        <span class="account-cert-mark" aria-hidden="true">${course.done}/${course.total}</span>
+  const courseRows = courses.map(
+    (course) =>
+      html`<a class="account-cert" href="${course.href}">
+        <span class="account-cert-mark" aria-hidden="true"
+          >${course.done}/${course.total}</span
+        >
         <div>
-          <b>${esc(course.title)}</b>
-          <span>${course.total - course.done} left to read</span>
+          <b>${course.title}</b
+          ><span>${course.total - course.done} left to read</span>
         </div>
       </a>`,
-    )
-    .join('\n');
+  );
 
-  const main = `<div class="account-main">
+  const main = html`<div class="account-main">
     <div class="account-head">
-      <span class="account-avatar" aria-hidden="true">${esc(initials(account.name))}</span>
+      <span class="account-avatar" aria-hidden="true"
+        >${initials(account.name)}</span
+      >
       <div>
-        <h1>${esc(account.name)}</h1>
-        <p class="account-lede">${esc(account.email)}</p>
+        <h1>${account.name}</h1>
+        <p class="account-lede">${account.email}</p>
       </div>
     </div>
 
     <h2 class="account-section">Courses in progress</h2>
     ${
       courses.length
-        ? started
-        : '<p class="account-empty">Start a course and it will show up here with how far along you are.</p>'
+        ? join(courseRows)
+        : html`<p class="account-empty">
+            Start a course and it will show up here with how far along you are.
+          </p>`
     }
 
     <h2 class="account-section">Certificates</h2>
     ${
       certificates.length
-        ? rows
-        : '<p class="account-empty">Finish every lesson in a course and your certificate will appear here.</p>'
+        ? join(certRows)
+        : html`<p class="account-empty">
+            Finish every lesson in a course and your certificate will appear
+            here.
+          </p>`
     }
 
-    <form method="post" action="${ACCOUNT_PATHS.signOut}" class="account-signout">
-      <button class="btn btn-ghost" type="submit">Sign out</button>
+    <h2 class="account-section" id="recovery">Recovery code</h2>
+    ${when(error, () => banner({ kind: 'error', message: error }))}
+
+    <div class="recovery-panel">
+      <p>
+        ${issued ? `Your current code was issued on ${issued}.` : 'Your current code was issued when you registered.'}
+        Lost it, or not sure it is still safe? Confirm your password and we will
+        show you a new one. The old code stops working straight away.
+      </p>
+
+      <form method="post" action="${AccountRoutes.rotateRecovery.template}">
+        ${field({
+          name: 'password',
+          label: 'Your password',
+          type: 'password',
+          required: true,
+          autocomplete: 'current-password',
+          placeholder: 'Your password',
+        })}
+        ${submitButton({ label: 'Show me a new code', variant: 'ghost' })}
+      </form>
+    </div>
+
+    <form
+      method="post"
+      action="${AccountRoutes.signOut.template}"
+      class="account-signout"
+    >
+      ${submitButton({ label: 'Sign out', variant: 'ghost' })}
     </form>
   </div>`;
 
-  return layout({
-    title: account.name,
-    body: shell(main),
-    path: ACCOUNT_PATHS.home,
-    head: ACCOUNT_STYLES,
-    noindex: true,
-  });
+  return page(account.name, shell(main), AccountRoutes.home.template);
 }
 
-export function recoveryCodePage(code: string, next?: string): string {
-  const main = `<div class="account-main">
+export type CodeContext = 'register' | 'recover' | 'rotate';
+
+const CODE_LEDES: Record<CodeContext, string> = {
+  register:
+    'Your account is ready and you are signed in. Before you go, copy this down.',
+  recover:
+    'Your password is changed and you are signed in. This code replaces the one you just spent.',
+  rotate:
+    'Here is your new code. The one you had before it no longer works, so replace it wherever you kept it.',
+};
+
+export function recoveryCodePage(
+  code: string,
+  next?: string,
+  context: CodeContext = 'register',
+): string {
+  const target =
+    next && next.startsWith('/') ? next : AccountRoutes.home.template;
+
+  const main = html`<div class="account-main">
     <p class="account-eyebrow">One-time code</p>
     <h1>Save your recovery code</h1>
-    <p class="account-lede">
-      Your account is ready and you are signed in. Before you go, copy this
-      down.
-    </p>
+    <p class="account-lede">${CODE_LEDES[context]}</p>
 
-    <p class="recovery-code">${esc(formatRecoveryCode(code))}</p>
+    ${codeBlock({ id: 'recovery-code', value: formatRecoveryCode(code), copyLabel: 'Copy code' })}
 
     <p class="recovery-warn">
-      This is the only way back into your account if you forget your password.
-      There is no email reset, so store it somewhere safe. It is shown once and
-      cannot be retrieved later.
+      Store it somewhere safe: with it you can reset your password yourself,
+      without waiting on anybody. It is shown once and cannot be looked up later
+      — not by us either. If you do lose both this and your password,
+      <a href="${AccountRoutes.recover.template}#stuck"
+        >we can still get you back in</a
+      >.
     </p>
 
-    <a class="btn btn-primary" href="${esc(next && next.startsWith('/') ? next : ACCOUNT_PATHS.home)}">
-      I have saved it
-    </a>
+    ${linkButton({ href: target, label: 'I have saved it' })}
   </div>`;
 
-  return layout({
-    title: 'Your recovery code',
-    body: shell(main),
-    path: ACCOUNT_PATHS.register,
-    head: ACCOUNT_STYLES,
-    noindex: true,
-  });
+  return page(
+    'Your recovery code',
+    shell(main),
+    AccountRoutes.register.template,
+  );
 }
 
 export function recoverPage(state: FormState & { code?: string } = {}): string {
-  const main = `<div class="account-main">
+  const main = html`<div class="account-main">
     <p class="account-eyebrow">Account recovery</p>
     <h1>Reset your password</h1>
     <p class="account-lede">
@@ -309,47 +388,133 @@ export function recoverPage(state: FormState & { code?: string } = {}): string {
       password. You will be given a fresh code to replace it.
     </p>
 
-    ${errorBanner(state.error)}
+    ${when(state.error, () => banner({ kind: 'error', message: state.error }))}
 
-    <form method="post" action="${ACCOUNT_PATHS.recover}">
+    <form method="post" action="${AccountRoutes.recover.template}">
       ${nextField(state.next)}
-
-      <div class="account-field">
-        <label for="email">Email</label>
-        <input type="email" id="email" name="email" required autocomplete="email"
-               maxlength="${MAX_EMAIL_LENGTH}" value="${esc(state.email ?? '')}"
-               placeholder="you@example.com" />
-      </div>
-
-      <div class="account-field">
-        <label for="code">Recovery code</label>
-        <input type="text" id="code" name="code" required autocomplete="off"
-               spellcheck="false" placeholder="${esc(exampleRecoveryShape())}"
-               value="${esc(state.code ?? '')}" />
-        <p class="account-hint">Dashes and capitals do not matter.</p>
-      </div>
-
-      <div class="account-field">
-        <label for="password">New password</label>
-        <input type="password" id="password" name="password" required
-               autocomplete="new-password" minlength="${MIN_PASSWORD_LENGTH}"
-               placeholder="At least ${MIN_PASSWORD_LENGTH} characters" />
-      </div>
-
-      <button class="btn btn-primary" type="submit">Set a new password</button>
+      ${field({
+        name: 'email',
+        label: 'Email',
+        type: 'email',
+        required: true,
+        autocomplete: 'email',
+        value: state.email,
+        placeholder: 'you@example.com',
+        attrs: { maxlength: MAX_EMAIL_LENGTH },
+      })}
+      ${field({
+        name: 'code',
+        label: 'Recovery code',
+        required: true,
+        value: state.code,
+        placeholder: recoveryCodeShape(),
+        hint: 'Dashes and capitals do not matter.',
+        attrs: { autocomplete: 'off', spellcheck: 'false' },
+      })}
+      ${field({
+        name: 'password',
+        label: 'New password',
+        type: 'password',
+        required: true,
+        autocomplete: 'new-password',
+        placeholder: `At least ${RecoveryPolicy.minPasswordLength} characters`,
+        attrs: { minlength: RecoveryPolicy.minPasswordLength },
+      })}
+      ${submitButton({ label: 'Set a new password' })}
     </form>
 
+    ${stuckPanel()}
+
     <p class="account-alt account-alt-row">
-      <span>Remembered it? <a href="${ACCOUNT_PATHS.signIn}">Sign in</a></span>
-      <a href="${ACCOUNT_PATHS.register}">Create an account</a>
+      <span
+        >Remembered it?
+        <a href="${AccountRoutes.signIn.template}">Sign in</a></span
+      >
+      <a href="${AccountRoutes.register.template}">Create an account</a>
     </p>
   </div>`;
 
-  return layout({
-    title: 'Reset your password',
-    body: shell(main),
-    path: ACCOUNT_PATHS.recover,
-    head: ACCOUNT_STYLES,
-    noindex: true,
-  });
+  return page(
+    'Reset your password',
+    shell(main),
+    AccountRoutes.recover.template,
+  );
+}
+
+function stuckPanel(): SafeHtml {
+  return html`<div class="account-stuck" id="stuck">
+    <b>Lost the code as well?</b>
+    <p>
+      Nobody can read your code back to you — it is stored the same way your
+      password is. What we can do is issue a one-time reset link that does the
+      same job. Ask on
+      <a href="${SupportPolicy.channelUrl}">${SupportPolicy.channelLabel}</a>,
+      from the address on the account, and say which course you were taking. You
+      will be sent a code that works once and expires after
+      ${RecoveryPolicy.resetLinkMinutes} minutes.
+    </p>
+    <p>Your progress and certificates are untouched by any of this.</p>
+  </div>`;
+}
+
+export function resetPage(state: FormState & { code?: string } = {}): string {
+  const main = html`<div class="account-main">
+    <p class="account-eyebrow">Reset link</p>
+    <h1>Choose a new password</h1>
+    <p class="account-lede">
+      This code was issued for one account and can be used once, within
+      ${RecoveryPolicy.resetLinkMinutes} minutes. Set a password and you will be
+      signed in with a fresh recovery code.
+    </p>
+
+    ${when(state.error, () => banner({ kind: 'error', message: state.error }))}
+
+    <form method="post" action="${AccountRoutes.reset.template}">
+      ${nextField(state.next)}
+      ${field({
+        name: 'email',
+        label: 'Email',
+        type: 'email',
+        required: true,
+        autocomplete: 'email',
+        value: state.email,
+        placeholder: 'you@example.com',
+        hint: 'The address on the account the code was issued for.',
+        attrs: { maxlength: MAX_EMAIL_LENGTH },
+      })}
+      ${field({
+        name: 'code',
+        label: 'Reset code',
+        required: true,
+        value: state.code,
+        placeholder: recoveryCodeShape(),
+        hint: 'Dashes and capitals do not matter.',
+        attrs: { autocomplete: 'off', spellcheck: 'false' },
+      })}
+      ${field({
+        name: 'password',
+        label: 'New password',
+        type: 'password',
+        required: true,
+        autocomplete: 'new-password',
+        placeholder: `At least ${RecoveryPolicy.minPasswordLength} characters`,
+        attrs: { minlength: RecoveryPolicy.minPasswordLength },
+      })}
+      ${submitButton({ label: 'Set a new password' })}
+    </form>
+
+    <p class="account-alt account-alt-row">
+      <span
+        >Code expired?
+        <a href="${AccountRoutes.recover.template}">Ask for another</a></span
+      >
+      <a href="${AccountRoutes.signIn.template}">Sign in</a>
+    </p>
+  </div>`;
+
+  return page(
+    'Choose a new password',
+    shell(main),
+    AccountRoutes.reset.template,
+  );
 }

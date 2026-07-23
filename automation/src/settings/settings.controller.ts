@@ -12,6 +12,7 @@ import {
 import type { Request, Response } from 'express';
 import { AuthGuard } from '../auth/auth.guard';
 import { SettingsService } from './settings.service';
+import { ConfigService } from '../shared/config/config.service';
 import { parseFooterLinks } from './settings.model';
 import { settingsPage } from '../views/admin/settings.page';
 
@@ -36,7 +37,10 @@ interface SettingsForm {
 @Controller('admin/settings')
 @UseGuards(AuthGuard)
 export class SettingsController {
-  constructor(private readonly settings: SettingsService) {}
+  constructor(
+    private readonly settings: SettingsService,
+    private readonly config: ConfigService,
+  ) {}
 
   @Get()
   @Header('Content-Type', 'text/html')
@@ -44,7 +48,12 @@ export class SettingsController {
     const host = req.get('host') ?? '';
     const origin = host ? `${req.protocol}://${host}` : '';
 
-    return settingsPage(this.settings.get(), saved !== undefined, origin);
+    return settingsPage(
+      this.settings.get(),
+      saved !== undefined,
+      origin,
+      this.config.get(),
+    );
   }
 
   @Post()

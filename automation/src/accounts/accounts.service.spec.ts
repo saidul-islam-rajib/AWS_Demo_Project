@@ -3,9 +3,6 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { AccountsService } from './accounts.service';
 import {
-  MIN_PASSWORD_LENGTH,
-  RECOVERY_GROUPS,
-  RECOVERY_GROUP_LENGTH,
   formatRecoveryCode,
   normaliseEmail,
   normaliseName,
@@ -13,6 +10,10 @@ import {
   validEmail,
   validPassword,
 } from './account.model';
+import { RecoveryPolicy } from '../shared/config/policies';
+
+const MIN_PASSWORD_LENGTH = RecoveryPolicy.minPasswordLength;
+const RECOVERY_CODE_LENGTH = RecoveryPolicy.codeLength;
 
 describe('account.model', () => {
   it('trims and collapses a name', () => {
@@ -169,7 +170,7 @@ describe('recovery codes', () => {
   it('hands out a code of the declared shape', () => {
     const { code } = create();
 
-    expect(code).toHaveLength(RECOVERY_GROUPS * RECOVERY_GROUP_LENGTH);
+    expect(code).toHaveLength(RECOVERY_CODE_LENGTH);
     expect(code).toMatch(/^[A-Z0-9]+$/);
   });
 
@@ -236,7 +237,7 @@ describe('recovery codes', () => {
     expect(
       service.recover({
         email: 'rajib@example.com',
-        code: 'W'.repeat(RECOVERY_GROUPS * RECOVERY_GROUP_LENGTH),
+        code: 'W'.repeat(RECOVERY_CODE_LENGTH),
         password: 'a-new-password',
       }),
     ).toBe('');
@@ -253,7 +254,7 @@ describe('recovery codes', () => {
     expect(
       service.recover({
         email: 'nobody@example.com',
-        code: 'X'.repeat(RECOVERY_GROUPS * RECOVERY_GROUP_LENGTH),
+        code: 'X'.repeat(RECOVERY_CODE_LENGTH),
         password: 'a-new-password',
       }),
     ).toBe('');
@@ -285,5 +286,186 @@ describe('recovery codes', () => {
         password: 'another-password',
       }),
     ).not.toBe('');
+  });
+
+  it('records when the current code was issued', () => {
+    const { account } = create();
+
+    expect(account.recoveryIssuedAt).toBe(account.createdAt);
+  });
+
+  describe('swapping a lost code for a new one', () => {
+    it('gives a different code to somebody who knows the password', () => {
+      const { account, code } = create();
+
+      const replacement = service.rotateRecovery(account.id, 'correct-horse');
+
+      expect(replacement).not.toBe('');
+      expect(replacement).not.toBe(code);
+    });
+
+    it('retires the old code the moment a new one is issued', () => {
+      const { account, code } = create();
+
+      service.rotateRecovery(account.id, 'correct-horse');
+
+      expect(
+        service.recover({
+          email: 'rajib@example.com',
+          code,
+          password: 'a-new-password',
+        }),
+      ).toBe('');
+    });
+
+    it('lets the new code reset the password', () => {
+      const { account } = create();
+
+      const replacement = service.rotateRecovery(account.id, 'correct-horse');
+
+      expect(
+        service.recover({
+          email: 'rajib@example.com',
+          code: replacement,
+          password: 'a-new-password',
+        }),
+      ).not.toBe('');
+    });
+
+    it('refuses a wrong password and leaves the code alone', () => {
+      const { account, code } = create();
+
+      expect(service.rotateRecovery(account.id, 'wrong')).toBe('');
+
+      expect(
+        service.recover({
+          email: 'rajib@example.com',
+          code,
+          password: 'a-new-password',
+        }),
+      ).not.toBe('');
+    });
+
+    it('refuses an unknown account without throwing', () => {
+      expect(service.rotateRecovery('nobody', 'correct-horse')).toBe('');
+    });
+
+    it('leaves the password working', () => {
+      const { account } = create();
+
+      service.rotateRecovery(account.id, 'correct-horse');
+
+      expect(
+        service.authenticate({
+          email: 'rajib@example.com',
+          password: 'correct-horse',
+        }),
+      ).toBeDefined();
+    });
+
+    it('moves the date the code was issued on', () => {
+      const { account } = create();
+      const before = account.recoveryIssuedAt;
+
+      service.rotateRecovery(account.id, 'correct-horse');
+
+      expect(account.recoveryIssuedAt).not.toBe(before);
+    });
+  });
+
+  describe('resetting a password on the owner’s say-so', () => {
+    it('sets the password and hands back a fresh code', () => {
+      const { account, code } = create();
+
+      const replacement = service.resetPassword(account.id, 'set-by-the-owner');
+
+      expect(replacement).not.toBe('');
+      expect(replacement).not.toBe(code);
+
+      expect(
+        service.authenticate({
+          email: 'rajib@example.com',
+          password: 'set-by-the-owner',
+        }),
+      ).toBeDefined();
+    });
+
+    it('stops the old password working', () => {
+      const { account } = create();
+
+      service.resetPassword(account.id, 'set-by-the-owner');
+
+      expect(
+        service.authenticate({
+          email: 'rajib@example.com',
+          password: 'correct-horse',
+        }),
+      ).toBeUndefined();
+    });
+
+    it('retires the code the learner had lost', () => {
+      const { account, code } = create();
+
+      service.resetPassword(account.id, 'set-by-the-owner');
+
+      expect(
+        service.recover({
+          email: 'rajib@example.com',
+          code,
+          password: 'a-new-password',
+        }),
+      ).toBe('');
+    });
+
+    it('refuses an unknown account without throwing', () => {
+      expect(service.resetPassword('nobody', 'set-by-the-owner')).toBe('');
+    });
+  });
+});
+
+describe('listing accounts', () => {
+  let dir: string;
+  let service: AccountsService;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'accounts-list-test-'));
+    process.env.DATA_DIR = dir;
+    service = new AccountsService();
+
+    service.register({
+      name: 'Saidul Islam Rajib',
+      email: 'rajib@example.com',
+      password: 'correct-horse',
+    });
+    service.register({
+      name: 'Someone Else',
+      email: 'else@other.test',
+      password: 'correct-horse',
+    });
+  });
+
+  afterEach(() => {
+    delete process.env.DATA_DIR;
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('returns everybody when nothing is searched for', () => {
+    expect(service.list()).toHaveLength(2);
+  });
+
+  it('matches on part of a name, whatever the case', () => {
+    expect(service.list('SAIDUL').map((a) => a.email)).toEqual([
+      'rajib@example.com',
+    ]);
+  });
+
+  it('matches on part of an email', () => {
+    expect(service.list('other.test').map((a) => a.name)).toEqual([
+      'Someone Else',
+    ]);
+  });
+
+  it('returns nothing for a search that matches nobody', () => {
+    expect(service.list('nobody-at-all')).toEqual([]);
   });
 });

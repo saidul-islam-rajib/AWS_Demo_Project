@@ -9,8 +9,7 @@ import {
 } from '../../posts/post.model';
 import { avatarMark, esc, IMAGE_SKELETON, layout } from '../shared/layout';
 import { getSettings } from '../../settings/settings.store';
-
-export const SIDEBAR_TAG_LIMIT = 20;
+import { ContentPolicy } from '../../shared/config/policies';
 
 const FEED_CSS = `
 <style>
@@ -480,7 +479,7 @@ ${FEED_CSS}
           ${
             tags.length
               ? tags
-                  .slice(0, SIDEBAR_TAG_LIMIT)
+                  .slice(0, ContentPolicy.sidebarTagLimit)
                   .map(
                     ({ tag, count }) =>
                       `<a class="tag" href="/tag/${esc(tag)}">${esc(tag)} <span style="opacity:.6">${count}</span></a>`,
@@ -490,7 +489,7 @@ ${FEED_CSS}
           }
         </div>
         ${
-          tags.length > SIDEBAR_TAG_LIMIT
+          tags.length > ContentPolicy.sidebarTagLimit
             ? `<a class="rail-more" href="/tags">See all ${tags.length} tags →</a>`
             : ''
         }

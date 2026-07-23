@@ -1,4 +1,7 @@
 import { Module } from '@nestjs/common';
+import { AssetsModule } from './shared/assets/assets.module';
+import { ConfigService } from './shared/config/config.service';
+import { ConfigController } from './shared/config/config.controller';
 import { PostsController } from './posts/posts.controller';
 import { AdminController } from './posts/admin.controller';
 import { UploadsController } from './uploads/uploads.controller';
@@ -21,16 +24,21 @@ import { CertificatesService } from './tutorials/certificates.service';
 import { ProgressService } from './tutorials/progress.service';
 import { AccountsService } from './accounts/accounts.service';
 import { AccountSessionService } from './accounts/account-session.service';
+import { AccountResetService } from './accounts/account-reset.service';
+import { AccountAssetsBootstrap } from './accounts/account.assets.bootstrap';
 import { AccountsController } from './accounts/accounts.controller';
+import { AccountsAdminController } from './accounts/accounts.admin.controller';
 import { AuthService } from './auth/auth.service';
 import { LoginThrottleService } from './auth/login-throttle.service';
 
 @Module({
-  imports: [],
+  imports: [AssetsModule],
   controllers: [
+    ConfigController,
     SettingsController,
     AboutController,
     ProjectsController,
+    AccountsAdminController,
     AccountsController,
     TutorialsAdminController,
     TutorialsController,
@@ -53,8 +61,11 @@ import { LoginThrottleService } from './auth/login-throttle.service';
     ProgressService,
     AccountsService,
     AccountSessionService,
+    AccountResetService,
+    AccountAssetsBootstrap,
     AuthService,
     LoginThrottleService,
+    ConfigService,
   ],
 })
 export class AppModule {}

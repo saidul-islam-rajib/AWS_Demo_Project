@@ -1,10 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-
-export const MAX_ATTEMPTS = 5;
-
-export const LOCKOUT_MS = 15 * 60 * 1000;
-
-export const WINDOW_MS = 15 * 60 * 1000;
+import { SecurityPolicy } from '../shared/config/policies';
 
 interface Attempts {
   count: number;
@@ -23,7 +18,10 @@ export class LoginThrottleService {
 
     if (record.lockedUntil > now) return record.lockedUntil - now;
 
-    if (record.lockedUntil > 0 || now - record.first > WINDOW_MS) {
+    if (
+      record.lockedUntil > 0 ||
+      now - record.first > SecurityPolicy.windowMs
+    ) {
       this.attempts.delete(key);
     }
 
@@ -39,15 +37,15 @@ export class LoginThrottleService {
 
     const record = this.attempts.get(key);
 
-    if (!record || now - record.first > WINDOW_MS) {
+    if (!record || now - record.first > SecurityPolicy.windowMs) {
       this.attempts.set(key, { count: 1, first: now, lockedUntil: 0 });
       return false;
     }
 
     record.count += 1;
 
-    if (record.count >= MAX_ATTEMPTS) {
-      record.lockedUntil = now + LOCKOUT_MS;
+    if (record.count >= SecurityPolicy.maxLoginAttempts) {
+      record.lockedUntil = now + SecurityPolicy.lockoutMs;
       this.logger.warn(
         `Locked sign-in from ${key} after ${record.count} failed attempts.`,
       );
@@ -64,7 +62,9 @@ export class LoginThrottleService {
   private sweep(now: number): void {
     for (const [key, record] of this.attempts) {
       const expired = record.lockedUntil > 0 && record.lockedUntil <= now;
-      const stale = record.lockedUntil === 0 && now - record.first > WINDOW_MS;
+      const stale =
+        record.lockedUntil === 0 &&
+        now - record.first > SecurityPolicy.windowMs;
       if (expired || stale) this.attempts.delete(key);
     }
   }
