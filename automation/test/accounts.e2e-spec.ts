@@ -27,10 +27,10 @@ describe('accounts', () => {
         expect(res.text).toContain('name="password"');
       }));
 
-  it('creates an account and starts a session', async () => {
-    const res = await register().expect(302);
+  it('creates an account, starts a session and shows the recovery code', async () => {
+    const res = await register().expect(200);
 
-    expect(res.headers.location).toBe('/account');
+    expect(res.text).toContain('Save your recovery code');
     expect(sessionFrom(res)).toContain('account_session');
     expect(sessionFrom(res)).toContain('HttpOnly');
   });
@@ -54,7 +54,7 @@ describe('accounts', () => {
       .expect((res) => expect(res.text).toContain('email')));
 
   it('refuses a duplicate email', async () => {
-    await register().expect(302);
+    await register().expect(200);
 
     await register()
       .expect(200)
@@ -62,7 +62,7 @@ describe('accounts', () => {
   });
 
   it('signs in with the right password', async () => {
-    await register().expect(302);
+    await register().expect(200);
 
     const res = await request(ctx.server)
       .post('/account/sign-in')
@@ -74,7 +74,7 @@ describe('accounts', () => {
   });
 
   it('refuses the wrong password', async () => {
-    await register().expect(302);
+    await register().expect(200);
 
     await request(ctx.server)
       .post('/account/sign-in')
@@ -94,7 +94,7 @@ describe('accounts', () => {
       .expect('Location', '/account/sign-in'));
 
   it('shows the account page once signed in', async () => {
-    const jar = sessionFrom(await register().expect(302));
+    const jar = sessionFrom(await register().expect(200));
 
     await request(ctx.server)
       .get('/account')
@@ -107,7 +107,7 @@ describe('accounts', () => {
   });
 
   it('signs out again', async () => {
-    const jar = sessionFrom(await register().expect(302));
+    const jar = sessionFrom(await register().expect(200));
 
     await request(ctx.server)
       .post('/account/sign-out')
@@ -124,16 +124,17 @@ describe('accounts', () => {
 
   it('only follows a relative next target', async () => {
     const res = await register({ next: 'https://evil.example/steal' }).expect(
-      302,
+      200,
     );
 
-    expect(res.headers.location).toBe('/account');
+    expect(res.text).toContain('href="/account"');
+    expect(res.text).not.toContain('evil.example');
   });
 
   it('follows a relative next target', async () => {
-    const res = await register({ next: '/tutorials/networking' }).expect(302);
+    const res = await register({ next: '/tutorials/networking' }).expect(200);
 
-    expect(res.headers.location).toBe('/tutorials/networking');
+    expect(res.text).toContain('href="/tutorials/networking"');
   });
 });
 
@@ -145,7 +146,7 @@ describe('sign-in rate limiting', () => {
       .send({ email: 'rajib@example.com', password });
 
   it('locks out after repeated wrong passwords', async () => {
-    await register().expect(302);
+    await register().expect(200);
 
     for (let i = 0; i < 5; i += 1) {
       await attempt('wrong').expect(200);
@@ -157,7 +158,7 @@ describe('sign-in rate limiting', () => {
   });
 
   it('refuses the right password while locked out', async () => {
-    await register().expect(302);
+    await register().expect(200);
 
     for (let i = 0; i < 5; i += 1) {
       await attempt('wrong').expect(200);
@@ -172,7 +173,7 @@ describe('sign-in rate limiting', () => {
   });
 
   it('lets a correct password through before the limit', async () => {
-    await register().expect(302);
+    await register().expect(200);
 
     await attempt('wrong').expect(200);
 
@@ -180,4 +181,127 @@ describe('sign-in rate limiting', () => {
       .expect(302)
       .expect((res) => expect(res.headers['set-cookie']).toBeDefined());
   });
+});
+
+describe('password recovery', () => {
+  const codeFrom = (html: string): string =>
+    /class="recovery-code">([^<]+)</.exec(html)?.[1].trim() ?? '';
+
+  it('serves a recovery form', () =>
+    request(ctx.server)
+      .get('/account/recover')
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('Reset your password');
+        expect(res.text).toContain('name="code"');
+      }));
+
+  it('links to it from the sign-in page', () =>
+    request(ctx.server)
+      .get('/account/sign-in')
+      .expect(200)
+      .expect((res) => expect(res.text).toContain('/account/recover')));
+
+  it('resets the password with the code from registration', async () => {
+    const code = codeFrom((await register().expect(200)).text);
+    expect(code).toBeTruthy();
+
+    await request(ctx.server)
+      .post('/account/recover')
+      .type('form')
+      .send({
+        email: 'rajib@example.com',
+        code,
+        password: 'a-brand-new-password',
+      })
+      .expect(200)
+      .expect((res) => expect(res.text).toContain('Save your recovery code'));
+
+    await request(ctx.server)
+      .post('/account/sign-in')
+      .type('form')
+      .send({ email: 'rajib@example.com', password: 'a-brand-new-password' })
+      .expect(302);
+  });
+
+  it('refuses a wrong code and leaves the old password working', async () => {
+    await register().expect(200);
+
+    await request(ctx.server)
+      .post('/account/recover')
+      .type('form')
+      .send({
+        email: 'rajib@example.com',
+        code: 'WRONG-WRONG-WRONG-WRONG',
+        password: 'a-brand-new-password',
+      })
+      .expect(200)
+      .expect((res) => expect(res.text).toContain('did not match'));
+
+    await request(ctx.server)
+      .post('/account/sign-in')
+      .type('form')
+      .send({ email: 'rajib@example.com', password: 'correct-horse' })
+      .expect(302);
+  });
+
+  it('will not reuse a spent code', async () => {
+    const code = codeFrom((await register().expect(200)).text);
+
+    await request(ctx.server)
+      .post('/account/recover')
+      .type('form')
+      .send({
+        email: 'rajib@example.com',
+        code,
+        password: 'first-new-password',
+      })
+      .expect(200);
+
+    await request(ctx.server)
+      .post('/account/recover')
+      .type('form')
+      .send({ email: 'rajib@example.com', code, password: 'second-attempt' })
+      .expect(200)
+      .expect((res) => expect(res.text).toContain('did not match'));
+  });
+
+  it('does not reveal whether an address has an account', async () => {
+    await register().expect(200);
+
+    const known = await request(ctx.server)
+      .post('/account/recover')
+      .type('form')
+      .send({
+        email: 'rajib@example.com',
+        code: 'AAAAA-AAAAA-AAAAA-AAAAA',
+        password: 'a-brand-new-password',
+      })
+      .expect(200);
+
+    const unknown = await request(ctx.server)
+      .post('/account/recover')
+      .type('form')
+      .send({
+        email: 'nobody@example.com',
+        code: 'AAAAA-AAAAA-AAAAA-AAAAA',
+        password: 'a-brand-new-password',
+      })
+      .expect(200);
+
+    expect(known.text).toContain('did not match');
+    expect(unknown.text).toContain('did not match');
+  });
+
+  it('rejects a short new password before touching the account', () =>
+    request(ctx.server)
+      .post('/account/recover')
+      .type('form')
+      .send({
+        email: 'rajib@example.com',
+        code: 'AAAAA-AAAAA-AAAAA-AAAAA',
+        password: 'short',
+      })
+      .expect(200)
+      .expect((res) => expect(res.text).toContain('at least')));
 });

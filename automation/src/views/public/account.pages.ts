@@ -3,6 +3,9 @@ import {
   MIN_PASSWORD_LENGTH,
   MAX_EMAIL_LENGTH,
   MAX_NAME_LENGTH,
+  RECOVERY_GROUPS,
+  RECOVERY_GROUP_LENGTH,
+  formatRecoveryCode,
 } from '../../accounts/account.model';
 import { esc, layout } from '../shared/layout';
 import { ACCOUNT_STYLES } from './account.styles';
@@ -11,6 +14,7 @@ export const ACCOUNT_PATHS = {
   register: '/account/register',
   signIn: '/account/sign-in',
   signOut: '/account/sign-out',
+  recover: '/account/recover',
   home: '/account',
 } as const;
 
@@ -19,6 +23,12 @@ interface FormState {
   name?: string;
   email?: string;
   next?: string;
+}
+
+function exampleRecoveryShape(): string {
+  return Array.from({ length: RECOVERY_GROUPS }, () =>
+    'X'.repeat(RECOVERY_GROUP_LENGTH),
+  ).join('-');
 }
 
 function nextField(next?: string): string {
@@ -111,6 +121,8 @@ export function signInPage(state: FormState = {}): string {
       <p class="account-alt">
         No account yet?
         <a href="${esc(withNext(ACCOUNT_PATHS.register, state.next))}">Create one</a>
+        &middot;
+        <a href="${ACCOUNT_PATHS.recover}">Lost your password?</a>
       </p>
     </section>
   `;
@@ -159,6 +171,82 @@ export function accountPage(
     title: account.name,
     body,
     path: ACCOUNT_PATHS.home,
+    head: ACCOUNT_STYLES,
+    noindex: true,
+  });
+}
+
+export function recoveryCodePage(code: string, next?: string): string {
+  const body = `
+    <section class="account-card">
+      <h1>Save your recovery code</h1>
+      <p class="account-lede">
+        This is the only way back into your account if you forget your
+        password. There is no email reset, so store it somewhere safe. It is
+        shown once and cannot be retrieved later.
+      </p>
+
+      <p class="recovery-code">${esc(formatRecoveryCode(code))}</p>
+
+      <a class="btn btn-primary" href="${esc(next && next.startsWith('/') ? next : ACCOUNT_PATHS.home)}">
+        I have saved it
+      </a>
+    </section>
+  `;
+
+  return layout({
+    title: 'Your recovery code',
+    body,
+    path: ACCOUNT_PATHS.register,
+    head: ACCOUNT_STYLES,
+    noindex: true,
+  });
+}
+
+export function recoverPage(state: FormState & { code?: string } = {}): string {
+  const body = `
+    <section class="account-card">
+      <h1>Reset your password</h1>
+      <p class="account-lede">
+        Enter the recovery code you saved when you registered, and choose a new
+        password.
+      </p>
+
+      ${state.error ? `<p class="account-error">${esc(state.error)}</p>` : ''}
+
+      <form method="post" action="${ACCOUNT_PATHS.recover}">
+        <div class="account-field">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" required autocomplete="email"
+                 maxlength="${MAX_EMAIL_LENGTH}" value="${esc(state.email ?? '')}" />
+        </div>
+
+        <div class="account-field">
+          <label for="code">Recovery code</label>
+          <input type="text" id="code" name="code" required autocomplete="off"
+                 spellcheck="false" placeholder="${esc(exampleRecoveryShape())}"
+                 value="${esc(state.code ?? '')}" />
+        </div>
+
+        <div class="account-field">
+          <label for="password">New password</label>
+          <input type="password" id="password" name="password" required
+                 autocomplete="new-password" minlength="${MIN_PASSWORD_LENGTH}" />
+        </div>
+
+        <button class="btn btn-primary" type="submit">Set a new password</button>
+      </form>
+
+      <p class="account-alt">
+        Remembered it? <a href="${ACCOUNT_PATHS.signIn}">Sign in</a>
+      </p>
+    </section>
+  `;
+
+  return layout({
+    title: 'Reset your password',
+    body,
+    path: ACCOUNT_PATHS.recover,
     head: ACCOUNT_STYLES,
     noindex: true,
   });

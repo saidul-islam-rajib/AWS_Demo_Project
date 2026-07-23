@@ -4,6 +4,9 @@ import { join } from 'path';
 import { AccountsService } from './accounts.service';
 import {
   MIN_PASSWORD_LENGTH,
+  RECOVERY_GROUPS,
+  RECOVERY_GROUP_LENGTH,
+  formatRecoveryCode,
   normaliseEmail,
   normaliseName,
   registrationProblem,
@@ -67,7 +70,7 @@ describe('AccountsService', () => {
       name: 'Saidul Islam Rajib',
       email: 'Rajib@Example.com',
       password: 'correct-horse',
-    });
+    }).account;
 
   it('starts empty', () => {
     expect(service.count).toBe(0);
@@ -90,7 +93,7 @@ describe('AccountsService', () => {
       name: 'Other',
       email: 'other@example.com',
       password: 'correct-horse',
-    });
+    }).account;
 
     expect(a.secret).not.toBe(b.secret);
   });
@@ -138,5 +141,149 @@ describe('AccountsService', () => {
     register();
 
     expect(new AccountsService().count).toBe(1);
+  });
+});
+
+describe('recovery codes', () => {
+  let dir: string;
+  let service: AccountsService;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'recovery-test-'));
+    process.env.DATA_DIR = dir;
+    service = new AccountsService();
+  });
+
+  afterEach(() => {
+    delete process.env.DATA_DIR;
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  const create = () =>
+    service.register({
+      name: 'Rajib',
+      email: 'rajib@example.com',
+      password: 'correct-horse',
+    });
+
+  it('hands out a code of the declared shape', () => {
+    const { code } = create();
+
+    expect(code).toHaveLength(RECOVERY_GROUPS * RECOVERY_GROUP_LENGTH);
+    expect(code).toMatch(/^[A-Z0-9]+$/);
+  });
+
+  it('never stores the code itself', () => {
+    const { account, code } = create();
+
+    expect(account.recovery).not.toContain(code);
+    expect(account.recovery).toContain(':');
+  });
+
+  it('gives each account a different code', () => {
+    const first = create().code;
+
+    const second = service.register({
+      name: 'Other',
+      email: 'other@example.com',
+      password: 'correct-horse',
+    }).code;
+
+    expect(second).not.toBe(first);
+  });
+
+  it('resets the password when the code matches', () => {
+    const { code } = create();
+
+    expect(
+      service.recover({
+        email: 'rajib@example.com',
+        code,
+        password: 'a-new-password',
+      }),
+    ).not.toBe('');
+
+    expect(
+      service.authenticate({
+        email: 'rajib@example.com',
+        password: 'a-new-password',
+      }),
+    ).toBeDefined();
+
+    expect(
+      service.authenticate({
+        email: 'rajib@example.com',
+        password: 'correct-horse',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('accepts the code however it is punctuated or cased', () => {
+    const { code } = create();
+
+    expect(
+      service.recover({
+        email: 'rajib@example.com',
+        code: formatRecoveryCode(code).toLowerCase(),
+        password: 'a-new-password',
+      }),
+    ).not.toBe('');
+  });
+
+  it('refuses a wrong code and leaves the password alone', () => {
+    create();
+
+    expect(
+      service.recover({
+        email: 'rajib@example.com',
+        code: 'W'.repeat(RECOVERY_GROUPS * RECOVERY_GROUP_LENGTH),
+        password: 'a-new-password',
+      }),
+    ).toBe('');
+
+    expect(
+      service.authenticate({
+        email: 'rajib@example.com',
+        password: 'correct-horse',
+      }),
+    ).toBeDefined();
+  });
+
+  it('refuses an unknown address without throwing', () => {
+    expect(
+      service.recover({
+        email: 'nobody@example.com',
+        code: 'X'.repeat(RECOVERY_GROUPS * RECOVERY_GROUP_LENGTH),
+        password: 'a-new-password',
+      }),
+    ).toBe('');
+  });
+
+  it('burns the code, so it cannot be reused', () => {
+    const { code } = create();
+
+    const replacement = service.recover({
+      email: 'rajib@example.com',
+      code,
+      password: 'a-new-password',
+    });
+
+    expect(replacement).not.toBe(code);
+
+    expect(
+      service.recover({
+        email: 'rajib@example.com',
+        code,
+        password: 'another-password',
+      }),
+    ).toBe('');
+
+    expect(
+      service.recover({
+        email: 'rajib@example.com',
+        code: replacement,
+        password: 'another-password',
+      }),
+    ).not.toBe('');
   });
 });

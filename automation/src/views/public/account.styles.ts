@@ -37,4 +37,10 @@ export const ACCOUNT_STYLES = `
   .account-cert span { font-size: 0.79rem; color: var(--ink-3); }
   .account-empty { font-size: 0.88rem; color: var(--ink-3); }
   .account-signout { margin-top: 2rem; }
+  .recovery-code {
+    font-family: var(--mono); font-size: 1.25rem; letter-spacing: 0.08em;
+    text-align: center; padding: 1.1rem; margin: 1.5rem 0;
+    border: 1px dashed var(--accent); border-radius: 12px;
+    color: var(--ink); word-break: break-all;
+  }
 </style>`;

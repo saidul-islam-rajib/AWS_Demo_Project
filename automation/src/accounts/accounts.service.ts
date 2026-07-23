@@ -12,9 +12,14 @@ import {
   Account,
   AccountStore,
   CredentialsInput,
+  RECOVERY_ALPHABET,
+  RECOVERY_GROUPS,
+  RECOVERY_GROUP_LENGTH,
+  RecoveryInput,
   RegisterInput,
   normaliseEmail,
   normaliseName,
+  normaliseRecoveryCode,
 } from './account.model';
 
 const KEY_LENGTH = 64;
@@ -73,6 +78,18 @@ export class AccountsService {
     return scryptSync(password, salt, KEY_LENGTH).toString('hex');
   }
 
+  private newRecoveryCode(): string {
+    const length = RECOVERY_GROUPS * RECOVERY_GROUP_LENGTH;
+    const bytes = randomBytes(length);
+    let code = '';
+
+    for (const byte of bytes) {
+      code += RECOVERY_ALPHABET[byte % RECOVERY_ALPHABET.length];
+    }
+
+    return code;
+  }
+
   private secretFor(password: string): string {
     const salt = randomBytes(SALT_BYTES).toString('hex');
 
@@ -103,19 +120,41 @@ export class AccountsService {
     return Boolean(this.findByEmail(email));
   }
 
-  register(input: RegisterInput): Account {
+  register(input: RegisterInput): { account: Account; code: string } {
+    const code = this.newRecoveryCode();
+
     const account: Account = {
       id: randomUUID(),
       name: normaliseName(input.name),
       email: normaliseEmail(input.email),
       secret: this.secretFor(input.password ?? ''),
+      recovery: this.secretFor(code),
       createdAt: new Date().toISOString(),
     };
 
     this.accounts.push(account);
     this.persist();
 
-    return account;
+    return { account, code };
+  }
+
+  recover(input: RecoveryInput): string {
+    const account = this.findByEmail(input.email);
+    if (!account) return '';
+
+    if (
+      !this.secretMatches(account.recovery, normaliseRecoveryCode(input.code))
+    ) {
+      return '';
+    }
+
+    const replacement = this.newRecoveryCode();
+
+    account.secret = this.secretFor(input.password ?? '');
+    account.recovery = this.secretFor(replacement);
+    this.persist();
+
+    return replacement;
   }
 
   authenticate(input: CredentialsInput): Account | undefined {

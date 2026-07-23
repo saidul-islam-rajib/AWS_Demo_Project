@@ -784,7 +784,7 @@ const studentSession = async (): Promise<string> => {
       email: 'rajib@example.com',
       password: 'correct-horse',
     })
-    .expect(302);
+    .expect(200);
 
   return (res.headers['set-cookie'] as unknown as string[])[0];
 };
@@ -890,7 +890,7 @@ describe('certificate', () => {
         email: 'other@example.com',
         password: 'correct-horse',
       })
-      .expect(302);
+      .expect(200);
 
     const theirs = (otherRes.headers['set-cookie'] as unknown as string[])[0];
 

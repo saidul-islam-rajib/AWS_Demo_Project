@@ -12,15 +12,18 @@ import {
 import type { Request, Response } from 'express';
 import { AccountsService } from './accounts.service';
 import { AccountSessionService } from './account-session.service';
+import type { RecoveryInput, RegisterInput } from './account.model';
 import {
-  RegisterInput,
   describeAccount,
   normaliseEmail,
+  recoveryProblem,
   registrationProblem,
 } from './account.model';
 import {
   ACCOUNT_PATHS,
   accountPage,
+  recoverPage,
+  recoveryCodePage,
   registerPage,
   signInPage,
 } from '../views/public/account.pages';
@@ -137,10 +140,10 @@ export class AccountsController {
       return;
     }
 
-    const account = this.accounts.register(body);
+    const { account, code } = this.accounts.register(body);
 
     this.startSession(res, account.id);
-    res.redirect(this.safeNext(body.next));
+    res.send(recoveryCodePage(code, this.safeNext(body.next)));
   }
 
   @Get('sign-in')
@@ -191,6 +194,59 @@ export class AccountsController {
     this.throttle.recordSuccess(key);
     this.startSession(res, account.id);
     res.redirect(this.safeNext(body.next));
+  }
+
+  @Get('recover')
+  @Header('Content-Type', 'text/html')
+  recoverForm(): string {
+    return recoverPage();
+  }
+
+  @Post('recover')
+  @HttpCode(200)
+  @Header('Content-Type', 'text/html')
+  recover(
+    @Body() body: RecoveryInput,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): void {
+    const problem = recoveryProblem(body);
+
+    if (problem) {
+      res.send(
+        recoverPage({ error: problem, email: body.email, code: body.code }),
+      );
+      return;
+    }
+
+    const key = this.throttleKey(req);
+
+    if (this.throttle.retryAfter(key) > 0) {
+      res.send(
+        recoverPage({
+          error: 'Too many attempts. Try again shortly.',
+          email: body.email,
+        }),
+      );
+      return;
+    }
+
+    const replacement = this.accounts.recover(body);
+
+    if (!replacement) {
+      this.throttle.recordFailure(key);
+
+      res.send(
+        recoverPage({
+          error: 'That email and recovery code did not match.',
+          email: body.email,
+        }),
+      );
+      return;
+    }
+
+    this.throttle.recordSuccess(key);
+    res.send(recoveryCodePage(replacement));
   }
 
   @Post('sign-out')
