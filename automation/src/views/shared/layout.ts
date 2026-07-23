@@ -580,6 +580,7 @@ export function adminNav(path = '/admin'): string {
     `<a href="/admin" class="${path === '/admin' ? 'active' : ''}">Dashboard</a>`,
     navLink('/admin/projects', 'Projects', path),
     navLink('/admin/tutorials', 'Tutorials', path),
+    navLink('/admin/accounts', 'Accounts', path),
     navLink('/admin/about', 'About', path),
     navLink('/admin/settings', 'Settings', path),
     navLink('/admin/posts', 'Write', path, '/admin/posts/new'),

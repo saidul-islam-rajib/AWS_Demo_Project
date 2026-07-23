@@ -12,6 +12,15 @@ export const RECOVERY_GROUPS = 4;
 
 export const RECOVERY_GROUP_LENGTH = 5;
 
+export const RECOVERY_CODE_LENGTH = RECOVERY_GROUPS * RECOVERY_GROUP_LENGTH;
+
+/**
+ * How long a reset link the owner hands out stays usable. Long enough to read
+ * it down a phone line and type it in, short enough that a link left in a chat
+ * window is worthless by the time anyone else finds it.
+ */
+export const RESET_LINK_MINUTES = 60;
+
 export interface AccountBenefit {
   icon: string;
   title: string;
@@ -35,7 +44,7 @@ export const ACCOUNT_BENEFITS: AccountBenefit[] = [
     icon: '⚿',
     title: 'A way back in',
     detail:
-      'You get a recovery code at sign-up. Nothing is emailed to you and your address is never shared.',
+      'You get a recovery code at sign-up, and can swap it for a fresh one whenever you are signed in. Nothing is emailed to you and your address is never shared.',
   },
 ];
 
@@ -52,7 +61,7 @@ export const REGISTRATION_STEPS: AccountStep[] = [
   {
     title: 'Save your recovery code',
     detail:
-      'Shown once, straight after. It is the only way to reset a password.',
+      'Shown once, straight after. Lost it later? Ask for a new one from your account page.',
   },
   {
     title: 'Start learning',
@@ -67,10 +76,48 @@ export interface Account {
   secret: string;
   recovery: string;
   createdAt: string;
+  recoveryIssuedAt?: string;
 }
 
 export interface AccountStore {
   accounts: Account[];
+}
+
+/**
+ * A one-time password reset the owner issues to somebody who has lost both
+ * their password and their recovery code. The code itself is sealed, so
+ * issuing one is the only way to see it: the owner reads it out once and
+ * cannot look it up again afterwards.
+ */
+export interface AccountReset {
+  id: string;
+  accountId: string;
+  secret: string;
+  note: string;
+  issuedAt: string;
+  expiresAt: string;
+  usedAt: string;
+  revokedAt: string;
+}
+
+export interface ResetStore {
+  resets: AccountReset[];
+}
+
+export type ResetState = 'live' | 'used' | 'revoked' | 'expired';
+
+export const RESET_STATE_LABELS: Record<ResetState, string> = {
+  live: 'Waiting to be used',
+  used: 'Used',
+  revoked: 'Revoked',
+  expired: 'Expired',
+};
+
+export function resetState(reset: AccountReset, now = Date.now()): ResetState {
+  if (reset.usedAt) return 'used';
+  if (reset.revokedAt) return 'revoked';
+
+  return Date.parse(reset.expiresAt) > now ? 'live' : 'expired';
 }
 
 export interface RegisterInput {
@@ -87,6 +134,10 @@ export interface CredentialsInput {
 export interface RecoveryInput {
   email?: string;
   code?: string;
+  password?: string;
+}
+
+export interface RotateInput {
   password?: string;
 }
 
@@ -112,6 +163,29 @@ export function describeAccount(account: Account): AccountView {
   return { id: account.id, name: account.name, email: account.email };
 }
 
+export function formatDay(iso?: string): string {
+  const at = new Date(iso ?? '');
+
+  return Number.isNaN(at.getTime())
+    ? ''
+    : at.toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+}
+
+export function formatMoment(iso?: string): string {
+  const at = new Date(iso ?? '');
+
+  return Number.isNaN(at.getTime())
+    ? ''
+    : `${formatDay(iso)} at ${at.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })}`;
+}
+
 export function normaliseRecoveryCode(value?: string): string {
   return (value ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
@@ -130,10 +204,7 @@ export function recoveryProblem(input: RecoveryInput): string {
   if (!validEmail(input.email))
     return 'Enter the email address on the account.';
 
-  if (
-    normaliseRecoveryCode(input.code).length !==
-    RECOVERY_GROUPS * RECOVERY_GROUP_LENGTH
-  ) {
+  if (normaliseRecoveryCode(input.code).length !== RECOVERY_CODE_LENGTH) {
     return 'Enter the recovery code you were given when you registered.';
   }
 
@@ -142,6 +213,27 @@ export function recoveryProblem(input: RecoveryInput): string {
   }
 
   return '';
+}
+
+export function resetProblem(input: RecoveryInput): string {
+  if (!validEmail(input.email))
+    return 'Enter the email address on the account.';
+
+  if (normaliseRecoveryCode(input.code).length !== RECOVERY_CODE_LENGTH) {
+    return 'Enter the reset code from the link you were given.';
+  }
+
+  if (!validPassword(input.password)) {
+    return `Choose a new password of at least ${MIN_PASSWORD_LENGTH} characters.`;
+  }
+
+  return '';
+}
+
+export function rotationProblem(input: RotateInput): string {
+  return input.password
+    ? ''
+    : 'Enter your password to be given a new recovery code.';
 }
 
 export function registrationProblem(input: RegisterInput): string {

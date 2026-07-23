@@ -17,6 +17,14 @@ import {
   subjectLessonsPage,
   tutorialsAdminPage,
 } from './admin/tutorials.page';
+import { accountDetailPage, accountsAdminPage } from './admin/accounts.page';
+import {
+  accountPage,
+  recoverPage,
+  recoveryCodePage,
+  resetPage,
+} from './public/account.pages';
+import { Account } from '../accounts/account.model';
 import { EMPTY_ABOUT } from '../about/about.model';
 import { DEFAULT_SETTINGS } from '../settings/settings.model';
 import { Post } from '../posts/post.model';
@@ -110,6 +118,16 @@ const subjectStat = {
   total: 1,
   minutes: 4,
   difficulties: ['beginner'] as const,
+};
+
+const account: Account = {
+  id: 'a1',
+  name: 'Saidul Islam Rajib',
+  email: 'rajib@example.com',
+  secret: 'salt:digest',
+  recovery: 'salt:digest',
+  createdAt: '2026-01-01T00:00:00.000Z',
+  recoveryIssuedAt: '2026-01-01T00:00:00.000Z',
 };
 
 const pages: [string, () => string][] = [
@@ -206,6 +224,38 @@ const pages: [string, () => string][] = [
   ],
   ['lesson editor (new)', () => lessonEditorPage([subject], subject)],
   ['lesson editor (edit)', () => lessonEditorPage([subject], subject, lesson)],
+  [
+    'account home',
+    () =>
+      accountPage({
+        account,
+        certificates: [],
+        recoveryIssuedAt: account.recoveryIssuedAt,
+      }),
+  ],
+  ['account recovery code', () => recoveryCodePage('ABCDEFGHJKLMNPQRSTUV')],
+  ['account recover', () => recoverPage()],
+  ['account reset', () => resetPage({ code: 'ABCDEFGHJKLMNPQRSTUV' })],
+  [
+    'accounts admin',
+    () =>
+      accountsAdminPage({
+        rows: [{ account, certificates: 1, liveReset: true }],
+      }),
+  ],
+  [
+    'account detail (admin)',
+    () =>
+      accountDetailPage({
+        account,
+        certificates: 1,
+        history: [],
+        issued: {
+          code: 'ABCDEFGHJKLMNPQRSTUV',
+          url: 'https://example.test/account/reset?code=ABCDE-FGHJK-LMNPQ-RSTUV',
+        },
+      }),
+  ],
 ];
 
 function inlineScripts(html: string): string[] {

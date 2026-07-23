@@ -21,7 +21,9 @@ import { CertificatesService } from './tutorials/certificates.service';
 import { ProgressService } from './tutorials/progress.service';
 import { AccountsService } from './accounts/accounts.service';
 import { AccountSessionService } from './accounts/account-session.service';
+import { AccountResetService } from './accounts/account-reset.service';
 import { AccountsController } from './accounts/accounts.controller';
+import { AccountsAdminController } from './accounts/accounts.admin.controller';
 import { AuthService } from './auth/auth.service';
 import { LoginThrottleService } from './auth/login-throttle.service';
 
@@ -31,6 +33,7 @@ import { LoginThrottleService } from './auth/login-throttle.service';
     SettingsController,
     AboutController,
     ProjectsController,
+    AccountsAdminController,
     AccountsController,
     TutorialsAdminController,
     TutorialsController,
@@ -53,6 +56,7 @@ import { LoginThrottleService } from './auth/login-throttle.service';
     ProgressService,
     AccountsService,
     AccountSessionService,
+    AccountResetService,
     AuthService,
     LoginThrottleService,
   ],

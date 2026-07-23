@@ -2,6 +2,8 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { TUTORIALS_STYLES } from './public/tutorials.styles';
 import { TUTORIALS_ADMIN_STYLES } from './admin/tutorials.styles';
+import { ACCOUNT_STYLES } from './public/account.styles';
+import { ACCOUNTS_ADMIN_STYLES } from './admin/accounts.styles';
 import {
   subjectPage,
   tutorialPage,
@@ -93,6 +95,8 @@ const DEFINED = new Set(
 const sheets: [string, string][] = [
   ['public tutorials', TUTORIALS_STYLES],
   ['admin tutorials', TUTORIALS_ADMIN_STYLES],
+  ['public accounts', ACCOUNT_STYLES],
+  ['admin accounts', ACCOUNTS_ADMIN_STYLES],
 ];
 
 describe('stylesheet integrity', () => {

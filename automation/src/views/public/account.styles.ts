@@ -1,3 +1,5 @@
+import { COPY_CODE_CSS } from '../shared/scripts/copy-code';
+
 export const ACCOUNT_STYLES = `
 <style>
   .account-shell {
@@ -135,6 +137,28 @@ export const ACCOUNT_STYLES = `
     font-size: 0.83rem; color: var(--ink-3); line-height: 1.6;
     margin-bottom: 1.5rem;
   }
+  .recovery-warn a { color: var(--accent); font-weight: 600; }
+
+  .recovery-panel {
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 1.1rem 1.15rem; background: var(--surface-2);
+  }
+  .recovery-panel p {
+    font-size: 0.85rem; color: var(--ink-3); line-height: 1.6;
+    margin-bottom: 1.1rem;
+  }
+  .recovery-panel button[type="submit"] { margin-top: 0; }
+
+  .account-stuck {
+    margin-top: 1.75rem; padding: 1.1rem 1.15rem;
+    border: 1px dashed var(--border); border-radius: 12px;
+  }
+  .account-stuck b { display: block; font-size: 0.9rem; color: var(--ink); }
+  .account-stuck p {
+    font-size: 0.83rem; color: var(--ink-3); line-height: 1.6; margin-top: 0.5rem;
+  }
+  .account-stuck a { color: var(--accent); font-weight: 600; }
+${COPY_CODE_CSS}
 
   @media (max-width: 800px) {
     .account-shell { grid-template-columns: minmax(0, 1fr); }

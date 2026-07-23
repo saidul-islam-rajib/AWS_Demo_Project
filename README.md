@@ -110,6 +110,23 @@ also why the security trade-offs below are documented honestly rather than quiet
 - Photo gallery with multiple images per entry, an inline slider, and a full-size modal
 - Entirely editable from the admin — nothing hardcoded
 
+### Learner accounts and recovery
+- Accounts for learners, so progress and certificates follow the person rather than the browser
+- Passwords **and** recovery codes are stored as salted scrypt digests — neither can be read back by anybody, the site owner included
+- **Three ways back in**, so a lost code never costs a learner their account:
+
+| They have lost | Route | Who is involved |
+|---|---|---|
+| The recovery code | `/account` → *Recovery code* → confirm password | Nobody. A new code is issued on the spot and the old one dies |
+| The password | `/account/recover` → email + recovery code | Nobody. They set a new password and get a fresh code |
+| Both | Owner issues a one-time reset at `/admin/accounts` | The owner, who verifies them out of band first |
+
+- An admin-issued reset is a code in the same format, valid **once** and for **60 minutes**, tied to
+  one account, revocable, and superseded the moment another is issued. It is displayed a single
+  time — it is sealed at rest like everything else, so it cannot be looked up afterwards.
+- Issuing one **requires a written note of how the person was verified**, kept with the account as
+  an audit trail. The learner picks their own new password; the owner never sees it.
+
 ### Reading experience
 - Live search across posts, tags and projects
 - Light and dark themes following the system setting

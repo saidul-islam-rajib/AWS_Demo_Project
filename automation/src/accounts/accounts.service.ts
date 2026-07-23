@@ -7,24 +7,18 @@ import {
   writeFileSync,
 } from 'fs';
 import { join } from 'path';
-import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'crypto';
+import { randomUUID } from 'crypto';
 import {
   Account,
   AccountStore,
   CredentialsInput,
-  RECOVERY_ALPHABET,
-  RECOVERY_GROUPS,
-  RECOVERY_GROUP_LENGTH,
   RecoveryInput,
   RegisterInput,
   normaliseEmail,
   normaliseName,
   normaliseRecoveryCode,
 } from './account.model';
-
-const KEY_LENGTH = 64;
-
-const SALT_BYTES = 16;
+import { newCode, seal, sealMatches } from './secret';
 
 @Injectable()
 export class AccountsService {
@@ -74,36 +68,18 @@ export class AccountsService {
     }
   }
 
-  private hash(password: string, salt: string): string {
-    return scryptSync(password, salt, KEY_LENGTH).toString('hex');
-  }
+  /**
+   * Replaces the code on an account and returns the new one. The caller is
+   * the only chance anybody has to see it, here and everywhere else.
+   */
+  private issueRecoveryCode(account: Account): string {
+    const code = newCode();
 
-  private newRecoveryCode(): string {
-    const length = RECOVERY_GROUPS * RECOVERY_GROUP_LENGTH;
-    const bytes = randomBytes(length);
-    let code = '';
-
-    for (const byte of bytes) {
-      code += RECOVERY_ALPHABET[byte % RECOVERY_ALPHABET.length];
-    }
+    account.recovery = seal(code);
+    account.recoveryIssuedAt = new Date().toISOString();
+    this.persist();
 
     return code;
-  }
-
-  private secretFor(password: string): string {
-    const salt = randomBytes(SALT_BYTES).toString('hex');
-
-    return `${salt}:${this.hash(password, salt)}`;
-  }
-
-  private secretMatches(secret: string, password: string): boolean {
-    const [salt, expected] = secret.split(':');
-    if (!salt || !expected) return false;
-
-    const candidate = this.hash(password, salt);
-    if (candidate.length !== expected.length) return false;
-
-    return timingSafeEqual(Buffer.from(candidate), Buffer.from(expected));
   }
 
   findByEmail(email?: string): Account | undefined {
@@ -121,15 +97,17 @@ export class AccountsService {
   }
 
   register(input: RegisterInput): { account: Account; code: string } {
-    const code = this.newRecoveryCode();
+    const now = new Date().toISOString();
+    const code = newCode();
 
     const account: Account = {
       id: randomUUID(),
       name: normaliseName(input.name),
       email: normaliseEmail(input.email),
-      secret: this.secretFor(input.password ?? ''),
-      recovery: this.secretFor(code),
-      createdAt: new Date().toISOString(),
+      secret: seal(input.password ?? ''),
+      recovery: seal(code),
+      createdAt: now,
+      recoveryIssuedAt: now,
     };
 
     this.accounts.push(account);
@@ -142,28 +120,63 @@ export class AccountsService {
     const account = this.findByEmail(input.email);
     if (!account) return '';
 
-    if (
-      !this.secretMatches(account.recovery, normaliseRecoveryCode(input.code))
-    ) {
+    if (!sealMatches(account.recovery, normaliseRecoveryCode(input.code))) {
       return '';
     }
 
-    const replacement = this.newRecoveryCode();
+    account.secret = seal(input.password ?? '');
 
-    account.secret = this.secretFor(input.password ?? '');
-    account.recovery = this.secretFor(replacement);
-    this.persist();
+    return this.issueRecoveryCode(account);
+  }
 
-    return replacement;
+  /**
+   * Swaps the recovery code for somebody who still knows their password —
+   * the case where a lost code costs nobody anything, so long as they can
+   * replace it before they need it.
+   */
+  rotateRecovery(id: string, password?: string): string {
+    const account = this.findById(id);
+    if (!account) return '';
+
+    return sealMatches(account.secret, password ?? '')
+      ? this.issueRecoveryCode(account)
+      : '';
+  }
+
+  /**
+   * Sets a password without checking anything. Whoever calls this has already
+   * established the person is who they say they are — today, by spending a
+   * reset the owner issued to them.
+   */
+  resetPassword(id: string, password: string): string {
+    const account = this.findById(id);
+    if (!account) return '';
+
+    account.secret = seal(password);
+
+    return this.issueRecoveryCode(account);
   }
 
   authenticate(input: CredentialsInput): Account | undefined {
     const account = this.findByEmail(input.email);
     if (!account) return undefined;
 
-    return this.secretMatches(account.secret, input.password ?? '')
+    return sealMatches(account.secret, input.password ?? '')
       ? account
       : undefined;
+  }
+
+  list(query = ''): Account[] {
+    const wanted = query.trim().toLowerCase();
+
+    return this.accounts
+      .filter(
+        (account) =>
+          !wanted ||
+          account.email.includes(wanted) ||
+          account.name.toLowerCase().includes(wanted),
+      )
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
   rename(id: string, name: string): Account | undefined {
