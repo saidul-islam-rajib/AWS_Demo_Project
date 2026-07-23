@@ -775,116 +775,199 @@ describe('student overview', () => {
   });
 });
 
+const studentSession = async (): Promise<string> => {
+  const res = await request(ctx.server)
+    .post('/account/register')
+    .type('form')
+    .send({
+      name: 'Saidul Islam Rajib',
+      email: 'rajib@example.com',
+      password: 'correct-horse',
+    })
+    .expect(302);
+
+  return (res.headers['set-cookie'] as unknown as string[])[0];
+};
+
+const referenceIn = (html: string): string =>
+  /Reference<\/span>\s*<span>([^<]+)</.exec(html)?.[1] ?? '';
+
 describe('certificate', () => {
-  it('offers a form naming the course', () =>
+  it('sends a signed-out visitor to sign in first', () =>
     request(ctx.server)
       .get('/tutorials/networking/certificate')
+      .expect(302)
+      .expect((res) =>
+        expect(res.headers.location).toContain('/account/sign-in?next='),
+      ));
+
+  it('offers a form prefilled with the account name', async () => {
+    const jar = await studentSession();
+
+    await request(ctx.server)
+      .get('/tutorials/networking/certificate')
+      .set('Cookie', jar)
       .expect(200)
       .expect((res) => {
         expect(res.text).toContain('Your certificate');
-        expect(res.text).toContain('Networking');
-        expect(res.text).toContain('name="holder"');
-        expect(res.text).toContain('name="contact"');
-      }));
+        expect(res.text).toContain('Saidul Islam Rajib');
+      });
+  });
 
-  it('issues one with the name given', () =>
-    request(ctx.server)
+  it('issues one with the name given', async () => {
+    const jar = await studentSession();
+
+    await request(ctx.server)
       .post('/tutorials/networking/certificate')
+      .set('Cookie', jar)
       .type('form')
-      .send({ holder: 'Saidul Islam Rajib', contact: 'a@b.com' })
+      .send({ holder: 'Saidul Islam Rajib' })
       .expect(200)
       .expect((res) => {
         expect(res.text).toContain('Certificate of completion');
         expect(res.text).toContain('Saidul Islam Rajib');
-        expect(res.text).toContain('a@b.com');
-        expect(res.text).toContain('Networking');
-      }));
+      });
+  });
 
-  it('falls back to Anonymous when no name is given', () =>
-    request(ctx.server)
+  it('issues the same one however many times it is asked', async () => {
+    const jar = await studentSession();
+
+    const first = await request(ctx.server)
       .post('/tutorials/networking/certificate')
+      .set('Cookie', jar)
       .type('form')
-      .send({ holder: '   ', contact: '' })
+      .send({ holder: 'Saidul Islam Rajib' })
+      .expect(200);
+
+    const second = await request(ctx.server)
+      .post('/tutorials/networking/certificate')
+      .set('Cookie', jar)
+      .type('form')
+      .send({ holder: 'A Different Name' })
+      .expect(200);
+
+    expect(referenceIn(second.text)).toBe(referenceIn(first.text));
+    expect(referenceIn(first.text)).not.toBe('');
+    expect(second.text).toContain('Saidul Islam Rajib');
+    expect(second.text).not.toContain('A Different Name');
+  });
+
+  it('returns the stored certificate rather than the form on a revisit', async () => {
+    const jar = await studentSession();
+
+    await request(ctx.server)
+      .post('/tutorials/networking/certificate')
+      .set('Cookie', jar)
+      .type('form')
+      .send({ holder: 'Saidul Islam Rajib' })
+      .expect(200);
+
+    await request(ctx.server)
+      .get('/tutorials/networking/certificate')
+      .set('Cookie', jar)
       .expect(200)
       .expect((res) => {
-        expect(res.text).toContain('Anonymous');
         expect(res.text).toContain('Certificate of completion');
-      }));
+        expect(res.text).not.toContain('Your certificate');
+      });
+  });
 
-  it('leaves out an address that is not one', () =>
-    request(ctx.server)
+  it('gives two people different references for the same course', async () => {
+    const mine = await studentSession();
+
+    const first = await request(ctx.server)
       .post('/tutorials/networking/certificate')
+      .set('Cookie', mine)
       .type('form')
-      .send({ holder: 'Rajib', contact: 'nonsense' })
-      .expect(200)
-      .expect((res) => expect(res.text).not.toContain('nonsense')));
+      .send({ holder: 'Rajib' })
+      .expect(200);
 
-  it('escapes a name rather than rendering it as markup', () =>
-    request(ctx.server)
+    const otherRes = await request(ctx.server)
+      .post('/account/register')
+      .type('form')
+      .send({
+        name: 'Someone Else',
+        email: 'other@example.com',
+        password: 'correct-horse',
+      })
+      .expect(302);
+
+    const theirs = (otherRes.headers['set-cookie'] as unknown as string[])[0];
+
+    const second = await request(ctx.server)
       .post('/tutorials/networking/certificate')
+      .set('Cookie', theirs)
+      .type('form')
+      .send({ holder: 'Someone Else' })
+      .expect(200);
+
+    expect(referenceIn(second.text)).not.toBe(referenceIn(first.text));
+  });
+
+  it('lists the certificate on the account page', async () => {
+    const jar = await studentSession();
+
+    await request(ctx.server)
+      .post('/tutorials/networking/certificate')
+      .set('Cookie', jar)
+      .type('form')
+      .send({ holder: 'Saidul Islam Rajib' })
+      .expect(200);
+
+    await request(ctx.server)
+      .get('/account')
+      .set('Cookie', jar)
+      .expect(200)
+      .expect((res) => expect(res.text).toContain('Networking'));
+  });
+
+  it('escapes a name rather than rendering it as markup', async () => {
+    const jar = await studentSession();
+
+    await request(ctx.server)
+      .post('/tutorials/networking/certificate')
+      .set('Cookie', jar)
       .type('form')
       .send({ holder: '<script>alert(1)</script>' })
       .expect(200)
       .expect((res) => {
         expect(res.text).not.toContain('<script>alert(1)</script>');
         expect(res.text).toContain('&lt;script&gt;');
-      }));
+      });
+  });
 
-  it('says plainly that it is not a formal qualification', () =>
-    request(ctx.server)
+  it('says plainly that it is not a formal qualification', async () => {
+    const jar = await studentSession();
+
+    await request(ctx.server)
       .post('/tutorials/networking/certificate')
+      .set('Cookie', jar)
       .type('form')
       .send({ holder: 'Rajib' })
       .expect(200)
       .expect((res) =>
         expect(res.text).toContain('not a formal qualification'),
-      ));
+      );
+  });
 
-  it('keeps itself out of search engines', () =>
-    request(ctx.server)
+  it('keeps itself out of search engines', async () => {
+    const jar = await studentSession();
+
+    await request(ctx.server)
       .get('/tutorials/networking/certificate')
+      .set('Cookie', jar)
       .expect(200)
-      .expect((res) => expect(res.text).toContain('noindex')));
-
-  it('is unreachable on a locked course until enrolled', async () => {
-    const cookie = await ctx.signIn();
-
-    const admin = await request(ctx.server)
-      .get('/admin/tutorials')
-      .set('Cookie', cookie)
-      .expect(200);
-
-    const id = /data-sort-id="([0-9a-f-]+)"/.exec(admin.text)?.[1] ?? '';
-
-    await request(ctx.server)
-      .post(`/admin/tutorials/subjects/${id}/edit`)
-      .set('Cookie', cookie)
-      .type('form')
-      .send({
-        title: 'Networking',
-        status: 'published',
-        enrolment: 'key',
-        enrolKey: 'secret',
-      })
-      .expect(302);
-
-    await request(ctx.server)
-      .get('/tutorials/networking/certificate')
-      .expect(302)
-      .expect('Location', '/tutorials/networking');
-
-    await request(ctx.server)
-      .post('/tutorials/networking/certificate')
-      .type('form')
-      .send({ holder: 'Sneaky' })
-      .expect(302);
+      .expect((res) => expect(res.text).toContain('noindex'));
   });
 });
 
 describe('certificate download', () => {
-  it('serves a png as an attachment', () =>
-    request(ctx.server)
-      .get('/tutorials/networking/certificate.png?holder=Saidul')
+  it('serves a png as an attachment', async () => {
+    const jar = await studentSession();
+
+    await request(ctx.server)
+      .get('/tutorials/networking/certificate.png')
+      .set('Cookie', jar)
       .expect(200)
       .expect('Content-Type', /image\/png/)
       .expect((res) => {
@@ -893,56 +976,59 @@ describe('certificate download', () => {
           'certificate-networking.png',
         );
         expect((res.body as Buffer).length).toBeGreaterThan(1000);
-      }));
+      });
+  });
 
-  it('renders anonymous when no name is given', () =>
+  it('sends a signed-out visitor to sign in', () =>
     request(ctx.server)
       .get('/tutorials/networking/certificate.png')
-      .expect(200)
+      .expect(302)
       .expect((res) =>
-        expect((res.body as Buffer).length).toBeGreaterThan(1000),
+        expect(res.headers.location).toContain('/account/sign-in'),
       ));
 
-  it('offers the download from the certificate page', () =>
-    request(ctx.server)
+  it('does not mint a second certificate when downloading', async () => {
+    const jar = await studentSession();
+
+    const page = await request(ctx.server)
       .post('/tutorials/networking/certificate')
+      .set('Cookie', jar)
       .type('form')
-      .send({ holder: 'Saidul Islam Rajib', contact: 'a@b.com' })
+      .send({ holder: 'Rajib' })
+      .expect(200);
+
+    await request(ctx.server)
+      .get('/tutorials/networking/certificate.png?holder=Someone')
+      .set('Cookie', jar)
+      .expect(200);
+
+    await request(ctx.server)
+      .get('/account')
+      .set('Cookie', jar)
+      .expect(200)
+      .expect((res) => {
+        const cards = res.text.match(/class="account-cert"/g) ?? [];
+        expect(cards).toHaveLength(1);
+      });
+
+    expect(referenceIn(page.text)).not.toBe('');
+  });
+
+  it('offers the download from the certificate page', async () => {
+    const jar = await studentSession();
+
+    await request(ctx.server)
+      .post('/tutorials/networking/certificate')
+      .set('Cookie', jar)
+      .type('form')
+      .send({ holder: 'Saidul Islam Rajib' })
       .expect(200)
       .expect((res) => {
         expect(res.text).toContain('certificate.png?holder=');
         expect(res.text).toContain('Download image');
-        expect(res.text).toContain('Saidul%20Islam%20Rajib');
-      }));
+      });
+  });
 
   it('404s for an unknown course', () =>
     request(ctx.server).get('/tutorials/nope/certificate.png').expect(404));
-
-  it('is gated behind enrolment like the lessons are', async () => {
-    const cookie = await ctx.signIn();
-
-    const admin = await request(ctx.server)
-      .get('/admin/tutorials')
-      .set('Cookie', cookie)
-      .expect(200);
-
-    const id = /data-sort-id="([0-9a-f-]+)"/.exec(admin.text)?.[1] ?? '';
-
-    await request(ctx.server)
-      .post(`/admin/tutorials/subjects/${id}/edit`)
-      .set('Cookie', cookie)
-      .type('form')
-      .send({
-        title: 'Networking',
-        status: 'published',
-        enrolment: 'key',
-        enrolKey: 'secret',
-      })
-      .expect(302);
-
-    await request(ctx.server)
-      .get('/tutorials/networking/certificate.png?holder=Sneaky')
-      .expect(302)
-      .expect('Location', '/tutorials/networking');
-  });
 });

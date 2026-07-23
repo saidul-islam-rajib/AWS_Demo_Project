@@ -2,7 +2,6 @@ import {
   ANONYMOUS_HOLDER,
   Subject,
   SubjectStats,
-  certificateReference,
   formatDuration,
 } from '../../tutorials/tutorial.model';
 import { esc, layout } from '../shared/layout';
@@ -14,6 +13,7 @@ export function certificateFormPage(
   subject: Subject,
   stats: SubjectStats,
   lessonIds: string[] = [],
+  suggestedName = '',
 ): string {
   const body = `
     ${breadcrumbs([
@@ -39,7 +39,7 @@ export function certificateFormPage(
         <div class="cert-field">
           <label for="holder">Name on the certificate</label>
           <input type="text" id="holder" name="holder" maxlength="80"
-                 autocomplete="name" placeholder="Leave blank for ${ANONYMOUS_HOLDER}"
+                 autocomplete="name" value="${esc(suggestedName)}" placeholder="Leave blank for ${ANONYMOUS_HOLDER}"
                  data-cert-remember="holder" />
         </div>
 
@@ -76,6 +76,7 @@ export function certificatePage(
   contact: string,
   issuedOn: Date,
   author: string,
+  reference: string,
 ): string {
   const date = issuedOn.toLocaleDateString('en-GB', {
     day: 'numeric',
@@ -116,7 +117,7 @@ export function certificatePage(
         </div>
         <div>
           <span class="cert-foot-label">Reference</span>
-          <span>${esc(certificateReference(subject.id, holder))}</span>
+          <span>${esc(reference)}</span>
         </div>
       </div>
     </article>

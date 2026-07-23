@@ -26,11 +26,15 @@ import { getSettings } from '../settings/settings.store';
 import {
   certificateContact,
   certificateHolder,
-  certificateReference,
   formatDuration,
 } from './tutorial.model';
 import sharp from 'sharp';
 import { certificateSvg } from './certificate.svg';
+import { CertificatesService } from './certificates.service';
+import { AccountsService } from '../accounts/accounts.service';
+import { AccountSessionService } from '../accounts/account-session.service';
+import { ACCOUNT_PATHS } from '../views/public/account.pages';
+import type { Account } from '../accounts/account.model';
 import { Subject, SubjectStats, requiresEnrolment } from './tutorial.model';
 import { EnrolmentService } from './enrolment.service';
 
@@ -39,7 +43,24 @@ export class TutorialsController {
   constructor(
     private readonly tutorials: TutorialsService,
     private readonly enrolment: EnrolmentService,
+    private readonly certificates: CertificatesService,
+    private readonly accounts: AccountsService,
+    private readonly session: AccountSessionService,
   ) {}
+
+  private currentAccount(req: Request): Account | undefined {
+    const cookies = (req.cookies ?? {}) as Record<string, string>;
+
+    return this.accounts.findById(
+      this.session.read(cookies[AccountSessionService.COOKIE]),
+    );
+  }
+
+  private signInFirst(res: Response, slug: string): void {
+    const next = encodeURIComponent(`/tutorials/${slug}/certificate`);
+
+    res.redirect(`${ACCOUNT_PATHS.signIn}?next=${next}`);
+  }
 
   private enrolled(req: Request, subject: Subject): boolean {
     const cookies = (req.cookies ?? {}) as Record<string, string>;
@@ -158,11 +179,36 @@ export class TutorialsController {
       return;
     }
 
+    const account = this.currentAccount(req);
+
+    if (!account) {
+      this.signInFirst(res, subject.slug);
+      return;
+    }
+
+    const existing = this.certificates.find(account.id, subject.id);
+
+    if (existing) {
+      res.send(
+        certificatePage(
+          subject,
+          this.tutorials.stats(subject.id),
+          existing.holder,
+          account.email,
+          new Date(existing.issuedAt),
+          getSettings().authorName,
+          existing.reference,
+        ),
+      );
+      return;
+    }
+
     res.send(
       certificateFormPage(
         subject,
         this.tutorials.stats(subject.id),
         this.tutorials.lessons(subject.id).map((lesson) => lesson.id),
+        account.name,
       ),
     );
   }
@@ -192,14 +238,28 @@ export class TutorialsController {
       return;
     }
 
+    const account = this.currentAccount(req);
+
+    if (!account) {
+      this.signInFirst(res, subject.slug);
+      return;
+    }
+
+    const certificate = this.certificates.issue(
+      account.id,
+      subject.id,
+      certificateHolder(holder || account.name),
+    );
+
     res.send(
       certificatePage(
         subject,
         this.tutorials.stats(subject.id),
-        certificateHolder(holder),
-        certificateContact(contact),
-        new Date(),
+        certificate.holder,
+        certificateContact(contact) || account.email,
+        new Date(certificate.issuedAt),
         getSettings().authorName,
+        certificate.reference,
       ),
     );
   }
@@ -226,12 +286,25 @@ export class TutorialsController {
       return;
     }
 
+    const account = this.currentAccount(req);
+
+    if (!account) {
+      this.signInFirst(res, subject.slug);
+      return;
+    }
+
+    const record = this.certificates.issue(
+      account.id,
+      subject.id,
+      certificateHolder(holder || account.name),
+    );
+
     const stats = this.tutorials.stats(subject.id);
-    const name = certificateHolder(holder);
+    const name = record.holder;
 
     const svg = certificateSvg({
       holder: name,
-      contact: certificateContact(contact),
+      contact: certificateContact(contact) || account.email,
       course: subject.title,
       detail: `${stats.total} ${stats.total === 1 ? 'lesson' : 'lessons'} · ${formatDuration(stats.minutes)} of reading`,
       issued: new Date().toLocaleDateString('en-GB', {
@@ -240,7 +313,7 @@ export class TutorialsController {
         year: 'numeric',
       }),
       author: getSettings().authorName,
-      reference: certificateReference(subject.id, name),
+      reference: record.reference,
     });
 
     const png = await sharp(Buffer.from(svg)).png().toBuffer();

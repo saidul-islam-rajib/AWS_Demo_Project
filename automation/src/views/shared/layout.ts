@@ -567,6 +567,7 @@ export function defaultNav(path = '/'): string {
     navLink('/projects', 'Projects', path),
     navLink('/about', 'About', path),
     navLink('/tags', 'Tags', path),
+    navLink('/account', 'Account', path),
     navLink('/admin', 'Dashboard', path),
   ].join('');
 }

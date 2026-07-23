@@ -17,6 +17,10 @@ import { AboutService } from './about/about.service';
 import { ProjectsService } from './projects/projects.service';
 import { TutorialsService } from './tutorials/tutorials.service';
 import { EnrolmentService } from './tutorials/enrolment.service';
+import { CertificatesService } from './tutorials/certificates.service';
+import { AccountsService } from './accounts/accounts.service';
+import { AccountSessionService } from './accounts/account-session.service';
+import { AccountsController } from './accounts/accounts.controller';
 import { AuthService } from './auth/auth.service';
 import { LoginThrottleService } from './auth/login-throttle.service';
 
@@ -26,6 +30,7 @@ import { LoginThrottleService } from './auth/login-throttle.service';
     SettingsController,
     AboutController,
     ProjectsController,
+    AccountsController,
     TutorialsAdminController,
     TutorialsController,
     SeoController,
@@ -43,6 +48,9 @@ import { LoginThrottleService } from './auth/login-throttle.service';
     ProjectsService,
     TutorialsService,
     EnrolmentService,
+    CertificatesService,
+    AccountsService,
+    AccountSessionService,
     AuthService,
     LoginThrottleService,
   ],
