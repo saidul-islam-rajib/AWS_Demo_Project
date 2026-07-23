@@ -2,7 +2,11 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { TUTORIALS_STYLES } from './public/tutorials.styles';
 import { TUTORIALS_ADMIN_STYLES } from './admin/tutorials.styles';
-import { tutorialPage, tutorialsIndexPage } from './public/tutorials.page';
+import {
+  subjectPage,
+  tutorialPage,
+  tutorialsIndexPage,
+} from './public/tutorials.page';
 import { homePage, SIDEBAR_TAG_LIMIT } from './public/posts.pages';
 import { subjectLessonsPage, tutorialsAdminPage } from './admin/tutorials.page';
 import { PROGRESS_TRACKER_SCRIPT } from './shared/scripts/progress-tracker';
@@ -324,5 +328,45 @@ describe('script placement', () => {
   it('gives the completion sentinel a measurable height', () => {
     expect(lessonHtml()).toContain('class="lesson-end" data-lesson-end');
     expect(TUTORIALS_STYLES).toContain('.lesson-end { height: 1px;');
+  });
+});
+
+describe('student course overview', () => {
+  const subjectHtml = (locked = false): string =>
+    subjectPage(
+      subject,
+      [{ chapter: undefined, lessons: [lesson] }],
+      { total: 1, minutes: 3, difficulties: ['beginner'] },
+      { locked },
+    );
+
+  it('offers a resume link carrying the lesson ids and urls', () => {
+    const html = subjectHtml();
+
+    expect(html).toContain('data-resume="t1"');
+    expect(html).toContain('data-resume-urls="/tutorials/networking/');
+    expect(html).toContain('Start the course');
+  });
+
+  it('picks the first unread lesson', () => {
+    expect(PROGRESS_TRACKER_SCRIPT).toContain('if (!isDone(ids[i]))');
+    expect(PROGRESS_TRACKER_SCRIPT).toContain('Continue where you left off');
+  });
+
+  it('offers a restart once every lesson is done', () => {
+    expect(PROGRESS_TRACKER_SCRIPT).toContain('Read again from the start');
+  });
+
+  it('counts progress per chapter', () => {
+    expect(PROGRESS_TRACKER_SCRIPT).toContain('[data-chapter-of]');
+    expect(PROGRESS_TRACKER_SCRIPT).toContain("classList.toggle('complete'");
+  });
+
+  it('hides progress and resume behind an enrolment key', () => {
+    const html = subjectHtml(true);
+
+    expect(html).toContain('Enrolment key needed');
+    expect(html).not.toContain('data-resume=');
+    expect(html).not.toContain('data-progress-for=');
   });
 });

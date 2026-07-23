@@ -51,6 +51,15 @@ const SUBJECT_STYLES = `
   }
   .subj-head p { color: var(--ink-3); max-width: 38em; }
   .subj-head .progress-row { margin-top: 1.25rem; max-width: 420px; }
+  .resume {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    margin-top: 1.1rem; padding: 0.65rem 1.35rem; border-radius: 100px;
+    background: var(--accent); color: var(--accent-ink);
+    font-size: 0.92rem; font-weight: 600;
+  }
+  .resume:hover { filter: brightness(1.08); }
+  .resume.done { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  .chapter-count.complete { color: var(--accent); font-weight: 700; }
 `;
 
 const ENROL_STYLES = `

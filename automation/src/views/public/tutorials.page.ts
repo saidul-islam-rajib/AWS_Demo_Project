@@ -113,6 +113,9 @@ export function subjectPage(
   access: { locked: boolean; error?: boolean } = { locked: false },
 ): string {
   const ids = groups.flatMap((group) => group.lessons.map((l) => l.id));
+  const urls = groups.flatMap((group) =>
+    group.lessons.map((lesson) => `/tutorials/${subject.slug}/${lesson.slug}`),
+  );
   const locked = access.locked;
 
   let position = 0;
@@ -148,7 +151,7 @@ export function subjectPage(
             ? `<header class="chapter-head">
                  <h2>${esc(group.chapter.title)}</h2>
                  ${group.chapter.summary ? `<p>${esc(group.chapter.summary)}</p>` : ''}
-                 <span class="chapter-count">${group.lessons.length} ${pluralise(group.lessons.length, 'lesson')}</span>
+                 <span class="chapter-count" data-chapter-of="${esc(group.lessons.map((l) => l.id).join(','))}">${group.lessons.length} ${pluralise(group.lessons.length, 'lesson')}</span>
                </header>`
             : ''
         }
@@ -168,6 +171,15 @@ export function subjectPage(
       <h1>${esc(subject.title)}</h1>
       ${subject.summary ? `<p>${esc(subject.summary)}</p>` : ''}
       ${ids.length && !locked ? progressBar(ids) : ''}
+      ${
+        ids.length && !locked
+          ? `<a class="resume" data-resume="${esc(ids.join(','))}"
+                data-resume-urls="${esc(urls.join(','))}"
+                href="${esc(urls[0])}">
+               <span data-resume-label>Start the course</span>
+             </a>`
+          : ''
+      }
     </header>
 
     ${

@@ -721,3 +721,57 @@ describe('enrolment', () => {
       .expect(200);
   });
 });
+
+describe('student overview', () => {
+  it('offers a resume link listing every lesson in reading order', () =>
+    request(ctx.server)
+      .get('/tutorials/networking')
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('data-resume=');
+        expect(res.text).toContain('Start the course');
+
+        const urls =
+          /data-resume-urls="([^"]+)"/.exec(res.text)?.[1].split(',') ?? [];
+
+        expect(urls).toHaveLength(3);
+        expect(urls[0]).toContain('/tutorials/networking/');
+      }));
+
+  it('shows a per-chapter counter', () =>
+    request(ctx.server)
+      .get('/tutorials/networking')
+      .expect(200)
+      .expect((res) => expect(res.text).toContain('data-chapter-of=')));
+
+  it('keeps the resume link out of a locked course', async () => {
+    const cookie = await ctx.signIn();
+
+    const admin = await request(ctx.server)
+      .get('/admin/tutorials')
+      .set('Cookie', cookie)
+      .expect(200);
+
+    const id = /data-sort-id="([0-9a-f-]+)"/.exec(admin.text)?.[1] ?? '';
+
+    await request(ctx.server)
+      .post(`/admin/tutorials/subjects/${id}/edit`)
+      .set('Cookie', cookie)
+      .type('form')
+      .send({
+        title: 'Networking',
+        status: 'published',
+        enrolment: 'key',
+        enrolKey: 'secret',
+      })
+      .expect(302);
+
+    await request(ctx.server)
+      .get('/tutorials/networking')
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).not.toContain('data-resume=');
+        expect(res.text).toContain('Enrolment key needed');
+      });
+  });
+});

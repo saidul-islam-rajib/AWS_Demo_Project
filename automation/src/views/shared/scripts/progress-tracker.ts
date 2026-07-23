@@ -55,9 +55,54 @@ export const PROGRESS_TRACKER_SCRIPT = `
     }
   }
 
+  function paintResume() {
+    var resume = document.querySelector('[data-resume]');
+    if (!resume) return;
+
+    var ids = (resume.getAttribute('data-resume') || '').split(',').filter(Boolean);
+    var hrefs = (resume.getAttribute('data-resume-urls') || '').split(',').filter(Boolean);
+    if (!ids.length) return;
+
+    var next = -1;
+    for (var i = 0; i < ids.length; i++) {
+      if (!isDone(ids[i])) { next = i; break; }
+    }
+
+    var label = resume.querySelector('[data-resume-label]');
+
+    if (next === -1) {
+      resume.setAttribute('href', hrefs[0]);
+      if (label) label.textContent = 'Read again from the start';
+      resume.classList.add('done');
+      return;
+    }
+
+    resume.setAttribute('href', hrefs[next]);
+    resume.classList.remove('done');
+    if (label) {
+      label.textContent = next === 0 ? 'Start the course' : 'Continue where you left off';
+    }
+  }
+
+  function paintChapters() {
+    var bars = document.querySelectorAll('[data-chapter-of]');
+    for (var i = 0; i < bars.length; i++) {
+      var bar = bars[i];
+      var ids = (bar.getAttribute('data-chapter-of') || '').split(',').filter(Boolean);
+      var done = 0;
+      for (var j = 0; j < ids.length; j++) {
+        if (isDone(ids[j])) done++;
+      }
+      bar.textContent = done + '/' + ids.length;
+      bar.classList.toggle('complete', ids.length > 0 && done === ids.length);
+    }
+  }
+
   function paint() {
     paintList();
     paintProgress();
+    paintResume();
+    paintChapters();
   }
 
   var toggle = document.querySelector('[data-mark-done]');
