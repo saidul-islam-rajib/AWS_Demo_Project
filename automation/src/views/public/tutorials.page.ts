@@ -22,14 +22,6 @@ import { TUTORIALS_STYLES } from './tutorials.styles';
 
 const HEAD = TUTORIALS_STYLES;
 
-function describeDwell(seconds: number): string {
-  if (seconds < 60) return `${seconds} seconds`;
-
-  const minutes = Math.round(seconds / 60);
-
-  return `${minutes} minute${minutes === 1 ? '' : 's'}`;
-}
-
 function levelBadge(level: string): string {
   return badge(
     DIFFICULTY_LABELS[level as keyof typeof DIFFICULTY_LABELS] ?? level,
@@ -290,7 +282,6 @@ export function tutorialPage(
           <button type="button" class="mark-done" data-mark-done="${esc(tutorial.id)}" aria-pressed="false">
             <span class="tick">✓</span><span data-mark-label>Mark as complete</span>
           </button>
-          <span class="auto-note" data-auto-note>Marked complete after ${describeDwell(tutorial.completionSeconds)} at the end of this lesson.</span>
         </div>
 
         <nav class="tut-nav">

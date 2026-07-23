@@ -8,7 +8,11 @@ import {
   tutorialsIndexPage,
 } from './public/tutorials.page';
 import { homePage, SIDEBAR_TAG_LIMIT } from './public/posts.pages';
-import { subjectLessonsPage, tutorialsAdminPage } from './admin/tutorials.page';
+import {
+  lessonEditorPage,
+  subjectLessonsPage,
+  tutorialsAdminPage,
+} from './admin/tutorials.page';
 import { PROGRESS_TRACKER_SCRIPT } from './shared/scripts/progress-tracker';
 import { Difficulty, Subject, Tutorial } from '../tutorials/tutorial.model';
 
@@ -157,10 +161,12 @@ describe('automatic completion', () => {
     expect(html).toContain('aria-pressed="false"');
   });
 
-  it('tells the reader completion is automatic', () => {
-    expect(lessonHtml()).toContain(
-      'Marked complete after 30 seconds at the end of this lesson',
-    );
+  it('does not explain the completion mechanism to the reader', () => {
+    const html = lessonHtml();
+
+    expect(html).not.toContain('Marked complete after');
+    expect(html).not.toContain('data-auto-note');
+    expect(html).toContain('Mark as complete');
   });
 
   it('observes the sentinel and marks after a dwell', () => {
@@ -368,5 +374,41 @@ describe('student course overview', () => {
     expect(html).toContain('Enrolment key needed');
     expect(html).not.toContain('data-resume=');
     expect(html).not.toContain('data-progress-for=');
+  });
+});
+
+describe('completion time field', () => {
+  const editor = (seconds?: number): string =>
+    lessonEditorPage(
+      [subject],
+      subject,
+      seconds === undefined
+        ? undefined
+        : { ...lesson, completionSeconds: seconds },
+    );
+
+  it('labels the value with its unit rather than in the label text', () => {
+    const html = editor();
+
+    expect(html).toContain('Counts as read after');
+    expect(html).toContain('<span class="unit">seconds</span>');
+  });
+
+  it('restates the number in plain terms', () => {
+    expect(editor(30)).toContain('about 30 seconds of reading');
+    expect(editor(600)).toContain('about 10 minutes of reading');
+    expect(editor(60)).toContain('about 1 minute of reading');
+  });
+
+  it('offers common values without forcing them', () => {
+    const html = editor();
+
+    expect(html).toContain('list="dwell-presets"');
+    expect(html).toContain('<option value="300">');
+    expect(html).toContain('type="number"');
+  });
+
+  it('defaults a new lesson to thirty seconds', () => {
+    expect(editor()).toContain('value="30"');
   });
 });

@@ -120,9 +120,6 @@ export const PROGRESS_TRACKER_SCRIPT = `
 
     var label = toggle.querySelector('[data-mark-label]');
     if (label) label.textContent = done ? 'Completed' : 'Mark as complete';
-
-    var note = document.querySelector('[data-auto-note]');
-    if (note) note.hidden = done;
   }
 
   function setDone(value) {

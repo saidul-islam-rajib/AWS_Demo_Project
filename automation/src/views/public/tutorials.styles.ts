@@ -194,9 +194,6 @@ const LESSON_PAGE_STYLES = `
     display: flex; align-items: center; gap: 0.85rem; flex-wrap: wrap;
     margin-top: 2rem;
   }
-  .auto-note { font-size: 0.79rem; color: var(--ink-3); }
-  .auto-note[hidden] { display: none; }
-
   .mark-done {
     display: inline-flex; align-items: center; gap: 0.5rem;
     padding: 0.6rem 1.1rem; border-radius: 100px; cursor: pointer;

@@ -19,6 +19,14 @@ import { TUTORIALS_ADMIN_STYLES as STYLES } from './tutorials.styles';
 
 const CSS = STYLES;
 
+function describeDwell(seconds: number): string {
+  if (seconds < 60) return `about ${seconds} seconds of reading`;
+
+  const minutes = Math.round(seconds / 60);
+
+  return `about ${minutes} minute${minutes === 1 ? '' : 's'} of reading`;
+}
+
 export function tutorialsAdminPage(
   subjects: Subject[],
   stats: Map<string, SubjectStats>,
@@ -395,6 +403,8 @@ export function lessonEditorPage(
 
   const v = (value?: string) => esc(value ?? '');
 
+  const dwell = lesson?.completionSeconds ?? DEFAULT_COMPLETION_SECONDS;
+
   const chapterOptions = [
     `<option value="" ${lesson?.chapterId ? '' : 'selected'}>No chapter</option>`,
     ...chapters.map(
@@ -465,14 +475,27 @@ ${CSS}
             <select id="difficulty" name="difficulty">${levels}</select>
           </div>
           <div class="field" style="margin-bottom:0">
-            <label for="completionSeconds">Seconds before it counts as read</label>
-            <input type="number" id="completionSeconds" name="completionSeconds"
-                   min="5" max="${MAX_COMPLETION_SECONDS}" step="5"
-                   value="${lesson?.completionSeconds ?? DEFAULT_COMPLETION_SECONDS}" />
+            <label for="completionSeconds">Counts as read after</label>
+            <div class="input-unit">
+              <input type="number" id="completionSeconds" name="completionSeconds"
+                     min="5" max="${MAX_COMPLETION_SECONDS}" step="5"
+                     list="dwell-presets"
+                     value="${dwell}" />
+              <span class="unit">seconds</span>
+              <span class="unit-readout">${describeDwell(dwell)}</span>
+            </div>
+            <datalist id="dwell-presets">
+              <option value="15"></option>
+              <option value="30"></option>
+              <option value="60"></option>
+              <option value="120"></option>
+              <option value="300"></option>
+              <option value="600"></option>
+            </datalist>
             <p class="hint">
-              How long a reader must stay at the end of this lesson before it
-              marks itself complete. A short lesson might be 30 seconds; a long
-              one several minutes. They can always mark it by hand.
+              Time a reader must spend at the end of this lesson before it marks
+              itself complete. Roughly how long the lesson takes to read is a
+              good starting point. They can always mark it by hand.
             </p>
           </div>
         </div>

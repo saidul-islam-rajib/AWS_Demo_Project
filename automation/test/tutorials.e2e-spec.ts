@@ -521,7 +521,7 @@ describe('per-lesson completion time', () => {
       .expect(200)
       .expect((res) => {
         expect(res.text).toContain('data-dwell="30"');
-        expect(res.text).toContain('Marked complete after 30 seconds');
+        expect(res.text).not.toContain('Marked complete after');
       }));
 
   it('lets the admin set a longer time, and shows it in minutes', async () => {
@@ -545,7 +545,6 @@ describe('per-lesson completion time', () => {
       .expect(200)
       .expect((res) => {
         expect(res.text).toContain('data-dwell="600"');
-        expect(res.text).toContain('Marked complete after 10 minutes');
       });
   });
 
