@@ -30,6 +30,7 @@ import {
   neighbours,
   nextOrder,
   normaliseIcon,
+  parseCompletionSeconds,
   parseDifficulty,
   parseStatus,
   publishedOnly,
@@ -82,6 +83,7 @@ export class TutorialsService {
         this.tutorials = (stored.tutorials ?? []).map((tutorial) => ({
           ...tutorial,
           chapterId: tutorial.chapterId ?? '',
+          completionSeconds: parseCompletionSeconds(tutorial.completionSeconds),
           summary: tutorial.summary ?? '',
           tags: tutorial.tags ?? [],
           difficulty: tutorial.difficulty ?? 'beginner',
@@ -481,6 +483,7 @@ export class TutorialsService {
       id: randomUUID(),
       subjectId: subject.id,
       chapterId: this.validChapterId(input.chapterId, subject.id),
+      completionSeconds: parseCompletionSeconds(input.completionSeconds),
       slug: this.uniqueTutorialSlug(title, subject.id),
       title,
       summary: (input.summary ?? '').trim(),
@@ -518,6 +521,9 @@ export class TutorialsService {
       chapterId: movedSubject
         ? this.validChapterId(input.chapterId, subject.id)
         : this.validChapterId(input.chapterId ?? current.chapterId, subject.id),
+      completionSeconds: parseCompletionSeconds(
+        input.completionSeconds ?? current.completionSeconds,
+      ),
       title,
       slug:
         title === current.title && !movedSubject
@@ -633,6 +639,7 @@ function seedTutorials(): TutorialStore {
     id: randomUUID(),
     subjectId: networking.id,
     chapterId,
+    completionSeconds: 30,
     slug: slugify(title),
     title,
     summary,

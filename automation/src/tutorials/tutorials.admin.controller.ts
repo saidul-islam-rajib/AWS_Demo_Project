@@ -30,6 +30,7 @@ interface SubjectBody {
 interface LessonBody {
   subjectId?: string;
   chapterId?: string;
+  completionSeconds?: string;
   title?: string;
   summary?: string;
   content?: string;
@@ -243,6 +244,7 @@ export class TutorialsAdminController {
     const lesson = this.tutorials.createTutorial({
       subjectId: body.subjectId || id,
       chapterId: body.chapterId,
+      completionSeconds: body.completionSeconds,
       title: body.title ?? '',
       summary: body.summary,
       content: body.content ?? '',
@@ -277,6 +279,7 @@ export class TutorialsAdminController {
     const lesson = this.tutorials.updateTutorial(id, {
       subjectId: body.subjectId ?? '',
       chapterId: body.chapterId,
+      completionSeconds: body.completionSeconds,
       title: body.title ?? '',
       summary: body.summary,
       content: body.content ?? '',

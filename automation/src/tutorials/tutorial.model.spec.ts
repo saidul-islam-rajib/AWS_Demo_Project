@@ -1,9 +1,12 @@
 import {
   Chapter,
+  DEFAULT_COMPLETION_SECONDS,
+  MAX_COMPLETION_SECONDS,
   applyOrder,
   chaptersOf,
   groupIntoChapters,
   orderedLessons,
+  parseCompletionSeconds,
   parseOrderIds,
   Tutorial,
   formatDuration,
@@ -26,6 +29,7 @@ function lesson(overrides: Partial<Tutorial> = {}): Tutorial {
     id: 't1',
     subjectId: 's1',
     chapterId: '',
+    completionSeconds: 30,
     slug: 'a-lesson',
     title: 'A lesson',
     summary: '',
@@ -560,5 +564,31 @@ describe('orderedLessons', () => {
 
     expect(orderedLessons(chapters, lessons, 's1')).toHaveLength(1);
     expect(orderedLessons(chapters, lessons, 's1', true)).toHaveLength(2);
+  });
+});
+
+describe('parseCompletionSeconds', () => {
+  it('accepts a sensible number, from a string or a number', () => {
+    expect(parseCompletionSeconds('45')).toBe(45);
+    expect(parseCompletionSeconds(45)).toBe(45);
+  });
+
+  it('falls back to the default for anything unusable', () => {
+    expect(parseCompletionSeconds(undefined)).toBe(DEFAULT_COMPLETION_SECONDS);
+    expect(parseCompletionSeconds('')).toBe(DEFAULT_COMPLETION_SECONDS);
+    expect(parseCompletionSeconds('abc')).toBe(DEFAULT_COMPLETION_SECONDS);
+  });
+
+  it('refuses zero and negatives, which would complete instantly', () => {
+    expect(parseCompletionSeconds(0)).toBe(DEFAULT_COMPLETION_SECONDS);
+    expect(parseCompletionSeconds(-30)).toBe(DEFAULT_COMPLETION_SECONDS);
+  });
+
+  it('caps an absurd value rather than trusting it', () => {
+    expect(parseCompletionSeconds(999999)).toBe(MAX_COMPLETION_SECONDS);
+  });
+
+  it('rounds a fractional value', () => {
+    expect(parseCompletionSeconds(30.6)).toBe(31);
   });
 });

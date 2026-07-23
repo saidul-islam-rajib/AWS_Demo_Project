@@ -90,6 +90,7 @@ const lesson: Tutorial = {
   id: 't1',
   subjectId: 's1',
   chapterId: '',
+  completionSeconds: 30,
   slug: 'ip-addresses',
   title: 'What an IP address is',
   summary: 'Addressing and subnets.',

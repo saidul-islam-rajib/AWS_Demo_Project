@@ -42,6 +42,7 @@ export interface Tutorial {
   id: string;
   subjectId: string;
   chapterId: string;
+  completionSeconds: number;
   slug: string;
   title: string;
   summary: string;
@@ -82,6 +83,7 @@ export interface SubjectInput {
 export interface TutorialInput {
   subjectId: string;
   chapterId?: string;
+  completionSeconds?: string | number;
   title: string;
   summary?: string;
   content: string;
@@ -114,6 +116,26 @@ export function parseDifficulty(value?: string): Difficulty {
 
 export function parseStatus(value?: string): TutorialStatus {
   return (value ?? '').trim().toLowerCase() === 'draft' ? 'draft' : 'published';
+}
+
+export const DEFAULT_COMPLETION_SECONDS = 30;
+
+export const MAX_COMPLETION_SECONDS = 3600;
+
+export function parseCompletionSeconds(value?: string | number): number {
+  const raw =
+    typeof value === 'number' ? value : Number.parseInt(value ?? '', 10);
+
+  if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_COMPLETION_SECONDS;
+
+  return Math.min(Math.round(raw), MAX_COMPLETION_SECONDS);
+}
+
+export function suggestedCompletionSeconds(content: string): number {
+  return Math.min(
+    MAX_COMPLETION_SECONDS,
+    Math.max(DEFAULT_COMPLETION_SECONDS, readingMinutes(content) * 60),
+  );
 }
 
 export function normaliseIcon(value?: string): string {

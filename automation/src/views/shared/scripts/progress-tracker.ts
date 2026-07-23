@@ -1,10 +1,7 @@
-export const AUTO_COMPLETE_DELAY_MS = 10000;
-
 export const PROGRESS_TRACKER_SCRIPT = `
 <script>
 (function () {
   var KEY = 'tutorial-progress';
-  var DWELL = ${AUTO_COMPLETE_DELAY_MS};
 
   function read() {
     try {
@@ -101,6 +98,8 @@ export const PROGRESS_TRACKER_SCRIPT = `
   var sentinel = document.querySelector('[data-lesson-end]');
 
   if (sentinel && typeof window.IntersectionObserver === 'function') {
+    var seconds = parseInt(sentinel.getAttribute('data-dwell') || '', 10);
+    var DWELL = (isNaN(seconds) || seconds <= 0 ? 30 : seconds) * 1000;
     var timer = null;
 
     var observer = new window.IntersectionObserver(function (entries) {

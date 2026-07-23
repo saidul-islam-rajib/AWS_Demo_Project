@@ -5,10 +5,7 @@ import { TUTORIALS_ADMIN_STYLES } from './admin/tutorials.styles';
 import { tutorialPage, tutorialsIndexPage } from './public/tutorials.page';
 import { homePage, SIDEBAR_TAG_LIMIT } from './public/posts.pages';
 import { subjectLessonsPage, tutorialsAdminPage } from './admin/tutorials.page';
-import {
-  AUTO_COMPLETE_DELAY_MS,
-  PROGRESS_TRACKER_SCRIPT,
-} from './shared/scripts/progress-tracker';
+import { PROGRESS_TRACKER_SCRIPT } from './shared/scripts/progress-tracker';
 import { Difficulty, Subject, Tutorial } from '../tutorials/tutorial.model';
 
 const subject: Subject = {
@@ -27,6 +24,7 @@ const lesson: Tutorial = {
   id: 't1',
   subjectId: 's1',
   chapterId: '',
+  completionSeconds: 30,
   slug: 'ip-addresses',
   title: 'What an IP address is',
   summary: 'Addressing and subnets.',
@@ -143,7 +141,7 @@ describe('automatic completion', () => {
   });
 
   it('hides the sentinel from assistive technology', () => {
-    expect(lessonHtml()).toContain('data-lesson-end aria-hidden="true"');
+    expect(lessonHtml()).toContain('aria-hidden="true"');
   });
 
   it('keeps a manual toggle so a wrong guess can be undone', () => {
@@ -155,16 +153,22 @@ describe('automatic completion', () => {
 
   it('tells the reader completion is automatic', () => {
     expect(lessonHtml()).toContain(
-      'Marked automatically once you reach the end',
+      'Marked complete after 30 seconds at the end of this lesson',
     );
   });
 
   it('observes the sentinel and marks after a dwell', () => {
     expect(PROGRESS_TRACKER_SCRIPT).toContain('[data-lesson-end]');
     expect(PROGRESS_TRACKER_SCRIPT).toContain('IntersectionObserver');
-    expect(PROGRESS_TRACKER_SCRIPT).toContain(
-      `var DWELL = ${AUTO_COMPLETE_DELAY_MS}`,
-    );
+  });
+
+  it('takes the dwell from the lesson rather than a fixed constant', () => {
+    expect(PROGRESS_TRACKER_SCRIPT).toContain("getAttribute('data-dwell')");
+    expect(lessonHtml()).toContain('data-dwell="30"');
+  });
+
+  it('falls back to 30 seconds when the lesson gives no dwell', () => {
+    expect(PROGRESS_TRACKER_SCRIPT).toContain('seconds <= 0 ? 30 : seconds');
   });
 
   it('cancels the pending mark when the reader scrolls away', () => {

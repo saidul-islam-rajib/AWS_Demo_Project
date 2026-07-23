@@ -1,8 +1,10 @@
 import {
   Chapter,
   ChapterGroup,
+  DEFAULT_COMPLETION_SECONDS,
   DIFFICULTIES,
   DIFFICULTY_LABELS,
+  MAX_COMPLETION_SECONDS,
   Subject,
   SubjectStats,
   Tutorial,
@@ -434,9 +436,20 @@ ${CSS}
             <select id="chapterId" name="chapterId">${chapterOptions}</select>
             <p class="hint">${chapters.length ? 'Lessons without a chapter appear first, above the chapters.' : 'This subject has no chapters yet. Create one from the subject page.'}</p>
           </div>
-          <div class="field" style="margin-bottom:0">
+          <div class="field">
             <label for="difficulty">Difficulty</label>
             <select id="difficulty" name="difficulty">${levels}</select>
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label for="completionSeconds">Seconds before it counts as read</label>
+            <input type="number" id="completionSeconds" name="completionSeconds"
+                   min="5" max="${MAX_COMPLETION_SECONDS}" step="5"
+                   value="${lesson?.completionSeconds ?? DEFAULT_COMPLETION_SECONDS}" />
+            <p class="hint">
+              How long a reader must stay at the end of this lesson before it
+              marks itself complete. A short lesson might be 30 seconds; a long
+              one several minutes. They can always mark it by hand.
+            </p>
           </div>
         </div>
 

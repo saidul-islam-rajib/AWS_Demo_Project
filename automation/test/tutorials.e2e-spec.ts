@@ -498,3 +498,76 @@ describe('chapters', () => {
       });
   });
 });
+
+describe('per-lesson completion time', () => {
+  const subjectId = async (cookie: string, slug: string) => {
+    const res = await request(ctx.server)
+      .get('/admin/tutorials')
+      .set('Cookie', cookie)
+      .expect(200);
+
+    const rows = [
+      ...res.text.matchAll(
+        /data-sort-id="([0-9a-f-]+)"[^]*?\/tutorials\/([a-z0-9-]+)\s/g,
+      ),
+    ];
+
+    return rows.find((row) => row[2] === slug)?.[1] ?? '';
+  };
+
+  it('publishes the lesson dwell to the page', () =>
+    request(ctx.server)
+      .get('/tutorials/networking/what-an-ip-address-actually-is')
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('data-dwell="30"');
+        expect(res.text).toContain('Marked complete after 30 seconds');
+      }));
+
+  it('lets the admin set a longer time, and shows it in minutes', async () => {
+    const cookie = await ctx.signIn();
+    const id = await subjectId(cookie, 'networking');
+
+    await request(ctx.server)
+      .post(`/admin/tutorials/subjects/${id}/lessons/new`)
+      .set('Cookie', cookie)
+      .type('form')
+      .send({
+        subjectId: id,
+        title: 'A long read',
+        content: 'body',
+        completionSeconds: '600',
+      })
+      .expect(302);
+
+    await request(ctx.server)
+      .get('/tutorials/networking/a-long-read')
+      .expect(200)
+      .expect((res) => {
+        expect(res.text).toContain('data-dwell="600"');
+        expect(res.text).toContain('Marked complete after 10 minutes');
+      });
+  });
+
+  it('refuses a zero dwell, which would complete instantly', async () => {
+    const cookie = await ctx.signIn();
+    const id = await subjectId(cookie, 'networking');
+
+    await request(ctx.server)
+      .post(`/admin/tutorials/subjects/${id}/lessons/new`)
+      .set('Cookie', cookie)
+      .type('form')
+      .send({
+        subjectId: id,
+        title: 'Instant',
+        content: 'body',
+        completionSeconds: '0',
+      })
+      .expect(302);
+
+    await request(ctx.server)
+      .get('/tutorials/networking/instant')
+      .expect(200)
+      .expect((res) => expect(res.text).toContain('data-dwell="30"'));
+  });
+});

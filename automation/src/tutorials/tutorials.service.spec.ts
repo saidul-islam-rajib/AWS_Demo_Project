@@ -285,6 +285,43 @@ describe('TutorialsService', () => {
       );
     });
 
+    it('stores a per-lesson completion time', () => {
+      const subject = makeSubject();
+
+      const created = service.createTutorial({
+        subjectId: subject.id,
+        title: 'Long one',
+        content: 'x',
+        completionSeconds: '600',
+      });
+
+      expect(created.completionSeconds).toBe(600);
+    });
+
+    it('defaults the completion time when none is given', () => {
+      const subject = makeSubject();
+
+      expect(makeLesson(subject.id).completionSeconds).toBe(30);
+    });
+
+    it('keeps the completion time through an edit that omits it', () => {
+      const subject = makeSubject();
+      const created = service.createTutorial({
+        subjectId: subject.id,
+        title: 'Keeps',
+        content: 'x',
+        completionSeconds: 240,
+      });
+
+      const updated = service.updateTutorial(created.id, {
+        subjectId: subject.id,
+        title: 'Keeps',
+        content: 'x',
+      });
+
+      expect(updated.completionSeconds).toBe(240);
+    });
+
     it('counts a view', () => {
       const subject = makeSubject();
       const created = makeLesson(subject.id);
